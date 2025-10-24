@@ -38,8 +38,8 @@ export default async function LocaleHomePage({
         <Image
           src="/logo.png"
           alt="NBAnima logo"
-          width={224}
-          height={224}
+          width={300}
+          height={300}
           priority
           className="h-40 w-40 rounded-3xl border border-accent-gold/40 bg-navy-900/60 p-6 shadow-card backdrop-blur"
         />
