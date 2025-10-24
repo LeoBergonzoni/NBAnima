@@ -47,8 +47,8 @@ export const OnboardingShowcase = ({ cards }: { cards: OnboardingCardData[] }) =
               <Image
                 src={card.image}
                 alt={card.imageAlt}
-                width={64}
-                height={64}
+                width={84}
+                height={84}
                 className="h-12 w-12 rounded-xl border border-white/10 bg-navy-950 object-contain p-2"
               />
             </div>

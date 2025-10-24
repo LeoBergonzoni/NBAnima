@@ -16,7 +16,7 @@ export const ONBOARDING_STEPS = [
     imageAlt: 'Michael Jordan manga card',
   },
   {
-    image: '/cards/KobeWinninFistCard.png',
-    imageAlt: 'Kobe Bryant celebratory card',
+    image: '/public/anima-point.png',
+    imageAlt: 'Anima Point',
   },
 ] as const;
