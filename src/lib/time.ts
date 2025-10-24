@@ -5,7 +5,7 @@ import {
   isBefore,
   set as setTimeParts,
 } from 'date-fns';
-import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
+import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 
 import { LOCK_WINDOW_BUFFER_MINUTES, TIMEZONES } from './constants';
 
@@ -15,7 +15,7 @@ export interface NightWindow {
 }
 
 export const getNextUsNightWindow = (reference = new Date()): NightWindow => {
-  const easternNow = utcToZonedTime(reference, TIMEZONES.US_EASTERN);
+  const easternNow = toZonedTime(reference, TIMEZONES.US_EASTERN);
   let start = setTimeParts(easternNow, { hours: 18, minutes: 0, seconds: 0, milliseconds: 0 });
   let end = addHours(start, 12);
 
@@ -25,8 +25,8 @@ export const getNextUsNightWindow = (reference = new Date()): NightWindow => {
   }
 
   return {
-    start: zonedTimeToUtc(start, TIMEZONES.US_EASTERN),
-    end: zonedTimeToUtc(end, TIMEZONES.US_EASTERN),
+    start: fromZonedTime(start, TIMEZONES.US_EASTERN),
+    end: fromZonedTime(end, TIMEZONES.US_EASTERN),
   };
 };
 

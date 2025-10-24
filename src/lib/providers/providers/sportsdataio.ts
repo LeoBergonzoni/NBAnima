@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { utcToZonedTime } from 'date-fns-tz';
+import { toZonedTime } from 'date-fns-tz';
 
 import { getServerEnv } from '../../env';
 import { getNextUsNightWindow } from '../../time';
@@ -82,7 +82,7 @@ const makeRequest = async <T>(path: string): Promise<T> => {
 export const sportsDataIoProvider: GameProvider = {
   async listNextNightGames() {
     const { start } = getNextUsNightWindow();
-    const date = format(utcToZonedTime(start, 'America/New_York'), 'yyyy-MM-dd');
+    const date = format(toZonedTime(start, 'America/New_York'), 'yyyy-MM-dd');
 
     const games = await makeRequest<SportsDataGame[]>(
       `/scores/json/GamesByDate/${date}`,
