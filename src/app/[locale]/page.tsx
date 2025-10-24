@@ -1,7 +1,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 
-import type { Locale } from '@/lib/constants';
+import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { getDictionary } from '@/locales/dictionaries';
 
 const HERO_IMAGE = '/anima-point.png';
@@ -9,9 +10,13 @@ const HERO_IMAGE = '/anima-point.png';
 export default async function LocaleHomePage({
   params,
 }: {
-  params: Promise<{ locale: Locale }>;
+  params: Promise<{ locale: string }>;
 }) {
-  const { locale } = await params;
+  const { locale: rawLocale } = await params;
+  const locale = SUPPORTED_LOCALES.includes(rawLocale as Locale) ? (rawLocale as Locale) : undefined;
+  if (!locale) {
+    notFound();
+  }
   const dictionary = await getDictionary(locale);
 
   return (

@@ -32,6 +32,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Omit<Database['public']['Tables']['users']['Row'], 'id'>>;
+        Relationships: [];
       };
       anima_points_ledger: {
         Row: {
@@ -53,6 +54,7 @@ export interface Database {
         Update: Partial<
           Omit<Database['public']['Tables']['anima_points_ledger']['Row'], 'id'>
         >;
+        Relationships: [];
       };
       games: {
         Row: {
@@ -80,6 +82,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Omit<Database['public']['Tables']['games']['Row'], 'id'>>;
+        Relationships: [];
       };
       player: {
         Row: {
@@ -103,6 +106,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Omit<Database['public']['Tables']['player']['Row'], 'id'>>;
+        Relationships: [];
       };
       picks_teams: {
         Row: {
@@ -128,6 +132,7 @@ export interface Database {
         Update: Partial<
           Omit<Database['public']['Tables']['picks_teams']['Row'], 'id'>
         >;
+        Relationships: [];
       };
       picks_players: {
         Row: {
@@ -155,6 +160,7 @@ export interface Database {
         Update: Partial<
           Omit<Database['public']['Tables']['picks_players']['Row'], 'id'>
         >;
+        Relationships: [];
       };
       picks_highlights: {
         Row: {
@@ -180,6 +186,7 @@ export interface Database {
         Update: Partial<
           Omit<Database['public']['Tables']['picks_highlights']['Row'], 'id'>
         >;
+        Relationships: [];
       };
       results_team: {
         Row: {
@@ -197,6 +204,7 @@ export interface Database {
         Update: Partial<
           Omit<Database['public']['Tables']['results_team']['Row'], 'id'>
         >;
+        Relationships: [];
       };
       results_players: {
         Row: {
@@ -216,6 +224,7 @@ export interface Database {
         Update: Partial<
           Omit<Database['public']['Tables']['results_players']['Row'], 'id'>
         >;
+        Relationships: [];
       };
       results_highlights: {
         Row: {
@@ -235,6 +244,7 @@ export interface Database {
         Update: Partial<
           Omit<Database['public']['Tables']['results_highlights']['Row'], 'id'>
         >;
+        Relationships: [];
       };
       user_cards: {
         Row: {
@@ -252,6 +262,7 @@ export interface Database {
         Update: Partial<
           Omit<Database['public']['Tables']['user_cards']['Row'], 'id'>
         >;
+        Relationships: [];
       };
       shop_cards: {
         Row: {
@@ -277,11 +288,15 @@ export interface Database {
         Update: Partial<
           Omit<Database['public']['Tables']['shop_cards']['Row'], 'id'>
         >;
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
     Enums: {
       role_enum: Role;
       player_category: PlayerCategory;
     };
+    CompositeTypes: never;
   };
 }

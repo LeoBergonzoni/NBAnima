@@ -1,6 +1,6 @@
 import type { Config } from 'tailwindcss';
 
-const config: Config = {
+const config = {
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
@@ -37,6 +37,6 @@ const config: Config = {
   },
   safelist: ['border-accent-gold'],
   plugins: [],
-};
+} satisfies Config & { safelist: string[] };
 
-export default config;
+export default config satisfies Config;

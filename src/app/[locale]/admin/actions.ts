@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 
 import type { Locale } from '@/lib/constants';
 import { supabaseAdmin } from '@/lib/supabase';
+import type { Database } from '@/lib/supabase.types';
 
 interface BalanceInput {
   userId: string;
@@ -11,6 +12,26 @@ interface BalanceInput {
   reason?: string;
   locale: Locale;
 }
+
+const LEDGER_TABLE =
+  'anima_points_ledger' as keyof Database['public']['Tables'] & string;
+const USERS_TABLE =
+  'users' as keyof Database['public']['Tables'] & string;
+const USER_CARDS_TABLE =
+  'user_cards' as keyof Database['public']['Tables'] & string;
+const RESULTS_HIGHLIGHTS_TABLE =
+  'results_highlights' as keyof Database['public']['Tables'] & string;
+
+type LedgerInsert =
+  Database['public']['Tables']['anima_points_ledger']['Insert'];
+type UsersUpdate = Database['public']['Tables']['users']['Update'];
+type UserBalanceRow = Pick<
+  Database['public']['Tables']['users']['Row'],
+  'anima_points_balance'
+>;
+type UserCardsInsert = Database['public']['Tables']['user_cards']['Insert'];
+type ResultsHighlightsInsert =
+  Database['public']['Tables']['results_highlights']['Insert'];
 
 export const adjustUserBalanceAction = async ({
   userId,
@@ -20,10 +41,10 @@ export const adjustUserBalanceAction = async ({
 }: BalanceInput) => {
   const now = new Date().toISOString();
   const { data: user, error: userError } = await supabaseAdmin
-    .from('users')
+    .from(USERS_TABLE)
     .select('anima_points_balance')
     .eq('id', userId)
-    .maybeSingle();
+    .maybeSingle<UserBalanceRow>();
 
   if (userError) {
     throw userError;
@@ -32,18 +53,21 @@ export const adjustUserBalanceAction = async ({
   const currentBalance = user?.anima_points_balance ?? 0;
   const nextBalance = currentBalance + delta;
 
+  const ledgerEntry: LedgerInsert = {
+    user_id: userId,
+    delta,
+    balance_after: nextBalance,
+    reason,
+  };
+
+  const userUpdate: UsersUpdate = {
+    anima_points_balance: nextBalance,
+    updated_at: now,
+  };
+
   const [{ error: ledgerError }, { error: updateError }] = await Promise.all([
-    supabaseAdmin.from('anima_points_ledger').insert({
-      user_id: userId,
-      delta,
-      balance_after: nextBalance,
-      reason,
-      created_at: now,
-    }),
-    supabaseAdmin
-      .from('users')
-      .update({ anima_points_balance: nextBalance, updated_at: now })
-      .eq('id', userId),
+    supabaseAdmin.from(LEDGER_TABLE).insert(ledgerEntry),
+    supabaseAdmin.from(USERS_TABLE).update(userUpdate).eq('id', userId),
   ]);
 
   if (ledgerError || updateError) {
@@ -60,10 +84,13 @@ interface CardInput {
 }
 
 export const assignCardAction = async ({ userId, cardId, locale }: CardInput) => {
-  const { error } = await supabaseAdmin.from('user_cards').insert({
+  const cardInsert: UserCardsInsert = {
     user_id: userId,
     card_id: cardId,
-  });
+  };
+  const { error } = await supabaseAdmin
+    .from(USER_CARDS_TABLE)
+    .insert(cardInsert);
   if (error) {
     throw error;
   }
@@ -72,7 +99,7 @@ export const assignCardAction = async ({ userId, cardId, locale }: CardInput) =>
 
 export const revokeCardAction = async ({ userId, cardId, locale }: CardInput) => {
   const { error } = await supabaseAdmin
-    .from('user_cards')
+    .from(USER_CARDS_TABLE)
     .delete()
     .match({ user_id: userId, card_id: cardId });
   if (error) {
@@ -96,7 +123,7 @@ export const saveHighlightsAction = async ({
   locale: Locale;
 }) => {
   const now = new Date().toISOString();
-  const upsertPayload = highlights.map((entry) => ({
+  const upsertPayload: ResultsHighlightsInsert[] = highlights.map((entry) => ({
     player_id: entry.playerId,
     rank: entry.rank,
     result_date: date,
@@ -104,8 +131,10 @@ export const saveHighlightsAction = async ({
   }));
 
   const { error } = await supabaseAdmin
-    .from('results_highlights')
-    .upsert(upsertPayload, { onConflict: 'result_date,rank' });
+    .from(RESULTS_HIGHLIGHTS_TABLE)
+    .upsert(upsertPayload, {
+      onConflict: 'result_date,rank',
+    });
 
   if (error) {
     throw error;

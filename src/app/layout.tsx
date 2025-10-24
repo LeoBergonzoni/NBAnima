@@ -1,17 +1,33 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 
 import './globals.css';
 import { APP_TITLE } from '@/lib/constants';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+export const geist = localFont({
+  src: [
+    {
+      path: '../../public/fonts/geist/GeistVF.woff2',
+      weight: '100 900',
+      style: 'normal',
+    },
+  ],
+  variable: '--font-geist',
+  fallback: ['system-ui', 'Segoe UI', 'Roboto', 'Arial'],
+  display: 'swap',
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+export const geistMono = localFont({
+  src: [
+    {
+      path: '../../public/fonts/geist/GeistMonoVF.woff2',
+      weight: '100 900',
+      style: 'normal',
+    },
+  ],
+  variable: '--font-geist-mono',
+  fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -26,9 +42,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-navy-950 text-slate-100`}
+        className="antialiased bg-navy-950 text-slate-100"
       >
         {children}
       </body>

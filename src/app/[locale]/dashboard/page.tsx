@@ -1,9 +1,9 @@
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
-import type { Locale } from '@/lib/constants';
+import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { createServerSupabase, supabaseAdmin } from '@/lib/supabase';
-import { getDictionary } from '@/locales/dictionaries';
+import type { Database } from '@/lib/supabase.types';
 
 interface ShopCard {
   id: string;
@@ -18,12 +18,14 @@ interface ShopCard {
 export default async function DashboardPage({
   params,
 }: {
-  params: Promise<{ locale: Locale }>;
+  params: Promise<{ locale: string }>;
 }) {
-  const { locale } = await params;
-  const dictionary = await getDictionary(locale);
-
-  const supabase = createServerSupabase();
+  const { locale: rawLocale } = await params;
+  const locale = SUPPORTED_LOCALES.includes(rawLocale as Locale) ? (rawLocale as Locale) : undefined;
+  if (!locale) {
+    notFound();
+  }
+  const supabase = await createServerSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -51,14 +53,16 @@ export default async function DashboardPage({
     redirect(`/${locale}`);
   }
 
-  const ownedCards = (userCards ?? [])
+  type ShopCardRow = Database['public']['Tables']['shop_cards']['Row'];
+  type UserCardRecord = { card: ShopCardRow | null };
+
+  const ownedCards = ((userCards ?? []) as UserCardRecord[])
     .map((entry) => entry.card as ShopCard | null)
     .filter((card): card is ShopCard => Boolean(card));
 
   return (
     <DashboardClient
       locale={locale}
-      dictionary={dictionary}
       balance={profile.anima_points_balance}
       ownedCards={ownedCards}
       shopCards={(shopCards ?? []) as ShopCard[]}

@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { computeDailyScore } from '@/lib/scoring';
 import { createServerSupabase, supabaseAdmin } from '@/lib/supabase';
+import type { Database } from '@/lib/supabase.types';
 
 const isoDateSchema = z
   .string()
@@ -10,8 +11,18 @@ const isoDateSchema = z
 
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
 
+type UsersRow = Database['public']['Tables']['users']['Row'];
+type UsersInsert = Database['public']['Tables']['users']['Insert'];
+type LedgerInsert = Database['public']['Tables']['anima_points_ledger']['Insert'];
+type TeamPickRow = Database['public']['Tables']['picks_teams']['Row'];
+type PlayerPickRow = Database['public']['Tables']['picks_players']['Row'];
+type HighlightPickRow = Database['public']['Tables']['picks_highlights']['Row'];
+type TeamResultRow = Database['public']['Tables']['results_team']['Row'];
+type PlayerResultRow = Database['public']['Tables']['results_players']['Row'];
+type HighlightResultRow = Database['public']['Tables']['results_highlights']['Row'];
+
 const getAdminUserOrThrow = async () => {
-  const supabase = createServerSupabase();
+  const supabase = await createServerSupabase();
   const {
     data: { user },
     error,
@@ -127,7 +138,7 @@ export async function POST(request: NextRequest) {
     const [usersResponse, ledgerResponse] = await Promise.all([
       supabaseAdmin
         .from('users')
-        .select('id, anima_points_balance')
+        .select('id, email, anima_points_balance')
         .in('id', Array.from(userIds)),
       supabaseAdmin
         .from('anima_points_ledger')
@@ -143,11 +154,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    type UserContextRow = Pick<
+      UsersRow,
+      'id' | 'email' | 'anima_points_balance'
+    >;
+
+    const existingUsers = new Map<string, UserContextRow>(
+      ((usersResponse.data ?? []) as UserContextRow[]).map((user) => [
+        user.id,
+        user,
+      ]),
+    );
+
     const settledUsers = new Set(
       (ledgerResponse.data ?? []).map((item) => item.user_id),
     );
     const balanceMap = new Map(
-      (usersResponse.data ?? []).map((user) => [
+      Array.from(existingUsers.values()).map((user) => [
         user.id,
         user.anima_points_balance ?? 0,
       ]),
@@ -156,14 +179,8 @@ export async function POST(request: NextRequest) {
     const nowIso = new Date().toISOString();
     const reason = `daily_settlement:${pickDate}`;
 
-    const ledgerInserts: {
-      user_id: string;
-      delta: number;
-      balance_after: number;
-      reason: string;
-      created_at: string;
-    }[] = [];
-    const userUpdates: { id: string; anima_points_balance: number }[] = [];
+    const ledgerInserts: LedgerInsert[] = [];
+    const userUpserts: UsersInsert[] = [];
     const settlements: Record<
       string,
       {
@@ -179,9 +196,28 @@ export async function POST(request: NextRequest) {
       }
     > = {};
 
-    const teamResultsList = teamResults ?? [];
-    const playerResultsList = playerResults ?? [];
-    const highlightResultsList = highlightResults ?? [];
+    const teamResultsList = (teamResults ?? []) as TeamResultRow[];
+    const playerResultsList = (playerResults ?? []) as PlayerResultRow[];
+    const highlightResultsList = (highlightResults ?? []) as HighlightResultRow[];
+    const teamPicksList = (teamPicks ?? []) as TeamPickRow[];
+    const playerPicksList = (playerPicks ?? []) as PlayerPickRow[];
+    const highlightPicksList = (highlightPicks ?? []) as HighlightPickRow[];
+
+    const formattedTeamResults = teamResultsList.map((result) => ({
+      gameId: result.game_id,
+      winnerTeamId: result.winner_team_id,
+    }));
+
+    const formattedPlayerResults = playerResultsList.map((result) => ({
+      gameId: result.game_id,
+      category: result.category,
+      playerId: result.player_id,
+    }));
+
+    const formattedHighlightResults = highlightResultsList.map((result) => ({
+      playerId: result.player_id,
+      rank: result.rank,
+    }));
 
     Array.from(userIds).forEach((userId) => {
       if (settledUsers.has(userId)) {
@@ -189,28 +225,28 @@ export async function POST(request: NextRequest) {
       }
 
       const score = computeDailyScore({
-        teamPicks: (teamPicks ?? []).filter(
-          (pick) => pick.user_id === userId,
-        ),
-        teamResults: teamResultsList.map((result) => ({
-          gameId: result.game_id,
-          winnerTeamId: result.winner_team_id,
-        })),
-        playerPicks: (playerPicks ?? []).filter(
-          (pick) => pick.user_id === userId,
-        ),
-        playerResults: playerResultsList.map((result) => ({
-          gameId: result.game_id,
-          category: result.category,
-          playerId: result.player_id,
-        })),
-        highlightPicks: (highlightPicks ?? []).filter(
-          (pick) => pick.user_id === userId,
-        ),
-        highlightResults: highlightResultsList.map((result) => ({
-          playerId: result.player_id,
-          rank: result.rank,
-        })),
+        teamPicks: teamPicksList
+          .filter((pick) => pick.user_id === userId)
+          .map((pick) => ({
+            gameId: pick.game_id,
+            selectedTeamId: pick.selected_team_id,
+          })),
+        teamResults: formattedTeamResults,
+        playerPicks: playerPicksList
+          .filter((pick) => pick.user_id === userId)
+          .map((pick) => ({
+            gameId: pick.game_id,
+            category: pick.category,
+            playerId: pick.player_id,
+          })),
+        playerResults: formattedPlayerResults,
+        highlightPicks: highlightPicksList
+          .filter((pick) => pick.user_id === userId)
+          .map((pick) => ({
+            playerId: pick.player_id,
+            rank: pick.rank,
+          })),
+        highlightResults: formattedHighlightResults,
       });
 
       if (score.basePoints <= 0) {
@@ -234,10 +270,15 @@ export async function POST(request: NextRequest) {
         created_at: nowIso,
       });
 
-      userUpdates.push({
-        id: userId,
-        anima_points_balance: newBalance,
-      });
+      const existingUser = existingUsers.get(userId);
+      if (existingUser) {
+        userUpserts.push({
+          id: userId,
+          email: existingUser.email,
+          anima_points_balance: newBalance,
+          updated_at: nowIso,
+        });
+      }
 
       balanceMap.set(userId, newBalance);
 
@@ -259,8 +300,10 @@ export async function POST(request: NextRequest) {
     }
 
     const [ledgerInsertResult, userUpdateResult] = await Promise.all([
-      supabaseAdmin.from('anima_points_ledger').insert(ledgerInserts),
-      supabaseAdmin.from('users').upsert(userUpdates),
+      supabaseAdmin
+        .from('anima_points_ledger')
+        .insert(ledgerInserts),
+      supabaseAdmin.from('users').upsert(userUpserts),
     ]);
 
     if (ledgerInsertResult.error || userUpdateResult.error) {

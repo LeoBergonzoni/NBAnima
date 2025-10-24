@@ -6,11 +6,17 @@ import {
   validatePicksPayload,
 } from '@/lib/picks';
 import { createServerSupabase, supabaseAdmin } from '@/lib/supabase';
+import type { Database } from '@/lib/supabase.types';
 
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
 
+type PicksTeamsInsert = Database['public']['Tables']['picks_teams']['Insert'];
+type PicksPlayersInsert = Database['public']['Tables']['picks_players']['Insert'];
+type PicksHighlightsInsert =
+  Database['public']['Tables']['picks_highlights']['Insert'];
+
 const getUserOrThrow = async () => {
-  const supabase = createServerSupabase();
+  const supabase = await createServerSupabase();
   const {
     data: { user },
     error,
@@ -136,7 +142,7 @@ export async function POST(request: NextRequest) {
       pick_date: payload.pickDate,
     });
 
-    const teamInsert = payload.teams.map((pick) => ({
+    const teamInsert: PicksTeamsInsert[] = payload.teams.map((pick) => ({
       user_id: userId,
       game_id: pick.gameId,
       selected_team_id: pick.teamId,
@@ -146,7 +152,7 @@ export async function POST(request: NextRequest) {
       updated_at: now,
     }));
 
-    const playerInsert = payload.players.map((pick) => ({
+    const playerInsert: PicksPlayersInsert[] = payload.players.map((pick) => ({
       user_id: userId,
       game_id: pick.gameId,
       category: pick.category,
@@ -157,7 +163,7 @@ export async function POST(request: NextRequest) {
       updated_at: now,
     }));
 
-    const highlightInsert = payload.highlights.map((pick) => ({
+    const highlightInsert: PicksHighlightsInsert[] = payload.highlights.map((pick) => ({
       user_id: userId,
       player_id: pick.playerId,
       rank: pick.rank,
@@ -175,7 +181,9 @@ export async function POST(request: NextRequest) {
         ? supabaseAdmin.from('picks_players').insert(playerInsert)
         : { error: null },
       highlightInsert.length
-        ? supabaseAdmin.from('picks_highlights').insert(highlightInsert)
+        ? supabaseAdmin
+            .from('picks_highlights')
+            .insert(highlightInsert)
         : { error: null },
     ]);
 
@@ -238,7 +246,7 @@ export async function PUT(request: NextRequest) {
       pick_date: payload.pickDate,
     });
 
-    const teamUpsert = payload.teams.map((pick) => ({
+    const teamUpsert: PicksTeamsInsert[] = payload.teams.map((pick) => ({
       user_id: userId,
       game_id: pick.gameId,
       selected_team_id: pick.teamId,
@@ -248,7 +256,7 @@ export async function PUT(request: NextRequest) {
       updated_at: now,
     }));
 
-    const playerUpsert = payload.players.map((pick) => ({
+    const playerUpsert: PicksPlayersInsert[] = payload.players.map((pick) => ({
       user_id: userId,
       game_id: pick.gameId,
       category: pick.category,
@@ -259,7 +267,7 @@ export async function PUT(request: NextRequest) {
       updated_at: now,
     }));
 
-    const highlightUpsert = payload.highlights.map((pick) => ({
+    const highlightUpsert: PicksHighlightsInsert[] = payload.highlights.map((pick) => ({
       user_id: userId,
       player_id: pick.playerId,
       rank: pick.rank,
@@ -277,7 +285,9 @@ export async function PUT(request: NextRequest) {
         ? supabaseAdmin.from('picks_players').insert(playerUpsert)
         : { error: null },
       highlightUpsert.length
-        ? supabaseAdmin.from('picks_highlights').insert(highlightUpsert)
+        ? supabaseAdmin
+            .from('picks_highlights')
+            .insert(highlightUpsert)
         : { error: null },
     ]);
 

@@ -1,14 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
-import { cookies, headers } from 'next/headers';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 import {
   createBrowserClient,
   createServerClient as createSSRClient,
 } from '@supabase/ssr';
 
 import { getClientEnv, getServerEnv } from './env';
-import type { Database } from '../types/database';
+import type { Database } from './supabase.types';
 
-const createAdminClient = () => {
+const createAdminClient = (): SupabaseClient<Database> => {
   const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = getServerEnv();
   return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: {
@@ -18,10 +18,9 @@ const createAdminClient = () => {
   });
 };
 
-export const createServerSupabase = () => {
+export const createServerSupabase = async (): Promise<SupabaseClient<Database>> => {
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getServerEnv();
-  const cookieStore = cookies();
-  const headerStore = headers();
+  const cookieStore = await cookies();
 
   return createSSRClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
@@ -35,15 +34,10 @@ export const createServerSupabase = () => {
         cookieStore.delete({ name, ...options });
       },
     },
-    headers: {
-      get(name) {
-        return headerStore.get(name) ?? undefined;
-      },
-    },
   });
 };
 
-export const createBrowserSupabase = () => {
+export const createBrowserSupabase = (): SupabaseClient<Database> => {
   const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY } =
     getClientEnv();
 
