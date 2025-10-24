@@ -7,13 +7,17 @@ import {
   CircleDashed,
   Coins,
   Loader2,
+  LogOut,
+  UserCircle2,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { useLocale } from '@/components/providers/locale-provider';
 import type { Locale } from '@/lib/constants';
+import { createBrowserSupabase } from '@/lib/supabase-browser';
 import type { Dictionary } from '@/locales/dictionaries';
 import { useGames } from '@/hooks/useGames';
 import {
@@ -407,6 +411,8 @@ export const DashboardClient = ({
   role,
 }: DashboardClientProps) => {
   const { dictionary } = useLocale();
+  const router = useRouter();
+  const supabase = useMemo(() => createBrowserSupabase(), []);
   const [activeTab, setActiveTab] = useState<'play' | 'collection' | 'shop'>('play');
   const [teamSelections, setTeamSelections] = useState<Record<string, string>>({});
   const [playerSelections, setPlayerSelections] = useState<PlayerSelections>({});
@@ -414,6 +420,7 @@ export const DashboardClient = ({
   const [playersByGame, setPlayersByGame] = useState<Record<string, PlayerSummary[]>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const pickDate = useMemo(
     () => new Date().toISOString().slice(0, 10),
@@ -582,8 +589,45 @@ export const DashboardClient = ({
     { key: 'shop', label: dictionary.dashboard.shopTab },
   ];
 
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+      router.push(`/${locale}`);
+      router.refresh();
+    } catch (error) {
+      console.error('[dashboard] signOut failed', error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
+      <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-navy-900/60 p-6 shadow-card md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-400">
+            {dictionary.dashboard.welcome}
+          </p>
+          <h1 className="text-2xl font-semibold text-white">NBAnima</h1>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 text-xs text-slate-300 md:inline-flex">
+            <UserCircle2 className="h-4 w-4 text-accent-gold" />
+            <span>{locale.toUpperCase()}</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="inline-flex items-center gap-2 rounded-full border border-accent-gold/40 bg-navy-800/80 px-4 py-2 text-sm font-semibold text-accent-gold transition hover:border-accent-gold hover:bg-navy-800/60 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <LogOut className="h-4 w-4" />
+            {isLoggingOut ? '…' : dictionary.common.logout}
+          </button>
+        </div>
+      </header>
+
       <section className="flex flex-col gap-6 rounded-[2rem] border border-accent-gold/40 bg-navy-900/70 p-6 shadow-card lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-gold/40 bg-navy-800/70">

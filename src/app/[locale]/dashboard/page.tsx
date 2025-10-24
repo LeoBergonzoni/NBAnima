@@ -31,7 +31,7 @@ export default async function DashboardPage({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect(`/${locale}`);
+    redirect(`/${locale}/login`);
   }
 
   const [{ data: profile, error: profileError }, { data: userCards, error: cardsError }, { data: shopCards, error: shopError }] =
@@ -50,7 +50,7 @@ export default async function DashboardPage({
 
   if (profileError || cardsError || shopError || !profile) {
     console.error('[dashboard] failed to load profile context', profileError || cardsError || shopError);
-    redirect(`/${locale}`);
+    redirect(`/${locale}/login`);
   }
 
   type ShopCardRow = Database['public']['Tables']['shop_cards']['Row'];

@@ -17,8 +17,18 @@ export interface Dictionary {
   };
   home: {
     heroTitle: string;
+    heroTitleEn: string;
     heroSubtitle: string;
+    heroSubtitleEn: string;
     bullets: string[];
+    onboarding: Array<{
+      title: string;
+      titleEn: string;
+      description: string;
+      descriptionEn: string;
+      image: string;
+      imageAlt: string;
+    }>;
     ctaRegister: string;
     ctaLogin: string;
   };
@@ -84,6 +94,31 @@ export interface Dictionary {
     applyHighlights: string;
     rank: string;
   };
+  auth: {
+    login: {
+      title: string;
+      subtitle: string;
+      submit: string;
+      switchPrompt: string;
+      switchCta: string;
+    };
+    signup: {
+      title: string;
+      subtitle: string;
+      submit: string;
+      switchPrompt: string;
+      switchCta: string;
+    };
+    fields: {
+      email: string;
+      password: string;
+      confirmPassword: string;
+    };
+    errors: {
+      mismatch: string;
+      generic: string;
+    };
+  };
 }
 
 const it: Dictionary = {
@@ -102,13 +137,58 @@ const it: Dictionary = {
     logout: 'Esci',
   },
   home: {
-    heroTitle: 'NBAnima — La web app che rende ancora più ANIMAta l’NBA',
+    heroTitle: 'NBAnima — La web app che rende ancora più ANIMAta l’NBA!',
+    heroTitleEn: 'NBAnima — The web app that makes the NBA even more ANIMA-ted!',
     heroSubtitle:
       'Sfida i tuoi amici, accumula Anima Points e colleziona carte epiche dedicate ai tuoi idoli NBA.',
+    heroSubtitleEn:
+      'Challenge friends, earn Anima Points, and collect epic cards inspired by NBA legends.',
     bullets: [
       'Prevedi i risultati di ogni notte NBA: squadre, giocatori e Top 10 Highlights.',
       'Blocca le tue scelte prima della palla a due e ottieni bonus moltiplicatori.',
       'Guadagna Anima Points e sblocca cards esclusive nel nostro shop dinamico.',
+    ],
+    onboarding: [
+      {
+        title: 'Predict every NBA matchup',
+        titleEn: 'Indovina i risultati delle partite NBA',
+        description:
+          'Study the slate, pick your winner, and stay in the hunt for nightly glory.',
+        descriptionEn:
+          'Studia il calendario, scegli la vincente e vivi la corsa alla gloria con NBAnima.',
+        image: '/loghi-squadre/LALAkers.png',
+        imageAlt: 'Los Angeles Lakers logo',
+      },
+      {
+        title: 'Draft your Top performers',
+        titleEn: 'Scegli i tuoi giocatori Top',
+        description:
+          'Lock in the stars who will dominate points, assists, and rebounds for multiplier bonuses.',
+        descriptionEn:
+          'Punta sulle stelle che domineranno punti, assist e rimbalzi per moltiplicare i punti.',
+        image: '/loghi-squadre/GSWarriors.png',
+        imageAlt: 'Golden State Warriors logo',
+      },
+      {
+        title: 'Earn Anima Points and collect legendary cards!',
+        titleEn: 'Guadagna Anima Points e colleziona card leggendarie!',
+        description:
+          'Redeem exclusive digital collectibles to power up your roster and flex your fandom.',
+        descriptionEn:
+          'Riscatta ricompense esclusive per potenziare il roster e mostrare la tua passione.',
+        image: '/cards/KobeWinninFistCard.png',
+        imageAlt: 'Kobe Bryant Anima card',
+      },
+      {
+        title: 'Climb the leaderboard and prove your NBA spirit!',
+        titleEn: 'Scala la classifica e dimostra la tua anima NBA!',
+        description:
+          'Celebrate the wins, challenge friends, and become the legend of NBA nights.',
+        descriptionEn:
+          'Condividi le vittorie, supera gli amici e diventa l’icona delle notti NBA.',
+        image: '/1AnimaPoint.png',
+        imageAlt: 'Anima Point token',
+      },
     ],
     ctaRegister: 'Registrati',
     ctaLogin: 'Accedi',
@@ -177,6 +257,31 @@ const it: Dictionary = {
     applyHighlights: 'Applica Top 10 del giorno',
     rank: 'Posizione',
   },
+  auth: {
+    login: {
+      title: 'Bentornato su NBAnima',
+      subtitle: 'Accedi con la tua email per continuare a vivere le notti NBA.',
+      submit: 'Accedi',
+      switchPrompt: 'Non hai ancora un account?',
+      switchCta: 'Registrati subito',
+    },
+    signup: {
+      title: 'Crea il tuo account NBAnima',
+      subtitle: 'Registrati in pochi secondi e conquista la leaderboard.',
+      submit: 'Registrati',
+      switchPrompt: 'Hai già un account?',
+      switchCta: 'Accedi',
+    },
+    fields: {
+      email: 'Email',
+      password: 'Password',
+      confirmPassword: 'Conferma Password',
+    },
+    errors: {
+      mismatch: 'Le password non coincidono.',
+      generic: 'Si è verificato un errore. Riprova.',
+    },
+  },
 };
 
 const en: Dictionary = {
@@ -195,13 +300,58 @@ const en: Dictionary = {
     logout: 'Log out',
   },
   home: {
-    heroTitle: 'NBAnima — The web app that makes the NBA even more ANIMA-ted',
+    heroTitle: 'NBAnima — La web app che rende ancora più ANIMAta l’NBA!',
+    heroTitleEn: 'NBAnima — The web app that makes the NBA even more ANIMA-ted!',
     heroSubtitle:
+      'Challenge friends, earn Anima Points, and collect epic cards inspired by NBA legends.',
+    heroSubtitleEn:
       'Challenge friends, earn Anima Points, and collect epic cards inspired by NBA legends.',
     bullets: [
       'Predict every NBA night: winners, stat leaders, and the Top 10 highlights.',
       'Lock picks before tip-off and chase multiplier bonuses for streaks.',
       'Earn Anima Points to unlock fresh drops in the premium card shop.',
+    ],
+    onboarding: [
+      {
+        title: 'Indovina i risultati delle partite NBA',
+        titleEn: 'Predict every NBA matchup',
+        description:
+          'Studia il calendario, scegli la vincente e segui la tua corsa alla gloria con NBAnima.',
+        descriptionEn:
+          'Study the slate, pick the winners, and chase glory every single night.',
+        image: '/loghi-squadre/LALAkers.png',
+        imageAlt: 'Los Angeles Lakers logo',
+      },
+      {
+        title: 'Scegli i tuoi giocatori Top',
+        titleEn: 'Draft your Top performers',
+        description:
+          'Punta sulle stelle che domineranno punti, assist e rimbalzi per moltiplicare i punti.',
+        descriptionEn:
+          'Lock in the stars who will lead the box score in points, assists, and rebounds.',
+        image: '/loghi-squadre/GSWarriors.png',
+        imageAlt: 'Golden State Warriors logo',
+      },
+      {
+        title: 'Guadagna Anima Points e colleziona Card leggendarie!',
+        titleEn: 'Earn Anima Points and collect legendary cards!',
+        description:
+          'Riscatta le tue ricompense con carte digitali esclusive e potenzia il tuo roster.',
+        descriptionEn:
+          'Redeem exclusive digital cards to power up your roster and show off your collection.',
+        image: '/cards/KobeWinninFistCard.png',
+        imageAlt: 'Kobe Bryant Anima card',
+      },
+      {
+        title: 'Scala la classifica e dimostra la tua anima NBA!',
+        titleEn: 'Climb the leaderboard and prove your NBA spirit!',
+        description:
+          'Condividi le tue vittorie, supera gli amici e diventa l’icona delle notti NBA.',
+        descriptionEn:
+          'Share wins with friends, climb to the top, and become the legend of NBA nights.',
+        image: '/1AnimaPoint.png',
+        imageAlt: 'Anima Point token',
+      },
     ],
     ctaRegister: 'Sign up',
     ctaLogin: 'Log in',
@@ -270,6 +420,31 @@ const en: Dictionary = {
     dateLabel: 'Date',
     applyHighlights: 'Save daily Top 10',
     rank: 'Rank',
+  },
+  auth: {
+    login: {
+      title: 'Welcome back to NBAnima',
+      subtitle: 'Sign in with your email and keep the NBA nights alive.',
+      submit: 'Log in',
+      switchPrompt: 'No account yet?',
+      switchCta: 'Create one now',
+    },
+    signup: {
+      title: 'Create your NBAnima account',
+      subtitle: 'Register in seconds and start climbing the leaderboard.',
+      submit: 'Sign up',
+      switchPrompt: 'Already part of the community?',
+      switchCta: 'Log in',
+    },
+    fields: {
+      email: 'Email',
+      password: 'Password',
+      confirmPassword: 'Confirm Password',
+    },
+    errors: {
+      mismatch: 'Passwords do not match.',
+      generic: 'Something went wrong. Please try again.',
+    },
   },
 };
 

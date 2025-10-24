@@ -1,11 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
-import {
-  createBrowserClient,
-  createServerClient as createSSRClient,
-} from '@supabase/ssr';
+import { createServerClient as createSSRClient } from '@supabase/ssr';
 
-import { getClientEnv, getServerEnv } from './env';
+import { getServerEnv } from './env';
 import type { Database } from './supabase.types';
 
 const createAdminClient = (): SupabaseClient<Database> => {
@@ -35,16 +32,6 @@ export const createServerSupabase = async (): Promise<SupabaseClient<Database>> 
       },
     },
   });
-};
-
-export const createBrowserSupabase = (): SupabaseClient<Database> => {
-  const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY } =
-    getClientEnv();
-
-  return createBrowserClient<Database>(
-    NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  );
 };
 
 export const supabaseAdmin = createAdminClient();
