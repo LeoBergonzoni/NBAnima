@@ -41,7 +41,7 @@ export default async function LocaleHomePage({
           width={300}
           height={300}
           priority
-          className="h-50 w-50 rounded-3xl border border-accent-gold/40 bg-navy-900/60 p-6 shadow-card backdrop-blur"
+          className="h-100 w-100 rounded-3xl border border-accent-gold/40 bg-navy-900/60 p-6 shadow-card backdrop-blur"
         />
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold leading-tight text-white sm:text-5xl">
