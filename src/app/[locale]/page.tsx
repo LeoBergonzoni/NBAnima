@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 
 import { OnboardingShowcase } from '@/components/home/onboarding-showcase';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
+import { ONBOARDING_STEPS } from '@/config/onboarding';
 import { getDictionary } from '@/locales/dictionaries';
 
 export default async function LocaleHomePage({
@@ -21,21 +22,13 @@ export default async function LocaleHomePage({
   }
 
   const dictionary = await getDictionary(locale);
-
-  const heroTitlePrimary =
-    locale === 'en' ? dictionary.home.heroTitle : dictionary.home.heroTitle;
-  const heroTitleSecondary =
-    locale === 'en'
-      ? dictionary.home.heroTitleEn
-      : dictionary.home.heroTitleEn;
-  const heroSubtitlePrimary =
-    locale === 'en'
-      ? dictionary.home.heroSubtitle
-      : dictionary.home.heroSubtitle;
-  const heroSubtitleSecondary =
-    locale === 'en'
-      ? dictionary.home.heroSubtitleEn
-      : dictionary.home.heroSubtitleEn;
+  // Update the image paths inside `src/config/onboarding.ts` to swap the visuals shown here.
+  const onboardingCards = dictionary.home.onboarding.map((card, index) => ({
+    title: card.title,
+    description: card.description,
+    image: ONBOARDING_STEPS[index]?.image ?? '/logo.png',
+    imageAlt: ONBOARDING_STEPS[index]?.imageAlt ?? card.title,
+  }));
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-navy-950 via-navy-900 to-navy-950 text-white">
@@ -45,24 +38,18 @@ export default async function LocaleHomePage({
         <Image
           src="/logo.png"
           alt="NBAnima logo"
-          width={160}
-          height={160}
+          width={224}
+          height={224}
           priority
-          className="h-28 w-28 rounded-3xl border border-accent-gold/40 bg-navy-900/60 p-4 shadow-card backdrop-blur"
+          className="h-40 w-40 rounded-3xl border border-accent-gold/40 bg-navy-900/60 p-6 shadow-card backdrop-blur"
         />
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold leading-tight text-white sm:text-5xl">
-            {heroTitlePrimary}
+            {dictionary.home.heroTitle}
           </h1>
-          <p className="text-base text-accent-gold/80 sm:text-lg">
-            {heroTitleSecondary}
-          </p>
         </div>
         <div className="space-y-2 text-slate-300 sm:max-w-2xl">
-          <p className="text-base sm:text-lg">{heroSubtitlePrimary}</p>
-          <p className="text-sm text-slate-400 sm:text-base">
-            {heroSubtitleSecondary}
-          </p>
+          <p className="text-base sm:text-lg">{dictionary.home.heroSubtitle}</p>
         </div>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link
@@ -89,7 +76,7 @@ export default async function LocaleHomePage({
             Scopri come funziona il gioco e preparati a dominare la stagione NBA.
           </p>
         </div>
-        <OnboardingShowcase cards={dictionary.home.onboarding} />
+        <OnboardingShowcase cards={onboardingCards} />
         <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link
             href={`/${locale}/signup`}

@@ -31,6 +31,7 @@ export const AuthForm = ({ mode, locale, copy, switchHref }: AuthFormProps) => {
   const supabase = useMemo(() => createBrowserSupabase(), []);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -71,10 +72,19 @@ export const AuthForm = ({ mode, locale, copy, switchHref }: AuthFormProps) => {
             throw error;
           }
         }
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          setErrorMessage(copy.genericError);
+          return;
+        }
+        setIsRedirecting(true);
         router.push(`/${locale}/dashboard`);
         router.refresh();
       } catch (error) {
         setErrorMessage((error as Error).message || copy.genericError);
+        setIsRedirecting(false);
       }
     });
   };
@@ -129,12 +139,17 @@ export const AuthForm = ({ mode, locale, copy, switchHref }: AuthFormProps) => {
           ) : null}
           <button
             type="submit"
-            disabled={isPending}
+            disabled={isPending || isRedirecting}
             className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-accent-gold via-accent-coral to-accent-gold px-4 py-3 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isPending ? '…' : copy.submit}
+            {isPending || isRedirecting ? '…' : copy.submit}
           </button>
         </form>
+        {isRedirecting ? (
+          <p className="mt-4 text-center text-sm text-slate-400">
+            Redirecting to your dashboard…
+          </p>
+        ) : null}
         <div className="mt-6 text-center text-sm text-slate-300">
           <span>{copy.switchPrompt} </span>
           <Link

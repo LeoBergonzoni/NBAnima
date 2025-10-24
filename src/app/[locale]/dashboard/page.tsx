@@ -1,8 +1,10 @@
 import { notFound, redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
-import { createServerSupabase, supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import type { Database } from '@/lib/supabase.types';
 
 interface ShopCard {
@@ -25,7 +27,7 @@ export default async function DashboardPage({
   if (!locale) {
     notFound();
   }
-  const supabase = await createServerSupabase();
+  const supabase = createServerComponentClient<Database>({ cookies });
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -5,9 +5,7 @@ import Image from 'next/image';
 
 interface OnboardingCardData {
   title: string;
-  titleEn: string;
   description: string;
-  descriptionEn: string;
   image: string;
   imageAlt: string;
 }
@@ -54,15 +52,7 @@ export const OnboardingShowcase = ({ cards }: { cards: OnboardingCardData[] }) =
                 className="h-12 w-12 rounded-xl border border-white/10 bg-navy-950 object-contain p-2"
               />
             </div>
-            <p className="text-sm text-accent-gold/80">
-              {card.titleEn}
-            </p>
-            <p className="text-sm text-slate-200">
-              {card.description}
-            </p>
-            <p className="text-xs text-slate-400">
-              {card.descriptionEn}
-            </p>
+            <p className="text-sm text-slate-200">{card.description}</p>
           </div>
         </motion.article>
       ))}
