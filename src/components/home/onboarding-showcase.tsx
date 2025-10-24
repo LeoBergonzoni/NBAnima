@@ -7,7 +7,6 @@ interface OnboardingCardData {
   title: string;
   description: string;
   image: string;
-  imageAlt: string;
 }
 
 export const OnboardingShowcase = ({ cards }: { cards: OnboardingCardData[] }) => {
@@ -46,10 +45,10 @@ export const OnboardingShowcase = ({ cards }: { cards: OnboardingCardData[] }) =
               </h3>
               <Image
                 src={card.image}
-                alt={card.imageAlt}
+                alt={card.title}
                 width={84}
                 height={84}
-                className="h-12 w-12 rounded-xl border border-white/10 bg-navy-950 object-contain p-2"
+                className="h-22 w-22 rounded-xl border border-white/10 bg-navy-950 object-contain p-2"
               />
             </div>
             <p className="text-sm text-slate-200">{card.description}</p>

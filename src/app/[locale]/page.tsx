@@ -22,12 +22,12 @@ export default async function LocaleHomePage({
   }
 
   const dictionary = await getDictionary(locale);
-  // Update the image paths inside `src/config/onboarding.ts` to swap the visuals shown here.
+  // Update the image paths inside `src/config/onboarding.ts` (or swap the files in `/public`)
+  // to change the visuals rendered in the onboarding carousel.
   const onboardingCards = dictionary.home.onboarding.map((card, index) => ({
     title: card.title,
     description: card.description,
-    image: ONBOARDING_STEPS[index]?.image ?? '/logo.png',
-    imageAlt: ONBOARDING_STEPS[index]?.imageAlt ?? card.title,
+    image: ONBOARDING_STEPS[index]?.img ?? '/logo.png',
   }));
 
   return (
@@ -41,7 +41,7 @@ export default async function LocaleHomePage({
           width={300}
           height={300}
           priority
-          className="h-40 w-40 rounded-3xl border border-accent-gold/40 bg-navy-900/60 p-6 shadow-card backdrop-blur"
+          className="h-50 w-50 rounded-3xl border border-accent-gold/40 bg-navy-900/60 p-6 shadow-card backdrop-blur"
         />
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold leading-tight text-white sm:text-5xl">

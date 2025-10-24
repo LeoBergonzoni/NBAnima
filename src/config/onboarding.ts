@@ -3,20 +3,8 @@
  * cards on the home page. Assets should live under `/public`.
  */
 export const ONBOARDING_STEPS = [
-  {
-    image: '/loghi-squadre/LALAkers.png',
-    imageAlt: 'Los Angeles Lakers logo',
-  },
-  {
-    image: '/loghi-squadre/GSWarriors.png',
-    imageAlt: 'Golden State Warriors logo',
-  },
-  {
-    image: '/cards/MangaMjFreethrowCard.png',
-    imageAlt: 'Michael Jordan manga card',
-  },
-  {
-    image: 'anima-point.png',
-    imageAlt: 'Anima Point',
-  },
+  { title: 'Indovina i risultati', img: '/loghi-squadre/LALAkers.png' },
+  { title: 'Scegli i tuoi giocatori', img: '/cards/MangaMjFreethrowCard.png' },
+  { title: 'Guadagna Anima Points', img: '/1AnimaPoint.png' },
+  { title: 'Colleziona Cards leggendarie', img: '/cards/KobeWinninFistCard.png' },
 ] as const;
