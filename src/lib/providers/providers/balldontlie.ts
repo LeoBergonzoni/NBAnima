@@ -146,12 +146,14 @@ const toProviderGame = (game: BLGame): ProviderGame => ({
     name: game.home_team.full_name,
     city: null,
     logo: getTeamLogoByAbbr(game.home_team.abbreviation),
+    abbreviation: game.home_team.abbreviation,
   },
   awayTeam: {
     id: String(game.visitor_team.id),
     name: game.visitor_team.full_name,
     city: null,
     logo: getTeamLogoByAbbr(game.visitor_team.abbreviation),
+    abbreviation: game.visitor_team.abbreviation,
   },
   arena: null,
 });

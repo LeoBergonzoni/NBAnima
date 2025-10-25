@@ -97,12 +97,14 @@ export const sportsDataIoProvider: GameProvider = {
         name: game.HomeTeam,
         city: game.HomeTeamCity,
         logo: null,
+        abbreviation: null,
       },
       awayTeam: {
         id: String(game.AwayTeamID),
         name: game.AwayTeam,
         city: game.AwayTeamCity,
         logo: null,
+        abbreviation: null,
       },
       arena: game.StadiumDetails?.Name ?? null,
     }));

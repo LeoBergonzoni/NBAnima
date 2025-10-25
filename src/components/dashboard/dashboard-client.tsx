@@ -59,6 +59,7 @@ interface GameTeam {
   name: string;
   city: string | null;
   logo: string | null;
+  abbreviation?: string | null;
 }
 
 interface GameSummary {
@@ -200,8 +201,18 @@ const GamePlayersCard = ({
   onPlayersLoaded: (gameId: string, players: PlayerSummary[]) => void;
 }) => {
   const season = useMemo(() => new Date(game.startsAt).getFullYear(), [game.startsAt]);
-  const homeRoster = usePlayers(game.homeTeam.id, season);
-  const awayRoster = usePlayers(game.awayTeam.id, season);
+  const homeRoster = usePlayers({
+    teamId: game.homeTeam.id,
+    teamName: game.homeTeam.name,
+    triCode: game.homeTeam.abbreviation,
+    season,
+  });
+  const awayRoster = usePlayers({
+    teamId: game.awayTeam.id,
+    teamName: game.awayTeam.name,
+    triCode: game.awayTeam.abbreviation,
+    season,
+  });
   const combinedPlayers = useMemo(
     () => [...homeRoster.players, ...awayRoster.players],
     [homeRoster.players, awayRoster.players],

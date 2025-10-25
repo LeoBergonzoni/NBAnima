@@ -3,6 +3,7 @@ export interface ProviderTeam {
   name: string;
   city: string | null;
   logo: string | null;
+  abbreviation?: string | null;
 }
 
 export interface ProviderPlayer {
