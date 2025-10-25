@@ -5,7 +5,7 @@ import { createServerClient as createSSRClient } from '@supabase/ssr';
 import { getServerEnv } from './env';
 import type { Database } from './supabase.types';
 
-const createAdminClient = (): SupabaseClient<Database> => {
+export const createAdminSupabaseClient = (): SupabaseClient<Database> => {
   const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = getServerEnv();
   return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: {
@@ -34,4 +34,4 @@ export const createServerSupabase = async (): Promise<SupabaseClient<Database>> 
   });
 };
 
-export const supabaseAdmin = createAdminClient();
+export const supabaseAdmin = createAdminSupabaseClient();

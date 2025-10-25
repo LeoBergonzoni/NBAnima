@@ -1,8 +1,9 @@
 import { isAfter } from 'date-fns';
 import { z } from 'zod';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { LOCK_WINDOW_BUFFER_MINUTES } from './constants';
-import { supabaseAdmin } from './supabase';
+import type { Database } from './supabase.types';
 import { playerCategorySchema, type PicksPayload } from './validators/picks';
 
 const isoDateSchema = z
@@ -17,7 +18,11 @@ const getDateRange = (pickDate: string) => {
   };
 };
 
-export const getDailyChangeCount = async (userId: string, pickDate: string) => {
+export const getDailyChangeCount = async (
+  supabaseAdmin: SupabaseClient<Database>,
+  userId: string,
+  pickDate: string,
+) => {
   const [team, players, highlights] = await Promise.all([
     supabaseAdmin
       .from('picks_teams')
@@ -48,7 +53,10 @@ export const getDailyChangeCount = async (userId: string, pickDate: string) => {
   return counts.length > 0 ? Math.max(...counts) : 0;
 };
 
-export const assertLockWindowOpen = async (pickDate: string) => {
+export const assertLockWindowOpen = async (
+  supabaseAdmin: SupabaseClient<Database>,
+  pickDate: string,
+) => {
   const { start, end } = getDateRange(pickDate);
   const { data, error } = await supabaseAdmin
     .from('games')

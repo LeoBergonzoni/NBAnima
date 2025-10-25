@@ -7,6 +7,10 @@ import {
 } from '@/lib/constants';
 import { getGameProvider } from '@/lib/providers';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const isSupportedLocale = (locale?: string | null): locale is Locale =>
   Boolean(locale && SUPPORTED_LOCALES.includes(locale as Locale));
 

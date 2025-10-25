@@ -1,9 +1,17 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { computeDailyScore } from '@/lib/scoring';
-import { createServerSupabase, supabaseAdmin } from '@/lib/supabase';
+import {
+  createAdminSupabaseClient,
+  createServerSupabase,
+} from '@/lib/supabase';
 import type { Database } from '@/lib/supabase.types';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const isoDateSchema = z
   .string()
@@ -21,7 +29,9 @@ type TeamResultRow = Database['public']['Tables']['results_team']['Row'];
 type PlayerResultRow = Database['public']['Tables']['results_players']['Row'];
 type HighlightResultRow = Database['public']['Tables']['results_highlights']['Row'];
 
-const getAdminUserOrThrow = async () => {
+const getAdminUserOrThrow = async (
+  supabaseAdmin: SupabaseClient<Database>,
+) => {
   const supabase = await createServerSupabase();
   const {
     data: { user },
@@ -44,8 +54,9 @@ const getAdminUserOrThrow = async () => {
 };
 
 export async function POST(request: NextRequest) {
+  const supabaseAdmin = createAdminSupabaseClient();
   try {
-    await getAdminUserOrThrow();
+    await getAdminUserOrThrow(supabaseAdmin);
 
     const pickDate = isoDateSchema.parse(
       request.nextUrl.searchParams.get('date') ?? formatDate(new Date()),

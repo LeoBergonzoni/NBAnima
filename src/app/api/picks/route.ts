@@ -1,12 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   assertLockWindowOpen,
   getDailyChangeCount,
   validatePicksPayload,
 } from '@/lib/picks';
-import { createServerSupabase, supabaseAdmin } from '@/lib/supabase';
+import {
+  createAdminSupabaseClient,
+  createServerSupabase,
+} from '@/lib/supabase';
 import type { Database } from '@/lib/supabase.types';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -15,7 +23,7 @@ type PicksPlayersInsert = Database['public']['Tables']['picks_players']['Insert'
 type PicksHighlightsInsert =
   Database['public']['Tables']['picks_highlights']['Insert'];
 
-const getUserOrThrow = async () => {
+const getUserOrThrow = async (supabaseAdmin: SupabaseClient<Database>) => {
   const supabase = await createServerSupabase();
   const {
     data: { user },
@@ -42,7 +50,11 @@ const getUserOrThrow = async () => {
   return { authUser: user, role: profile?.role ?? 'user' };
 };
 
-const fetchPicks = async (userId: string, pickDate: string) => {
+const fetchPicks = async (
+  supabaseAdmin: SupabaseClient<Database>,
+  userId: string,
+  pickDate: string,
+) => {
   const [teamResp, playerResp, highlightsResp] = await Promise.all([
     supabaseAdmin
       .from('picks_teams')
@@ -84,14 +96,15 @@ const fetchPicks = async (userId: string, pickDate: string) => {
 };
 
 export async function GET(request: NextRequest) {
+  const supabaseAdmin = createAdminSupabaseClient();
   try {
-    const { authUser: user, role } = await getUserOrThrow();
+    const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
     const pickDate =
       request.nextUrl.searchParams.get('date') ?? formatDate(new Date());
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
-    const picks = await fetchPicks(userId, pickDate);
+    const picks = await fetchPicks(supabaseAdmin, userId, pickDate);
 
     return NextResponse.json({
       pickDate,
@@ -111,15 +124,20 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const supabaseAdmin = createAdminSupabaseClient();
   try {
-    const { authUser: user, role } = await getUserOrThrow();
+    const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
     const payload = validatePicksPayload(await request.json());
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
-    await assertLockWindowOpen(payload.pickDate);
+    await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
 
-    const currentChanges = await getDailyChangeCount(userId, payload.pickDate);
+    const currentChanges = await getDailyChangeCount(
+      supabaseAdmin,
+      userId,
+      payload.pickDate,
+    );
     if (currentChanges > 0 && role !== 'admin') {
       return NextResponse.json(
         { error: 'Picks already exist for this day. Use PUT to update once.' },
@@ -197,7 +215,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      await fetchPicks(userId, payload.pickDate),
+      await fetchPicks(supabaseAdmin, userId, payload.pickDate),
       { status: 201 },
     );
   } catch (error) {
@@ -214,15 +232,20 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const supabaseAdmin = createAdminSupabaseClient();
   try {
-    const { authUser: user, role } = await getUserOrThrow();
+    const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
     const payload = validatePicksPayload(await request.json());
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
-    await assertLockWindowOpen(payload.pickDate);
+    await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
 
-    const currentChanges = await getDailyChangeCount(userId, payload.pickDate);
+    const currentChanges = await getDailyChangeCount(
+      supabaseAdmin,
+      userId,
+      payload.pickDate,
+    );
     if (currentChanges >= 1 && role !== 'admin') {
       return NextResponse.json(
         { error: 'Daily change limit reached for this date.' },
@@ -300,7 +323,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const response = await fetchPicks(userId, payload.pickDate);
+    const response = await fetchPicks(supabaseAdmin, userId, payload.pickDate);
 
     return NextResponse.json(response);
   } catch (error) {
