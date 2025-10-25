@@ -11,8 +11,14 @@ interface PlayerSummary {
   teamId: string;
 }
 
-const fetcher = async (url: string) => {
-  const response = await fetch(url, { cache: 'no-store' });
+const fetcher = async ([, teamId, season]: [string, string, number]) => {
+  const params = new URLSearchParams({
+    teamId,
+    season: String(season),
+  });
+  const response = await fetch(`/api/players?${params.toString()}`, {
+    cache: 'no-store',
+  });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.error ?? 'Failed to load players');
@@ -20,9 +26,11 @@ const fetcher = async (url: string) => {
   return response.json();
 };
 
-export const usePlayers = (gameId?: string) => {
+export const usePlayers = (teamId?: string, season?: number) => {
+  const normalizedSeason = season ?? new Date().getFullYear();
+  const swrKey = teamId ? (['players', teamId, normalizedSeason] as const) : null;
   const { data, error, isLoading } = useSWR<PlayerSummary[]>(
-    gameId ? `/api/players?gameId=${gameId}` : null,
+    swrKey,
     fetcher,
     { revalidateOnFocus: false },
   );

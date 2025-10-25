@@ -1,5 +1,3 @@
-import type { Locale } from '../../lib/constants';
-
 export interface ProviderTeam {
   id: string;
   name: string;
@@ -35,10 +33,7 @@ export interface ProviderBoxScore {
 }
 
 export interface GameProvider {
-  listNextNightGames(options: {
-    locale: Locale;
-    timezone?: string;
-  }): Promise<ProviderGame[]>;
-  listPlayersForGame(gameId: string): Promise<ProviderPlayer[]>;
+  listNextNightGames(): Promise<ProviderGame[]>;
+  listPlayersForGame?(gameId: string): Promise<ProviderPlayer[]>;
   getGameResults(gameId: string): Promise<ProviderBoxScore>;
 }

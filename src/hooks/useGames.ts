@@ -21,7 +21,7 @@ export interface GameSummary {
 }
 
 const fetcher = async (url: string) => {
-  const response = await fetch(url, { next: { revalidate: 60 } });
+  const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.error ?? 'Failed to load games');
@@ -29,14 +29,10 @@ const fetcher = async (url: string) => {
   return response.json();
 };
 
-export const useGames = (locale: Locale) => {
-  const timezone =
-    typeof Intl !== 'undefined'
-      ? Intl.DateTimeFormat().resolvedOptions().timeZone
-      : 'UTC';
-
+export const useGames = (_locale?: Locale) => {
+  void _locale;
   const { data, error, isLoading, mutate } = useSWR<GameSummary[]>(
-    `/api/games?locale=${locale}&timezone=${encodeURIComponent(timezone)}`,
+    '/api/games',
     fetcher,
     { revalidateOnFocus: false },
   );

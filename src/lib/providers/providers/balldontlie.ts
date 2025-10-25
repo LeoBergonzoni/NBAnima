@@ -1,6 +1,7 @@
-import { formatISO } from 'date-fns';
+import { addDays } from 'date-fns';
 
-import { getNextUsNightWindow } from '../../time';
+import { getTeamLogoByAbbr } from '@/lib/logos';
+
 import type {
   GameProvider,
   ProviderBoxScore,
@@ -10,11 +11,13 @@ import type {
 
 const BASE_URL = 'https://api.balldontlie.io/v1';
 
-export async function fetchFromBalldontlie(endpoint: string) {
+async function blFetch<T>(endpoint: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${endpoint}`, {
+    ...init,
     headers: {
       Authorization: process.env.BALLDONTLIE_API_KEY ?? '',
       'Content-Type': 'application/json',
+      ...(init?.headers || {}),
     },
     cache: 'no-store',
   });
@@ -24,33 +27,134 @@ export async function fetchFromBalldontlie(endpoint: string) {
     throw new Error(`Balldontlie request failed (${res.status}): ${err}`);
   }
 
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
-interface BalldontlieTeam {
-  id: number;
-  full_name: string;
-  city: string;
-}
-
-interface BalldontlieGame {
-  id: number;
-  date: string;
-  status: string;
-  arena?: string | null;
-  home_team: BalldontlieTeam;
-  visitor_team: BalldontlieTeam;
-  home_team_score: number;
-  visitor_team_score: number;
-}
-
-interface BalldontliePlayer {
+export type BLPlayer = {
   id: number;
   first_name: string;
   last_name: string;
   position: string | null;
-  team: BalldontlieTeam | null;
+  height: string | null;
+  weight: string | null;
+  team: {
+    id: number;
+    abbreviation: string;
+    full_name: string;
+  };
+};
+
+export type BLGame = {
+  id: number;
+  date: string;
+  home_team: {
+    id: number;
+    abbreviation: string;
+    full_name: string;
+  };
+  visitor_team: {
+    id: number;
+    abbreviation: string;
+    full_name: string;
+  };
+  season: number;
+  status: string;
+  home_team_score?: number;
+  visitor_team_score?: number;
+};
+
+type BLList<T> = { data: T[]; meta?: { next_cursor?: number | null } };
+
+const PER_PAGE = 100;
+
+export async function listTeamPlayers(
+  teamId: number,
+  season: number,
+): Promise<BLPlayer[]> {
+  let next: number | null | undefined = 0;
+  const all: BLPlayer[] = [];
+
+  while (next !== null) {
+    const cursorParam: string =
+      typeof next === 'number' && next > 0 ? `&cursor=${next}` : '';
+    const page = await blFetch<BLList<BLPlayer>>(
+      `/players?team_ids[]=${teamId}&season=${season}&per_page=${PER_PAGE}${cursorParam}`,
+    );
+    all.push(...(page.data ?? []));
+    next = page.meta?.next_cursor ?? null;
+  }
+
+  return all;
 }
+
+function nextSlateDateNY(now = new Date()): string {
+  const hourFormatter = new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    hour12: false,
+    timeZone: 'America/New_York',
+  });
+  const hourNY = Number(hourFormatter.format(now));
+  const base = hourNY < 5 ? now : addDays(now, 1);
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter
+    .formatToParts(base)
+    .reduce<Record<string, string>>((acc, part) => {
+      if (part.type !== 'literal') {
+        acc[part.type] = part.value;
+      }
+      return acc;
+    }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+export async function listNextNightGames(): Promise<BLGame[]> {
+  const date = nextSlateDateNY();
+  const resp = await blFetch<BLList<BLGame>>(`/games?dates[]=${date}&per_page=${PER_PAGE}`);
+  return resp.data ?? [];
+}
+
+const fetchNextSlateGames = listNextNightGames;
+
+const mapStatus = (status: string): ProviderGame['status'] => {
+  const normalized = status.toLowerCase();
+  if (normalized.includes('final')) return 'final';
+  if (normalized.includes('in progress')) return 'in_progress';
+  return 'scheduled';
+};
+
+const toProviderPlayer = (player: BLPlayer): ProviderPlayer => ({
+  id: String(player.id),
+  fullName: `${player.first_name} ${player.last_name}`.trim(),
+  firstName: player.first_name,
+  lastName: player.last_name,
+  position: player.position || null,
+  teamId: String(player.team?.id ?? ''),
+});
+
+const toProviderGame = (game: BLGame): ProviderGame => ({
+  id: String(game.id),
+  startsAt: game.date,
+  status: mapStatus(game.status ?? 'scheduled'),
+  homeTeam: {
+    id: String(game.home_team.id),
+    name: game.home_team.full_name,
+    city: null,
+    logo: getTeamLogoByAbbr(game.home_team.abbreviation),
+  },
+  awayTeam: {
+    id: String(game.visitor_team.id),
+    name: game.visitor_team.full_name,
+    city: null,
+    logo: getTeamLogoByAbbr(game.visitor_team.abbreviation),
+  },
+  arena: null,
+});
 
 interface BalldontlieStat {
   player: { id: number };
@@ -62,112 +166,46 @@ interface BalldontlieStat {
   fg3m?: number | null;
 }
 
-const mapStatus = (status: string): ProviderGame['status'] => {
-  if (status.toLowerCase().includes('final')) {
-    return 'final';
-  }
-  if (status.toLowerCase().includes('in progress')) {
-    return 'in_progress';
-  }
-  return 'scheduled';
-};
-
-const makeRequest = async <T>(
-  path: string,
-  searchParams: Record<string, string | number | undefined> = {},
-): Promise<T> => {
-  const url = new URL(path, BASE_URL);
-  Object.entries(searchParams).forEach(([key, value]) => {
-    if (value !== undefined) {
-      url.searchParams.set(key, String(value));
-    }
-  });
-
-  const relativeEndpoint = `${url.pathname}${url.search}`;
-  return fetchFromBalldontlie(relativeEndpoint) as Promise<T>;
-};
-
 export const balldontlieProvider: GameProvider = {
   async listNextNightGames() {
-    const { start, end } = getNextUsNightWindow();
-    const data = await makeRequest<{ data: BalldontlieGame[] }>('/games', {
-      start_date: formatISO(start, { representation: 'date' }),
-      end_date: formatISO(end, { representation: 'date' }),
-      per_page: 100,
-    });
-
-    return data.data.map<ProviderGame>((game) => ({
-      id: String(game.id),
-      startsAt: game.date,
-      arena: game.arena ?? null,
-      homeTeam: {
-        id: String(game.home_team.id),
-        name: game.home_team.full_name,
-        city: game.home_team.city,
-        logo: null,
-      },
-      awayTeam: {
-        id: String(game.visitor_team.id),
-        name: game.visitor_team.full_name,
-        city: game.visitor_team.city,
-        logo: null,
-      },
-      status: mapStatus(game.status ?? 'scheduled'),
-    }));
+    const games = await fetchNextSlateGames();
+    return games.map(toProviderGame);
   },
 
   async listPlayersForGame(gameId) {
-    const game = await makeRequest<BalldontlieGame>(`/games/${gameId}`);
-    const teamIds = [game.home_team.id, game.visitor_team.id];
-
-    const results = await Promise.all(
-      teamIds.map((teamId: number) =>
-        makeRequest<{ data: BalldontliePlayer[] }>('/players', {
-          'team_ids[]': teamId,
-          per_page: 100,
-        }),
-      ),
-    );
+    const game = await blFetch<BLGame>(`/games/${gameId}`);
+    const season = game.season ?? new Date(game.date).getFullYear();
+    const [home, away] = await Promise.all([
+      listTeamPlayers(game.home_team.id, season),
+      listTeamPlayers(game.visitor_team.id, season),
+    ]);
 
     const seen = new Set<string>();
-
-    return results.flatMap((result) =>
-      result.data
-        .map<ProviderPlayer>((player) => ({
-          id: String(player.id),
-          fullName: `${player.first_name} ${player.last_name}`.trim(),
-          firstName: player.first_name,
-          lastName: player.last_name,
-          position: player.position || null,
-          teamId: String(player.team?.id ?? ''),
-        }))
-        .filter((player) => {
-          if (!player.id || seen.has(player.id)) {
-            return false;
-          }
-          seen.add(player.id);
-          return true;
-        }),
-    );
+    return [...home, ...away]
+      .map(toProviderPlayer)
+      .filter((player) => {
+        if (!player.id || seen.has(player.id)) {
+          return false;
+        }
+        seen.add(player.id);
+        return true;
+      });
   },
 
   async getGameResults(gameId) {
     const [game, stats] = await Promise.all([
-      makeRequest<BalldontlieGame>(`/games/${gameId}`),
-      makeRequest<{ data: BalldontlieStat[] }>('/stats', {
-        'game_ids[]': gameId,
-        per_page: 100,
-      }),
+      blFetch<BLGame>(`/games/${gameId}`),
+      blFetch<BLList<BalldontlieStat>>(`/stats?game_ids[]=${gameId}&per_page=${PER_PAGE}`),
     ]);
 
     const winnerTeamId =
-      game.home_team_score > game.visitor_team_score
-        ? String(game.home_team?.id)
-        : String(game.visitor_team?.id);
+      (game.home_team_score ?? 0) > (game.visitor_team_score ?? 0)
+        ? String(game.home_team.id)
+        : String(game.visitor_team.id);
 
     const leadersMap = new Map<string, { playerId: string; value: number }>();
 
-    stats.data.forEach((stat) => {
+    (stats.data ?? []).forEach((stat) => {
       const playerId = String(stat.player.id);
       const ensure = (category: string, value: number) => {
         const existing = leadersMap.get(category);
@@ -193,3 +231,5 @@ export const balldontlieProvider: GameProvider = {
     } satisfies ProviderBoxScore;
   },
 };
+
+export const mapBalldontliePlayer = toProviderPlayer;

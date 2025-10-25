@@ -132,8 +132,18 @@ const TeamButton = ({
           : 'border-white/10 bg-navy-800/60 hover:border-accent-gold/60',
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-navy-900 text-lg font-bold text-accent-gold">
-        {initials}
+      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-navy-900 text-lg font-bold text-accent-gold">
+        {team.logo ? (
+          <Image
+            src={team.logo}
+            alt={`${team.name} logo`}
+            width={48}
+            height={48}
+            className="h-full w-full object-contain"
+          />
+        ) : (
+          initials
+        )}
       </div>
       <div className="flex flex-col">
         <span className="text-sm font-semibold text-white">{team.name}</span>
@@ -189,13 +199,21 @@ const GamePlayersCard = ({
   onChange: (category: string, playerId: string) => void;
   onPlayersLoaded: (gameId: string, players: PlayerSummary[]) => void;
 }) => {
-  const { players, isLoading } = usePlayers(game.id);
+  const season = useMemo(() => new Date(game.startsAt).getFullYear(), [game.startsAt]);
+  const homeRoster = usePlayers(game.homeTeam.id, season);
+  const awayRoster = usePlayers(game.awayTeam.id, season);
+  const combinedPlayers = useMemo(
+    () => [...homeRoster.players, ...awayRoster.players],
+    [homeRoster.players, awayRoster.players],
+  );
+  const isLoading = homeRoster.isLoading || awayRoster.isLoading;
+  const hasError = homeRoster.error || awayRoster.error;
 
   useEffect(() => {
-    if (players.length) {
-      onPlayersLoaded(game.id, players);
+    if (combinedPlayers.length) {
+      onPlayersLoaded(game.id, combinedPlayers);
     }
-  }, [game.id, onPlayersLoaded, players]);
+  }, [combinedPlayers, game.id, onPlayersLoaded]);
 
   return (
     <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-900/60 p-4 shadow-card">
@@ -210,6 +228,11 @@ const GamePlayersCard = ({
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{dictionary.common.loading}</span>
         </div>
+      ) : hasError ? (
+        <p className="text-sm text-red-400">
+          {(homeRoster.error ?? awayRoster.error)?.message ??
+            'Failed to load players'}
+        </p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {PLAYER_CATEGORIES.map((category) => (
@@ -223,7 +246,7 @@ const GamePlayersCard = ({
                 className="rounded-xl border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
               >
                 <option value="">—</option>
-                {players.map((player) => (
+                {combinedPlayers.map((player) => (
                   <option key={player.id} value={player.id}>
                     {player.fullName}
                     {player.position ? ` · ${player.position}` : ''}
