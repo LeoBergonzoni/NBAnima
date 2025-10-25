@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 
 import './globals.css';
+import { RosterPreload } from '@/components/providers/roster-preload';
 import { APP_TITLE } from '@/lib/constants';
 
 export const geist = localFont({
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body
         className="antialiased bg-navy-950 text-slate-100"
       >
+        <RosterPreload />
         {children}
       </body>
     </html>

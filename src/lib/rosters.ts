@@ -15,6 +15,8 @@ type RosterMap = Map<string, Player[]>;
 
 let rosterCache: RosterMap | null = null;
 const LS_KEY = 'nba_rosters_v1';
+const DEV =
+  typeof window !== 'undefined' && window.location.hostname.includes('localhost');
 
 const normalizeTeamKey = (value: string) =>
   value
@@ -33,15 +35,7 @@ const MATCH_ALIASES: Record<string, string> = {
   'new york knicks': 'new york knicks',
   'gs warriors': 'golden state warriors',
   'golden state': 'golden state warriors',
-  'phoenix': 'phoenix suns',
-};
-
-const getBasePath = () => {
-  const importMeta = import.meta as { env?: Record<string, string> };
-  const fromImport = importMeta?.env?.BASE_URL ?? '';
-  const fromEnv = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
-  const base = fromImport || fromEnv || '/';
-  return base.endsWith('/') ? base : `${base}/`;
+  phoenix: 'phoenix suns',
 };
 
 const reviveFromLocalStorage = (): RosterMap | null => {
@@ -86,12 +80,13 @@ export async function loadRostersFromExcel(): Promise<RosterMap> {
   const revived = reviveFromLocalStorage();
   if (revived) {
     rosterCache = revived;
-    return revived;
+    if (DEV) {
+      console.info('[rosters] revived from localStorage:', revived.size, 'teams');
+    }
+    return rosterCache;
   }
 
-  const base = getBasePath();
-  const url = `${base}nba_rosters_full.xlsx`.replace(/\/\/+/g, '/');
-
+  const url = new URL('/nba_rosters_full.xlsx', window.location.origin).toString();
   const buffer = await fetch(url, { cache: 'no-cache' }).then((response) => {
     if (!response.ok) {
       throw new Error(`Failed to fetch ${url}: ${response.status}`);
@@ -101,6 +96,9 @@ export async function loadRostersFromExcel(): Promise<RosterMap> {
 
   const workbook = XLSX.read(buffer, { type: 'array' });
   const map: RosterMap = new Map();
+  if (DEV) {
+    console.info('[rosters] sheets:', workbook.SheetNames);
+  }
 
   for (const sheetName of workbook.SheetNames) {
     const worksheet = workbook.Sheets[sheetName];
@@ -124,7 +122,7 @@ export async function loadRostersFromExcel(): Promise<RosterMap> {
           age: Number.isFinite(ageValue) ? ageValue : undefined,
           height: String(row.Height ?? row.HT ?? '').trim() || undefined,
           weight: String(row.Weight ?? row.WT ?? '').trim() || undefined,
-        };
+        } as Player;
       })
       .filter((player) => Boolean(player.name));
 
@@ -135,6 +133,9 @@ export async function loadRostersFromExcel(): Promise<RosterMap> {
 
   rosterCache = map;
   persistToLocalStorage(map);
+  if (DEV) {
+    console.info('[rosters] loaded teams:', map.size);
+  }
   return map;
 }
 
@@ -167,7 +168,7 @@ const resolveTeamKey = ({
   return null;
 };
 
-const sortPlayers = (list: Player[]) =>
+const orderPlayers = (list: Player[]) =>
   [...list].sort((a, b) => {
     const posCompare = (a.position || '').localeCompare(b.position || '');
     if (posCompare !== 0) {
@@ -182,31 +183,39 @@ export async function getPlayersByTeam(input: {
   teamId?: number;
 }): Promise<Player[]> {
   const map = await loadRostersFromExcel();
-  const resolvedKey = resolveTeamKey(input);
+  const key = resolveTeamKey(input);
 
-  if (resolvedKey && map.has(resolvedKey)) {
-    return sortPlayers(map.get(resolvedKey)!);
+  if (DEV) {
+    console.info('[rosters] resolve', input, '→', key);
   }
 
-  if (resolvedKey) {
+  if (key && map.has(key)) {
+    return orderPlayers(map.get(key)!);
+  }
+
+  if (key) {
     const fuzzyKey = [...map.keys()].find(
-      (key) => key.includes(resolvedKey) || resolvedKey.includes(key),
+      (entry) => entry.includes(key) || key.includes(entry),
     );
+    if (DEV) {
+      console.warn('[rosters] fuzzy', key, '→', fuzzyKey);
+    }
     if (fuzzyKey && map.has(fuzzyKey)) {
-      return sortPlayers(map.get(fuzzyKey)!);
+      return orderPlayers(map.get(fuzzyKey)!);
     }
   }
 
   if (input.triCode) {
     const name = TRI_TO_NAME[input.triCode.toUpperCase()];
-    if (name) {
-      const normalized = normalizeTeamKey(name);
-      if (map.has(normalized)) {
-        return sortPlayers(map.get(normalized)!);
-      }
+    const normalized = name ? normalizeTeamKey(name) : null;
+    if (normalized && map.has(normalized)) {
+      return orderPlayers(map.get(normalized)!);
     }
   }
 
+  if (DEV) {
+    console.error('[rosters] not found for', input);
+  }
   return [];
 }
 

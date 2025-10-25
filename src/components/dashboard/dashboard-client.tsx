@@ -26,7 +26,7 @@ import {
   type TeamPick,
   usePicks,
 } from '@/hooks/usePicks';
-import { usePlayers } from '@/hooks/usePlayers';
+import { useTeamPlayers } from '@/hooks/useTeamPlayers';
 
 const PLAYER_CATEGORIES = [
   'top_scorer',
@@ -200,25 +200,60 @@ const GamePlayersCard = ({
   onChange: (category: string, playerId: string) => void;
   onPlayersLoaded: (gameId: string, players: PlayerSummary[]) => void;
 }) => {
-  const season = useMemo(() => new Date(game.startsAt).getFullYear(), [game.startsAt]);
-  const homeRoster = usePlayers({
+  const homeRoster = useTeamPlayers({
     teamId: game.homeTeam.id,
     teamName: game.homeTeam.name,
     triCode: game.homeTeam.abbreviation,
-    season,
   });
-  const awayRoster = usePlayers({
+  const awayRoster = useTeamPlayers({
     teamId: game.awayTeam.id,
     teamName: game.awayTeam.name,
     triCode: game.awayTeam.abbreviation,
-    season,
   });
-  const combinedPlayers = useMemo(
-    () => [...homeRoster.players, ...awayRoster.players],
-    [homeRoster.players, awayRoster.players],
+
+  const homeOptions = useMemo(
+    () =>
+      homeRoster.options.map((option, index) => ({
+        label: option.label,
+        value: `${game.homeTeam.id}-${index}-${option.label}`,
+        meta: option.meta,
+        teamId: game.homeTeam.id,
+      })),
+    [game.homeTeam.id, homeRoster.options],
   );
-  const isLoading = homeRoster.isLoading || awayRoster.isLoading;
-  const hasError = homeRoster.error || awayRoster.error;
+
+  const awayOptions = useMemo(
+    () =>
+      awayRoster.options.map((option, index) => ({
+        label: option.label,
+        value: `${game.awayTeam.id}-${index}-${option.label}`,
+        meta: option.meta,
+        teamId: game.awayTeam.id,
+      })),
+    [game.awayTeam.id, awayRoster.options],
+  );
+
+  const combinedOptions = useMemo(
+    () => [...homeOptions, ...awayOptions],
+    [homeOptions, awayOptions],
+  );
+
+  const combinedPlayers = useMemo(() => {
+    return combinedOptions.map((option) => {
+      const [first, ...rest] = option.label.trim().split(/\s+/);
+      return {
+        id: option.value,
+        fullName: option.label,
+        firstName: first ?? option.label,
+        lastName: rest.join(' '),
+        position: option.meta.position || null,
+        teamId: option.teamId,
+      } satisfies PlayerSummary;
+    });
+  }, [combinedOptions]);
+
+  const isLoading = homeRoster.loading || awayRoster.loading;
+  const loadError = homeRoster.error ?? awayRoster.error ?? null;
 
   useEffect(() => {
     if (combinedPlayers.length) {
@@ -239,11 +274,8 @@ const GamePlayersCard = ({
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{dictionary.common.loading}</span>
         </div>
-      ) : hasError ? (
-        <p className="text-sm text-red-400">
-          {(homeRoster.error ?? awayRoster.error)?.message ??
-            'Failed to load players'}
-        </p>
+      ) : loadError ? (
+        <p className="text-sm text-red-400">Failed to load players: {loadError}</p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {PLAYER_CATEGORIES.map((category) => (
@@ -257,15 +289,28 @@ const GamePlayersCard = ({
                 className="rounded-xl border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
               >
                 <option value="">—</option>
-                {combinedPlayers.map((player) => (
-                  <option key={player.id} value={player.id}>
-                    {player.fullName}
-                    {player.position ? ` · ${player.position}` : ''}
+                {combinedOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                    {option.meta.position ? ` · ${option.meta.position}` : ''}
                   </option>
                 ))}
               </select>
             </label>
           ))}
+        </div>
+      )}
+      {process.env.NODE_ENV !== 'production' && (
+        <div className="text-[11px] text-slate-400">
+          <div>
+            HOME {game.homeTeam.name} / {game.homeTeam.abbreviation ?? '—'} — players:{' '}
+            {homeOptions.length}
+          </div>
+          <div>
+            AWAY {game.awayTeam.name} / {game.awayTeam.abbreviation ?? '—'} — players:{' '}
+            {awayOptions.length}
+          </div>
+          {loadError ? <div className="text-red-400">Error: {loadError}</div> : null}
         </div>
       )}
     </div>
