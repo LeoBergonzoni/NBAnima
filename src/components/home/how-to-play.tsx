@@ -87,7 +87,7 @@ export default function HowToPlay({ content, signupHref }: HowToPlayProps) {
                   alt={play.players.imageAlt}
                   width={520}
                   height={240}
-                  className="h-50 w-50 max-w-md rounded-xl border border-white/10 bg-navy-900/40 p-4"
+                  className="h-50 w-55 max-w-md rounded-xl border border-white/10 bg-navy-900/40 p-4"
                 />
               </div>
               <p className="text-sm font-semibold text-accent-gold">
