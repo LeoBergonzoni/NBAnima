@@ -1,6 +1,5 @@
 import { formatISO } from 'date-fns';
 
-import { getServerEnv } from '../../env';
 import { getNextUsNightWindow } from '../../time';
 import type {
   GameProvider,
@@ -10,6 +9,23 @@ import type {
 } from '../types';
 
 const BASE_URL = 'https://api.balldontlie.io/v1';
+
+export async function fetchFromBalldontlie(endpoint: string) {
+  const res = await fetch(`${BASE_URL}${endpoint}`, {
+    headers: {
+      Authorization: process.env.BALLDONTLIE_API_KEY ?? '',
+      'Content-Type': 'application/json',
+    },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Balldontlie request failed (${res.status}): ${err}`);
+  }
+
+  return res.json();
+}
 
 interface BalldontlieTeam {
   id: number;
@@ -67,20 +83,8 @@ const makeRequest = async <T>(
     }
   });
 
-  const { BALLDONTLIE_API_KEY } = getServerEnv();
-  const res = await fetch(url, {
-    headers: BALLDONTLIE_API_KEY
-      ? { Authorization: `Bearer ${BALLDONTLIE_API_KEY}` }
-      : undefined,
-    next: { revalidate: 60 },
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Balldontlie request failed (${res.status}): ${body}`);
-  }
-
-  return res.json() as Promise<T>;
+  const relativeEndpoint = `${url.pathname}${url.search}`;
+  return fetchFromBalldontlie(relativeEndpoint) as Promise<T>;
 };
 
 export const balldontlieProvider: GameProvider = {
