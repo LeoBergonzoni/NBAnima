@@ -228,7 +228,7 @@ const it: Dictionary = {
             'In base alla giornata devi indovinare chi vincerà gli scontri diretti che si giocheranno la notte successiva.',
           reward: 'Ogni squadra vincente indovinata vale 30 Anima Points.',
           imageAlt: 'Esempio loghi squadre',
-          imageSrc: '/loghi-squadre/LALAkers.png',
+          imageSrc: '/loghi-squadre/LAL.png',
         },
         players: {
           title: 'Categoria “Players”',
@@ -300,12 +300,12 @@ const it: Dictionary = {
       'Completa le tre sfide per ottenere il check verde e massimizzare i tuoi Anima Points.',
     teams: {
       title: 'Teams',
-      description: 'Scegli la squadra vincente per ogni partita della prossima notte.',
+      description: 'Scegli la squadra vincente per ogni partita della prossima notte. 30 Anima Points ogni scelta azzeccata.',
     },
     players: {
       title: 'Players',
       description:
-        'Seleziona i protagonisti per punti, assist, rimbalzi, schiacciate e triple.',
+        'Seleziona i protagonisti per punti, assist, rimbalzi, schiacciate e triple. 50 Anima Points ogni scelta azzeccata.',
       categories: {
         top_scorer: 'Top Scorer',
         top_assist: 'Top Assist',
@@ -509,12 +509,12 @@ const en: Dictionary = {
       'Complete the three challenges to secure the green check and maximize your Anima Points.',
     teams: {
       title: 'Teams',
-      description: 'Pick the winner for every game in the upcoming slate.',
+      description: 'Pick the winner for every game in the upcoming slate. 30 Anima Points for each correct choice.',
     },
     players: {
       title: 'Players',
       description:
-        'Select the standout performers for points, assists, rebounds, dunks, and threes.',
+        'Select the standout performers for points, assists, rebounds, dunks, and threes. 50 Anima Points for each correct choice.',
       categories: {
         top_scorer: 'Top Scorer',
         top_assist: 'Top Assists',
