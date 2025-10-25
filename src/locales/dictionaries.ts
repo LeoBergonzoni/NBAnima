@@ -1,5 +1,54 @@
 import type { Locale } from '@/lib/constants';
 
+type HowToPlayContent = {
+  title: string;
+  subtitle: string;
+  play: {
+    label: string;
+    description: string;
+    imageAlt: string;
+    imageSrc: string;
+    teams: {
+      title: string;
+      description: string;
+      reward: string;
+      imageAlt: string;
+      imageSrc: string;
+    };
+    players: {
+      title: string;
+      description: string;
+      bullets: string[];
+      reward: string;
+      imageAlt: string;
+      imageSrc: string;
+    };
+    highlights: {
+      title: string;
+      description: string;
+      note: string;
+      scoreTitle: string;
+      scores: string[];
+    };
+    multipliers: {
+      title: string;
+      description: string;
+    };
+  };
+  cards: {
+    label: string;
+    description: string;
+    note: string;
+    imageAlt: string;
+    imageSrc: string;
+  };
+  cta: {
+    title: string;
+    subtitle: string;
+    button: string;
+  };
+};
+
 export interface Dictionary {
   common: {
     play: string;
@@ -25,6 +74,7 @@ export interface Dictionary {
     }>;
     ctaRegister: string;
     ctaLogin: string;
+    howToPlay: HowToPlayContent;
   };
   dashboard: {
     welcome: string;
@@ -163,6 +213,75 @@ const it: Dictionary = {
     ],
     ctaRegister: 'Registrati',
     ctaLogin: 'Accedi',
+    howToPlay: {
+      title: 'Come si gioca',
+      subtitle: 'Scopri le regole principali e inizia a giocare con NBAnima.',
+      play: {
+        label: 'Play',
+        description:
+          'Ogni giorno devi provare a indovinare squadre vincenti e giocatori migliori per accumulare Anima Points e acquistare esclusive Cards.',
+        imageAlt: 'Esempio Anima Point',
+        imageSrc: '/anima-point.png',
+        teams: {
+          title: 'Categoria “Teams”',
+          description:
+            'In base alla giornata devi indovinare chi vincerà gli scontri diretti che si giocheranno la notte successiva.',
+          reward: 'Ogni squadra vincente indovinata vale 30 Anima Points.',
+          imageAlt: 'Esempio loghi squadre',
+          imageSrc: '/loghi-squadre/LALAkers.png',
+        },
+        players: {
+          title: 'Categoria “Players”',
+          description: 'In base ai vari match dovrai indovinare i giocatori più performanti:',
+          bullets: [
+            'Top Scorer (chi farà più punti nel match)',
+            'Top Assist (chi farà più assist nel match)',
+            'Top Rebound (chi prenderà più rimbalzi nel match)',
+            'Top Dunk (chi farà più schiacciate nel match)',
+            'Top Threes (chi metterà più triple nel match)',
+          ],
+          reward: 'Ogni previsione corretta vale 50 Anima Points.',
+          imageAlt: 'Esempio giocatore NBA',
+          imageSrc: '/GiannisT.png',
+        },
+        highlights: {
+          title: 'Categoria “Highlights”',
+          description:
+            'Indovina da 1 a 5 giocatori che entreranno nelle NBA Top 5 o Top 10 plays of the night.',
+          note: 'Più alto è il piazzamento, più punti ottieni.',
+          scoreTitle: 'Punteggio',
+          scores: [
+            '1° posto: 100 pt',
+            '2° posto: 90 pt',
+            '3° posto: 80 pt',
+            '4° posto: 70 pt',
+            '5° posto: 60 pt',
+            '6° posto: 50 pt',
+            '7° posto: 40 pt',
+            '8° posto: 30 pt',
+            '9° posto: 20 pt',
+            '10° posto: 10 pt',
+          ],
+        },
+        multipliers: {
+          title: 'Moltiplicatori di Anima Points',
+          description:
+            'Se indovini 5 risultati il totale ottenuto si moltiplica x2; con 10 risultati il totale si moltiplica x3.',
+        },
+      },
+      cards: {
+        label: 'Cards',
+        description: 'Con gli Anima Points puoi acquistare le Anima Cards!',
+        note: 'Completa la tua collezione e mostra a tutti la tua Anima NBA.',
+        imageAlt: 'Esempio Anima Card',
+        imageSrc: '/cards/KobeWinninFistCard.png',
+      },
+      cta: {
+        title: 'Inizia a giocare!',
+        subtitle: 'Registrati, prepara le tue previsioni e scala la classifica NBAnima.',
+        button: 'Registrati ora',
+      },
+    },
   },
   dashboard: {
     welcome: 'Bentornato su NBAnima!',
@@ -303,6 +422,75 @@ const en: Dictionary = {
     ],
     ctaRegister: 'Sign up',
     ctaLogin: 'Log in',
+    howToPlay: {
+      title: 'How to play',
+      subtitle: 'Learn the core rules and start competing with NBAnima.',
+      play: {
+        label: 'Play',
+        description:
+          'Every day, predict the winning teams and standout players to earn Anima Points and unlock exclusive Cards.',
+        imageAlt: 'Example of Anima Point',
+        imageSrc: '/anima-point.png',
+        teams: {
+          title: '“Teams” category',
+          description:
+            'Look at the nightly schedule and pick which team will win each head-to-head matchup.',
+          reward: 'Each correctly predicted winner is worth 30 Anima Points.',
+          imageAlt: 'Example of team logos',
+          imageSrc: '/loghi-squadre/LALAkers.png',
+        },
+        players: {
+          title: '“Players” category',
+          description: 'For every matchup, choose the top performers:',
+          bullets: [
+            'Top Scorer (most points in the matchup)',
+            'Top Assist (most assists in the matchup)',
+            'Top Rebound (most rebounds in the matchup)',
+            'Top Dunk (most dunks in the matchup)',
+            'Top Threes (most three-pointers in the matchup)',
+          ],
+          reward: 'Each correct pick is worth 50 Anima Points.',
+          imageAlt: 'Example NBA player',
+          imageSrc: '/GiannisT.png',
+        },
+        highlights: {
+          title: '“Highlights” category',
+          description:
+            'Select 1 to 5 players you expect to feature in the NBA Top 5 or Top 10 plays of the night.',
+          note: 'The higher the placement, the more points you earn.',
+          scoreTitle: 'Score',
+          scores: [
+            '1st place: 100 pts',
+            '2nd place: 90 pts',
+            '3rd place: 80 pts',
+            '4th place: 70 pts',
+            '5th place: 60 pts',
+            '6th place: 50 pts',
+            '7th place: 40 pts',
+            '8th place: 30 pts',
+            '9th place: 20 pts',
+            '10th place: 10 pts',
+          ],
+        },
+        multipliers: {
+          title: 'Anima Points multipliers',
+          description:
+            'Hit 5 correct results to double (x2) your total, or 10 correct results to triple (x3) it.',
+        },
+      },
+      cards: {
+        label: 'Cards',
+        description: 'Spend your Anima Points to purchase Anima Cards!',
+        note: 'Complete your collection and showcase your NBA soul.',
+        imageAlt: 'Example Anima Card',
+        imageSrc: '/cards/KobeWinninFistCard.png',
+      },
+      cta: {
+        title: 'Start playing!',
+        subtitle: 'Sign up, lock in your picks, and climb the NBAnima leaderboard.',
+        button: 'Sign up now',
+      },
+    },
   },
   dashboard: {
     welcome: 'Welcome back to NBAnima!',

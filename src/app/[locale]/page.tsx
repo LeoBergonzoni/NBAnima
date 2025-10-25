@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import HowToPlay from '@/components/home/how-to-play';
 import { OnboardingShowcase } from '@/components/home/onboarding-showcase';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { ONBOARDING_STEPS } from '@/config/onboarding';
@@ -32,16 +33,16 @@ export default async function LocaleHomePage({
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-navy-950 via-navy-900 to-navy-950 text-white">
-      <section className="relative isolate flex min-h-[70vh] flex-col items-center justify-center gap-6 px-6 pb-20 pt-28 text-center">
+      <section className="relative isolate mx-auto flex w-full max-w-6xl flex-col items-center gap-6 px-4 pb-16 pt-8 text-center sm:px-6 lg:px-8 md:pt-12">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.12),_transparent_55%)]" />
         <div className="absolute inset-0 -z-20 bg-gradient-to-b from-transparent via-navy-950/60 to-navy-950" />
         <Image
-          src="/logo.png"
+          src="/NBAnimasfondo.png"
           alt="NBAnima logo"
-          width={300}
-          height={300}
+          width={1000}
+          height={1000}
           priority
-          className="h-100 w-100 rounded-3xl border border-accent-gold/40 bg-navy-900/60 p-6 shadow-card backdrop-blur"
+          className="mx-auto h-auto w-full max-w-[680px] rounded-3xl border border-accent-gold/40 bg-navy-900/60 p-4 shadow-card backdrop-blur"
         />
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold leading-tight text-white sm:text-5xl">
@@ -51,23 +52,23 @@ export default async function LocaleHomePage({
         <div className="space-y-2 text-slate-300 sm:max-w-2xl">
           <p className="text-base sm:text-lg">{dictionary.home.heroSubtitle}</p>
         </div>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <div className="mt-4 flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
             href={`/${locale}/signup`}
-            className="inline-flex min-w-[180px] items-center justify-center rounded-2xl bg-gradient-to-r from-accent-gold via-accent-coral to-accent-gold px-6 py-3 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110"
+            className="inline-flex min-h-[44px] min-w-[180px] items-center justify-center rounded-2xl bg-gradient-to-r from-accent-gold via-accent-coral to-accent-gold px-6 py-2.5 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110"
           >
             {dictionary.home.ctaRegister}
           </Link>
           <Link
             href={`/${locale}/login`}
-            className="inline-flex min-w-[180px] items-center justify-center rounded-2xl border border-white/15 bg-navy-900/80 px-6 py-3 text-sm font-semibold text-white shadow-card transition hover:border-accent-gold/60"
+            className="inline-flex min-h-[44px] min-w-[180px] items-center justify-center rounded-2xl border border-white/15 bg-navy-900/80 px-6 py-2.5 text-sm font-semibold text-white shadow-card transition hover:border-accent-gold/60"
           >
             {dictionary.home.ctaLogin}
           </Link>
         </div>
       </section>
 
-      <section className="relative mx-auto max-w-6xl px-6 pb-24">
+      <section className="relative mx-auto max-w-6xl px-4 pb-10 sm:px-6 lg:px-8 md:pb-16">
         <div className="mb-8 space-y-2">
           <h2 className="text-2xl font-semibold text-white sm:text-3xl">
             NBAnima Onboarding
@@ -77,16 +78,27 @@ export default async function LocaleHomePage({
           </p>
         </div>
         <OnboardingShowcase cards={onboardingCards} />
-        <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+      </section>
+
+      <HowToPlay
+        content={dictionary.home.howToPlay}
+        signupHref={`/${locale}/signup`}
+      />
+
+      <section
+        id="auth-cta"
+        className="mx-auto max-w-3xl px-4 pb-16 sm:px-6 lg:px-8"
+      >
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link
             href={`/${locale}/signup`}
-            className="inline-flex min-w-[200px] items-center justify-center rounded-2xl bg-gradient-to-r from-accent-gold via-accent-coral to-accent-gold px-6 py-3 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110"
+            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-gradient-to-r from-accent-gold via-accent-coral to-accent-gold px-6 py-2.5 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110 sm:w-auto"
           >
             {dictionary.home.ctaRegister}
           </Link>
           <Link
             href={`/${locale}/login`}
-            className="inline-flex min-w-[200px] items-center justify-center rounded-2xl border border-white/15 bg-navy-900/70 px-6 py-3 text-sm font-semibold text-white shadow-card transition hover:border-accent-gold/60"
+            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl border border-white/15 bg-navy-900/70 px-6 py-2.5 text-sm font-semibold text-white shadow-card transition hover:border-accent-gold/60 sm:w-auto"
           >
             {dictionary.home.ctaLogin}
           </Link>

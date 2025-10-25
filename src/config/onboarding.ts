@@ -4,7 +4,7 @@
  */
 export const ONBOARDING_STEPS = [
   { title: 'Indovina i risultati', img: '/loghi-squadre/LALAkers.png' },
-  { title: 'Scegli i tuoi giocatori', img: '/cards/MangaMjFreethrowCard.png' },
+  { title: 'Scegli i tuoi giocatori', img: '/GiannisT.png' },
   { title: 'Guadagna Anima Points', img: '/anima-point.png' },
   { title: 'Colleziona Cards leggendarie', img: '/cards/KobeWinninFistCard.png' },
 ] as const;
