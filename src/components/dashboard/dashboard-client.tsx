@@ -124,8 +124,9 @@ const TeamButton = ({
     <button
       type="button"
       onClick={() => onSelect(team.id)}
+      aria-pressed={selected}
       className={clsx(
-        'group flex flex-1 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition',
+        'group flex flex-1 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition min-h-[64px]',
         selected
           ? 'border-accent-gold bg-accent-gold/10 shadow-card'
           : 'border-white/10 bg-navy-800/60 hover:border-accent-gold/60',
@@ -603,16 +604,16 @@ export const DashboardClient = ({
   };
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-navy-900/60 p-6 shadow-card md:flex-row md:items-center md:justify-between">
+    <div className="space-y-8 pb-16 pt-2 sm:pt-4 lg:pb-24">
+      <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-navy-900/60 p-6 shadow-card sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-wide text-slate-400">
             {dictionary.dashboard.welcome}
           </p>
           <h1 className="text-2xl font-semibold text-white">NBAnima</h1>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 text-xs text-slate-300 md:inline-flex">
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 text-xs text-slate-300">
             <UserCircle2 className="h-4 w-4 text-accent-gold" />
             <span>{locale.toUpperCase()}</span>
           </div>
@@ -620,7 +621,7 @@ export const DashboardClient = ({
             type="button"
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="inline-flex items-center gap-2 rounded-full border border-accent-gold/40 bg-navy-800/80 px-4 py-2 text-sm font-semibold text-accent-gold transition hover:border-accent-gold hover:bg-navy-800/60 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-accent-gold/40 bg-navy-800/80 px-5 py-2 text-sm font-semibold text-accent-gold transition hover:border-accent-gold hover:bg-navy-800/60 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <LogOut className="h-4 w-4" />
             {isLoggingOut ? '…' : dictionary.common.logout}
@@ -629,7 +630,7 @@ export const DashboardClient = ({
       </header>
 
       <section className="flex flex-col gap-6 rounded-[2rem] border border-accent-gold/40 bg-navy-900/70 p-6 shadow-card lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-gold/40 bg-navy-800/70">
             <Coins className="h-7 w-7 text-accent-gold" />
           </div>
@@ -658,14 +659,15 @@ export const DashboardClient = ({
       </section>
 
       <section className="rounded-[2rem] border border-white/10 bg-navy-900/50 p-4 shadow-card">
-        <div className="flex flex-wrap gap-3">
+        <div className="flex snap-x gap-3 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
+              aria-pressed={activeTab === tab.key}
               className={clsx(
-                'rounded-full border px-4 py-2 text-sm font-semibold transition',
+                'rounded-full border px-5 py-2 text-sm font-semibold transition min-h-[40px]',
                 activeTab === tab.key
                   ? 'border-accent-gold bg-accent-gold/20 text-accent-gold'
                   : 'border-white/10 bg-navy-800/70 text-slate-300 hover:border-accent-gold/30',
@@ -765,21 +767,26 @@ export const DashboardClient = ({
                 />
               </section>
 
-              <footer className="space-y-3">
+              <footer className="space-y-4">
                 <p className="text-sm text-slate-300">{dictionaryChangeHint}</p>
-                {errorMessage ? (
-                  <p className="text-sm text-red-400">{errorMessage}</p>
-                ) : null}
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="min-h-[1.5rem] text-sm text-red-400"
+                >
+                  {errorMessage ?? null}
+                </div>
                 <button
                   type="button"
                   onClick={handleSave}
                   disabled={!canSubmit || picksLoading || gamesLoading || isSaving}
                   className={clsx(
-                    'inline-flex items-center gap-2 rounded-full border px-6 py-3 text-sm font-semibold transition',
+                    'inline-flex w-full items-center justify-center gap-2 rounded-full border px-6 py-3 text-sm font-semibold transition min-h-[48px]',
                     canSubmit && !changeLimitReached
                       ? 'border-lime-400/80 bg-lime-400/20 text-lime-300 hover:bg-lime-400/30'
                       : 'border-white/10 bg-navy-800/70 text-slate-400',
                   )}
+                  aria-busy={isSaving}
                 >
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

@@ -90,76 +90,95 @@ export const AuthForm = ({ mode, locale, copy, switchHref }: AuthFormProps) => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-navy-950 px-4 py-16">
-      <div className="w-full max-w-md rounded-3xl border border-accent-gold/40 bg-navy-900/70 p-8 shadow-card backdrop-blur">
-        <div className="mb-8 space-y-2 text-center">
-          <h1 className="text-2xl font-semibold text-white">{copy.title}</h1>
-          <p className="text-sm text-slate-300">{copy.subtitle}</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-slate-200">
-              {copy.emailLabel}
-            </span>
-            <input
-              type="email"
-              name="email"
-              required
-              className="w-full rounded-xl border border-white/10 bg-navy-800/80 px-4 py-3 text-sm text-white shadow-inner focus:border-accent-gold focus:outline-none focus:ring-2 focus:ring-accent-gold/60"
-            />
-          </label>
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-slate-200">
-              {copy.passwordLabel}
-            </span>
-            <input
-              type="password"
-              name="password"
-              required
-              className="w-full rounded-xl border border-white/10 bg-navy-800/80 px-4 py-3 text-sm text-white shadow-inner focus:border-accent-gold focus:outline-none focus:ring-2 focus:ring-accent-gold/60"
-            />
-          </label>
-          {mode === 'signup' ? (
+    <main className="flex min-h-screen flex-col bg-navy-950 pb-[env(safe-area-inset-bottom)]">
+      <div className="flex flex-1 items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
+        <section className="w-full max-w-lg rounded-[2.25rem] border border-accent-gold/40 bg-navy-900/80 p-6 shadow-card backdrop-blur">
+          <div className="space-y-2 text-center">
+            <h1 className="text-2xl font-semibold text-white">{copy.title}</h1>
+            <p className="text-sm text-slate-300">{copy.subtitle}</p>
+          </div>
+          <form
+            onSubmit={handleSubmit}
+            noValidate
+            className="mt-8 space-y-5"
+          >
             <label className="block space-y-2">
               <span className="text-sm font-medium text-slate-200">
-                {copy.confirmPasswordLabel}
+                {copy.emailLabel}
+              </span>
+              <input
+                type="email"
+                name="email"
+                inputMode="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                spellCheck={false}
+                required
+                className="w-full rounded-2xl border border-white/10 bg-navy-800/90 px-4 py-3 text-base text-white shadow-inner focus:border-accent-gold focus:outline-none focus:ring-2 focus:ring-accent-gold/60"
+              />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-slate-200">
+                {copy.passwordLabel}
               </span>
               <input
                 type="password"
-                name="confirmPassword"
+                name="password"
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 required
-                className="w-full rounded-xl border border-white/10 bg-navy-800/80 px-4 py-3 text-sm text-white shadow-inner focus:border-accent-gold focus:outline-none focus:ring-2 focus:ring-accent-gold/60"
+                className="w-full rounded-2xl border border-white/10 bg-navy-800/90 px-4 py-3 text-base text-white shadow-inner focus:border-accent-gold focus:outline-none focus:ring-2 focus:ring-accent-gold/60"
               />
             </label>
-          ) : null}
-          {errorMessage ? (
-            <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
-              {errorMessage}
+            {mode === 'signup' ? (
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-slate-200">
+                  {copy.confirmPasswordLabel ?? copy.passwordLabel}
+                </span>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  autoComplete="new-password"
+                  required
+                  className="w-full rounded-2xl border border-white/10 bg-navy-800/90 px-4 py-3 text-base text-white shadow-inner focus:border-accent-gold focus:outline-none focus:ring-2 focus:ring-accent-gold/60"
+                />
+              </label>
+            ) : null}
+            <div
+              role="status"
+              aria-live="polite"
+              className="min-h-[1.5rem]"
+            >
+              {errorMessage ? (
+                <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
+                  {errorMessage}
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="submit"
+              disabled={isPending || isRedirecting}
+              aria-busy={isPending || isRedirecting}
+              className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-accent-gold via-accent-coral to-accent-gold px-4 py-3 text-base font-semibold text-navy-900 shadow-card transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isPending || isRedirecting ? '…' : copy.submit}
+            </button>
+          </form>
+          {isRedirecting ? (
+            <p className="mt-4 text-center text-sm text-slate-400">
+              Redirecting to your dashboard…
             </p>
           ) : null}
-          <button
-            type="submit"
-            disabled={isPending || isRedirecting}
-            className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-accent-gold via-accent-coral to-accent-gold px-4 py-3 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isPending || isRedirecting ? '…' : copy.submit}
-          </button>
-        </form>
-        {isRedirecting ? (
-          <p className="mt-4 text-center text-sm text-slate-400">
-            Redirecting to your dashboard…
-          </p>
-        ) : null}
-        <div className="mt-6 text-center text-sm text-slate-300">
-          <span>{copy.switchPrompt} </span>
-          <Link
-            href={switchHref}
-            className="font-semibold text-accent-gold hover:underline"
-          >
-            {copy.switchCta}
-          </Link>
-        </div>
+          <div className="mt-6 text-center text-sm text-slate-300">
+            <span>{copy.switchPrompt} </span>
+            <Link
+              href={switchHref}
+              className="font-semibold text-accent-gold hover:underline"
+            >
+              {copy.switchCta}
+            </Link>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 };
