@@ -20,6 +20,7 @@ const DEV =
 
 const normalizeTeamKey = (value: string) =>
   value
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
     .toLowerCase()
     .replace(/\./g, '')
     .replace(/-/g, ' ')
