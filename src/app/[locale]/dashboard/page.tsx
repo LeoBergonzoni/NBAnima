@@ -1,11 +1,78 @@
 import { notFound, redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
-import { supabaseAdmin } from '@/lib/supabase';
-import type { Database } from '@/lib/supabase.types';
+import {
+  createAdminSupabaseClient,
+  createServerSupabase,
+  supabaseAdmin,
+} from '@/lib/supabase';
+
+type UserProfileRow = Pick<
+  Database['public']['Tables']['users']['Row'],
+  'full_name' | 'anima_points_balance' | 'role'
+>;
+
+const ensureUserProfile = async (
+  userId: string,
+  email?: string | null,
+): Promise<UserProfileRow> => {
+  const admin = createAdminSupabaseClient();
+  const { data, error } = await admin
+    .from('users')
+    .select('full_name, anima_points_balance, role')
+    .eq('id', userId)
+    .maybeSingle<UserProfileRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  if (data) {
+    return data;
+  }
+
+  const fallbackEmail = email ?? `${userId}@nb-anima.local`;
+  const nowIso = new Date().toISOString();
+  const { data: inserted, error: insertError } = await admin
+    .from('users')
+    .upsert(
+      {
+        id: userId,
+        email: fallbackEmail,
+        role: 'user',
+        anima_points_balance: 0,
+        full_name: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      },
+      {
+        onConflict: 'id',
+      },
+    )
+    .select('full_name, anima_points_balance, role')
+    .single<UserProfileRow>();
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  if (inserted) {
+    return inserted;
+  }
+
+  const { data: fetched, error: fetchError } = await admin
+    .from('users')
+    .select('full_name, anima_points_balance, role')
+    .eq('id', userId)
+    .maybeSingle<UserProfileRow>();
+
+  if (fetchError || !fetched) {
+    throw fetchError ?? new Error('Failed to read user profile');
+  }
+
+  return fetched;
+};
 
 interface ShopCard {
   id: string;
@@ -27,7 +94,7 @@ export default async function DashboardPage({
   if (!locale) {
     notFound();
   }
-  const supabase = createServerComponentClient<Database>({ cookies });
+  const supabase = await createServerSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -36,13 +103,16 @@ export default async function DashboardPage({
     redirect(`/${locale}/login`);
   }
 
-  const [{ data: profile, error: profileError }, { data: userCards, error: cardsError }, { data: shopCards, error: shopError }] =
+  let profile: UserProfileRow | null = null;
+  try {
+    profile = await ensureUserProfile(user.id, user.email);
+  } catch (error) {
+    console.error('[dashboard] failed to ensure profile', error);
+    redirect(`/${locale}/login`);
+  }
+
+  const [{ data: userCards, error: cardsError }, { data: shopCards, error: shopError }] =
     await Promise.all([
-      supabaseAdmin
-        .from('users')
-        .select('full_name, anima_points_balance, role')
-        .eq('id', user.id)
-        .maybeSingle(),
       supabaseAdmin
         .from('user_cards')
         .select('card:shop_cards(id, name, description, rarity, price, image_url, accent_color)')
@@ -50,8 +120,8 @@ export default async function DashboardPage({
       supabaseAdmin.from('shop_cards').select('*').order('price', { ascending: true }),
     ]);
 
-  if (profileError || cardsError || shopError || !profile) {
-    console.error('[dashboard] failed to load profile context', profileError || cardsError || shopError);
+  if (cardsError || shopError || !profile) {
+    console.error('[dashboard] failed to load profile context', cardsError || shopError);
     redirect(`/${locale}/login`);
   }
 
