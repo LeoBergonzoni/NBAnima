@@ -7,6 +7,7 @@ import {
   createServerSupabase,
   supabaseAdmin,
 } from '@/lib/supabase';
+import type { Database } from '@/lib/supabase.types';
 
 type UserProfileRow = Pick<
   Database['public']['Tables']['users']['Row'],
