@@ -88,25 +88,18 @@ export async function listTeamPlayers(
 }
 
 function nextSlateDateNY(now = new Date()): string {
-  const hourFormatter = new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    hour12: false,
-    timeZone: 'America/New_York',
-  });
-  const hourNY = Number(hourFormatter.format(now));
-  const base = hourNY < 5 ? now : addDays(now, 1);
+  // Oggi nel fuso America/New_York (senza offset/shift)
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/New_York',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   });
+
   const parts = formatter
-    .formatToParts(base)
+    .formatToParts(now)
     .reduce<Record<string, string>>((acc, part) => {
-      if (part.type !== 'literal') {
-        acc[part.type] = part.value;
-      }
+      if (part.type !== 'literal') acc[part.type] = part.value;
       return acc;
     }, {});
 
@@ -114,11 +107,13 @@ function nextSlateDateNY(now = new Date()): string {
 }
 
 export async function listNextNightGames(): Promise<BLGame[]> {
+  // Ora usa la "data di oggi" secondo NY
   const date = nextSlateDateNY();
   const resp = await blFetch<BLList<BLGame>>(`/games?dates[]=${date}&per_page=${PER_PAGE}`);
   return resp.data ?? [];
 }
 
+// Alias invariato per compatibilità con il resto del codice
 const fetchNextSlateGames = listNextNightGames;
 
 const mapStatus = (status: string): ProviderGame['status'] => {
