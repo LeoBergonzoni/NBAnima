@@ -286,19 +286,21 @@ const GamePlayersCard = ({
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 {dictionary.play.players.categories[category]}
               </span>
-              <select
-                value={playerSelections[category] ?? ''}
-                onChange={(event) => onChange(category, event.target.value)}
-                className="rounded-xl border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
-              >
-                <option value="">—</option>
-                {combinedOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                    {option.meta.position ? ` · ${option.meta.position}` : ''}
-                  </option>
-                ))}
-              </select>
+              <div className="relative z-50 overflow-visible">
+                <select
+                  value={playerSelections[category] ?? ''}
+                  onChange={(event) => onChange(category, event.target.value)}
+                  className="w-full rounded-lg border border-accent-gold bg-navy-900 text-white relative z-50 px-3 py-2 text-sm focus:border-accent-gold focus:outline-none"
+                >
+                  <option value="">—</option>
+                  {combinedOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                      {option.meta.position ? ` · ${option.meta.position}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </label>
           ))}
         </div>
@@ -366,23 +368,25 @@ const HighlightsSelector = ({
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               {dictionary.admin.rank} #{rank}
             </span>
-            <select
-              value={selectedPlayer}
-              onChange={(event) => onChange(rank, event.target.value)}
-              className="rounded-xl border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
-            >
-              <option value="">—</option>
-              {sortedPlayers.map((player) => (
-                <option
-                  key={`${rank}-${player.id}`}
-                  value={player.id}
-                  disabled={selectedPlayer !== player.id && selectedPlayerIds.has(player.id)}
-                >
-                  {player.fullName}
-                  {player.position ? ` · ${player.position}` : ''}
-                </option>
-              ))}
-            </select>
+            <div className="relative z-50 overflow-visible">
+              <select
+                value={selectedPlayer}
+                onChange={(event) => onChange(rank, event.target.value)}
+                className="w-full rounded-lg border border-accent-gold bg-navy-900 text-white relative z-50 px-3 py-2 text-sm focus:border-accent-gold focus:outline-none"
+              >
+                <option value="">—</option>
+                {sortedPlayers.map((player) => (
+                  <option
+                    key={`${rank}-${player.id}`}
+                    value={player.id}
+                    disabled={selectedPlayer !== player.id && selectedPlayerIds.has(player.id)}
+                  >
+                    {player.fullName}
+                    {player.position ? ` · ${player.position}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
           </label>
         );
       })}
