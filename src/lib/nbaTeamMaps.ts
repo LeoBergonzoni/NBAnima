@@ -63,3 +63,44 @@ export const ID_TO_NAME: Record<number, string> = {
   29: 'Utah Jazz',
   30: 'Washington Wizards',
 };
+
+export const ID_TO_TRI: Record<number, string> = {
+  1: 'ATL',
+  2: 'BOS',
+  3: 'BKN',
+  4: 'CHA',
+  5: 'CHI',
+  6: 'CLE',
+  7: 'DAL',
+  8: 'DEN',
+  9: 'DET',
+  10: 'GSW',
+  11: 'HOU',
+  12: 'IND',
+  13: 'LAC',
+  14: 'LAL',
+  15: 'MEM',
+  16: 'MIA',
+  17: 'MIL',
+  18: 'MIN',
+  19: 'NOP',
+  20: 'NYK',
+  21: 'OKC',
+  22: 'ORL',
+  23: 'PHI',
+  24: 'PHX',
+  25: 'POR',
+  26: 'SAC',
+  27: 'SAS',
+  28: 'TOR',
+  29: 'UTA',
+  30: 'WAS',
+};
+
+export const TRI_TO_ID: Record<string, number> = Object.entries(ID_TO_TRI).reduce(
+  (acc, [id, tri]) => {
+    acc[tri] = Number(id);
+    return acc;
+  },
+  {} as Record<string, number>,
+);

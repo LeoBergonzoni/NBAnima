@@ -80,16 +80,31 @@ export interface Dictionary {
     welcome: string;
     animaPoints: string;
     playTab: string;
+    winnersTab: string;
     collectionTab: string;
     shopTab: string;
     statusCompleted: string;
     statusPending: string;
     lockWindowActive: string;
     lastUpdated: string;
+    winners: {
+      title: string;
+      dateLabel: string;
+      pointsOfDay: string;
+      myPick: string;
+      empty: string;
+    };
+    toasts: {
+      cardPurchased: string;
+    };
   };
   play: {
     title: string;
     subtitle: string;
+    links: {
+      nbaStats: string;
+      nbaLineups: string;
+    };
     teams: {
       title: string;
       description: string;
@@ -117,13 +132,16 @@ export interface Dictionary {
   collection: {
     empty: string;
     title: string;
+    download: string;
   };
   shop: {
     title: string;
     buy: string;
     insufficientPoints: string;
     confirmTitle: string;
-    confirmBody: string;
+    confirmMessage: string;
+    owned: string;
+    errorGeneric: string;
   };
   admin: {
     title: string;
@@ -287,17 +305,32 @@ const it: Dictionary = {
     welcome: 'Bentornato su NBAnima!',
     animaPoints: 'Saldo Anima Points',
     playTab: 'Gioca',
+    winnersTab: 'Vincenti',
     collectionTab: 'Collezione',
     shopTab: 'Acquista Cards',
     statusCompleted: 'Completato',
     statusPending: 'Da completare',
     lockWindowActive: 'Window di gioco attiva, non puoi modificare le scelte.',
     lastUpdated: 'Ultimo aggiornamento',
+    winners: {
+      title: 'Vincenti',
+      dateLabel: 'Giornata',
+      pointsOfDay: 'Anima Points ottenuti in questa giornata',
+      myPick: 'My Pick',
+      empty: 'Nessun risultato disponibile per questa data.',
+    },
+    toasts: {
+      cardPurchased: 'Card acquistata!',
+    },
   },
   play: {
     title: 'Preparati alla prossima notte NBA',
     subtitle:
       'Completa le tre sfide per ottenere il check verde e massimizzare i tuoi Anima Points.',
+    links: {
+      nbaStats: 'NBA Stats',
+      nbaLineups: 'NBA Starting lineups',
+    },
     teams: {
       title: 'Teams',
       description: 'Scegli la squadra vincente per ogni partita della prossima notte. 30 Anima Points ogni scelta azzeccata.',
@@ -326,13 +359,16 @@ const it: Dictionary = {
   collection: {
     empty: 'Non hai ancora alcuna card. Completa le sfide per guadagnare punti e acquistare la tua prima carta.',
     title: 'La tua Collezione',
+    download: 'Scarica',
   },
   shop: {
     title: 'Shop Cards',
     buy: 'Acquista ora',
     insufficientPoints: 'Punti insufficienti',
     confirmTitle: 'Confermi l’acquisto?',
-    confirmBody: 'Conferma per spendere i tuoi Anima Points e aggiungere la card alla collezione.',
+    confirmMessage: 'Sei sicuro di voler acquistare questa Card per {price} Anima Points?',
+    owned: 'Acquistata',
+    errorGeneric: 'Qualcosa è andato storto. Riprova.',
   },
   admin: {
     title: 'Console amministratore',
@@ -496,17 +532,32 @@ const en: Dictionary = {
     welcome: 'Welcome back to NBAnima!',
     animaPoints: 'Anima Points balance',
     playTab: 'Play',
+    winnersTab: 'Winners',
     collectionTab: 'Collection',
     shopTab: 'Shop Cards',
     statusCompleted: 'Completed',
     statusPending: 'To-do',
     lockWindowActive: 'Game window locked. Picks cannot be edited now.',
     lastUpdated: 'Last updated',
+    winners: {
+      title: 'Winners',
+      dateLabel: 'Slate',
+      pointsOfDay: 'Anima Points earned this slate',
+      myPick: 'My Pick',
+      empty: 'No results available for this date.',
+    },
+    toasts: {
+      cardPurchased: 'Card purchased!',
+    },
   },
   play: {
     title: 'Gear up for the next NBA night',
     subtitle:
       'Complete the three challenges to secure the green check and maximize your Anima Points.',
+    links: {
+      nbaStats: 'NBA Stats',
+      nbaLineups: 'NBA Starting lineups',
+    },
     teams: {
       title: 'Teams',
       description: 'Pick the winner for every game in the upcoming slate. 30 Anima Points for each correct choice.',
@@ -535,14 +586,17 @@ const en: Dictionary = {
   collection: {
     empty: 'Your collection is empty. Play challenges to earn points and redeem your first card.',
     title: 'Your Collection',
+    download: 'Download',
   },
   shop: {
-    title: 'Card Shop',
-    buy: 'Purchase',
+    title: 'Shop Cards',
+    buy: 'Buy now',
     insufficientPoints: 'Not enough points',
     confirmTitle: 'Confirm purchase?',
-    confirmBody:
-      'Confirm to spend your Anima Points and immediately add the card to your collection.',
+    confirmMessage:
+      'Are you sure you want to purchase this Card for {price} Anima Points?',
+    owned: 'Purchased',
+    errorGeneric: 'Something went wrong. Please try again.',
   },
   admin: {
     title: 'Admin console',
