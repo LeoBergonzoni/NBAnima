@@ -3,7 +3,9 @@
 import clsx from 'clsx';
 import {
   ArrowRight,
+  Check,
   CheckCircle2,
+  ChevronDown,
   CircleDashed,
   Coins,
   Loader2,
@@ -13,8 +15,9 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { Listbox, Transition } from '@headlessui/react';
 
 import { useLocale } from '@/components/providers/locale-provider';
 import type { Locale } from '@/lib/constants';
@@ -255,6 +258,17 @@ const GamePlayersCard = ({
     });
   }, [combinedOptions]);
 
+  const optionMap = useMemo(
+    () =>
+      new Map(
+        combinedOptions.map((option) => [
+          option.value,
+          option,
+        ]),
+      ),
+    [combinedOptions],
+  );
+
   const isLoading = homeRoster.loading || awayRoster.loading;
   const loadError = homeRoster.error ?? awayRoster.error ?? null;
 
@@ -286,20 +300,90 @@ const GamePlayersCard = ({
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 {dictionary.play.players.categories[category]}
               </span>
-              <div className="relative z-50 overflow-visible">
-                <select
+              <div className="relative w-full">
+                <Listbox
                   value={playerSelections[category] ?? ''}
-                  onChange={(event) => onChange(category, event.target.value)}
-                  className="w-full rounded-lg border border-accent-gold bg-navy-900 text-white relative z-50 px-3 py-2 text-sm focus:border-accent-gold focus:outline-none"
+                  onChange={(value) => onChange(category, value)}
                 >
-                  <option value="">—</option>
-                  {combinedOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                      {option.meta.position ? ` · ${option.meta.position}` : ''}
-                    </option>
-                  ))}
-                </select>
+                  {({ open }) => {
+                    const selectedOption = optionMap.get(playerSelections[category] ?? '');
+                    const selectedLabel = selectedOption
+                      ? `${selectedOption.label}${selectedOption.meta.position ? ` · ${selectedOption.meta.position}` : ''}`
+                      : '—';
+                    return (
+                      <>
+                        <Listbox.Button className="relative flex w-full cursor-pointer items-center justify-between rounded-xl border border-accent-gold bg-navy-900/80 px-3 py-2 text-left text-sm text-white shadow-card focus:outline-none">
+                          <span className="truncate">{selectedLabel}</span>
+                          <ChevronDown
+                            className={clsx(
+                              'h-4 w-4 text-accent-gold transition-transform',
+                              open ? 'rotate-180' : '',
+                            )}
+                          />
+                        </Listbox.Button>
+
+                        <Transition
+                          as={Fragment}
+                          leave="transition ease-in duration-100"
+                          leaveFrom="opacity-100"
+                          leaveTo="opacity-0"
+                        >
+                          <Listbox.Options className="absolute z-50 mt-2 max-h-60 w-full overflow-auto rounded-xl border border-accent-gold bg-navy-800/95 text-sm shadow-xl backdrop-blur-md focus:outline-none">
+                            <Listbox.Option
+                              value=""
+                              className={({ active, selected }) =>
+                                clsx(
+                                  'relative cursor-pointer select-none py-2 pl-3 pr-10',
+                                  active ? 'bg-accent-gold/20 text-accent-gold' : 'text-white',
+                                  selected ? 'font-semibold' : 'font-normal',
+                                )
+                              }
+                            >
+                              {({ selected }) => (
+                                <>
+                                  <span>—</span>
+                                  {selected ? (
+                                    <span className="absolute inset-y-0 right-3 flex items-center text-accent-gold">
+                                      <Check className="h-4 w-4" />
+                                    </span>
+                                  ) : null}
+                                </>
+                              )}
+                            </Listbox.Option>
+
+                            {combinedOptions.map((option) => {
+                              const label = `${option.label}${option.meta.position ? ` · ${option.meta.position}` : ''}`;
+                              return (
+                                <Listbox.Option
+                                  key={option.value}
+                                  value={option.value}
+                                  className={({ active, selected }) =>
+                                    clsx(
+                                      'relative cursor-pointer select-none py-2 pl-3 pr-10',
+                                      active ? 'bg-accent-gold/20 text-accent-gold' : 'text-white',
+                                      selected ? 'font-semibold' : 'font-normal',
+                                    )
+                                  }
+                                >
+                                  {({ selected }) => (
+                                    <>
+                                      <span>{label}</span>
+                                      {selected ? (
+                                        <span className="absolute inset-y-0 right-3 flex items-center text-accent-gold">
+                                          <Check className="h-4 w-4" />
+                                        </span>
+                                      ) : null}
+                                    </>
+                                  )}
+                                </Listbox.Option>
+                              );
+                            })}
+                          </Listbox.Options>
+                        </Transition>
+                      </>
+                    );
+                  }}
+                </Listbox>
               </div>
             </label>
           ))}
@@ -362,30 +446,95 @@ const HighlightsSelector = ({
       {Array.from({ length: 5 }).map((_, index) => {
         const rank = index + 1;
         const selectedPlayer = selectedByRank.get(rank) ?? '';
+        const selectedMeta = sortedPlayers.find((player) => player.id === selectedPlayer);
+        const selectedLabel = selectedMeta
+          ? `${selectedMeta.fullName}${selectedMeta.position ? ` · ${selectedMeta.position}` : ''}`
+          : '—';
 
         return (
           <label key={rank} className="flex flex-col gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               {dictionary.admin.rank} #{rank}
             </span>
-            <div className="relative z-50 overflow-visible">
-              <select
-                value={selectedPlayer}
-                onChange={(event) => onChange(rank, event.target.value)}
-                className="w-full rounded-lg border border-accent-gold bg-navy-900 text-white relative z-50 px-3 py-2 text-sm focus:border-accent-gold focus:outline-none"
-              >
-                <option value="">—</option>
-                {sortedPlayers.map((player) => (
-                  <option
-                    key={`${rank}-${player.id}`}
-                    value={player.id}
-                    disabled={selectedPlayer !== player.id && selectedPlayerIds.has(player.id)}
-                  >
-                    {player.fullName}
-                    {player.position ? ` · ${player.position}` : ''}
-                  </option>
-                ))}
-              </select>
+            <div className="relative w-full">
+              <Listbox value={selectedPlayer} onChange={(value) => onChange(rank, value)}>
+                {({ open }) => (
+                  <>
+                    <Listbox.Button className="relative flex w-full cursor-pointer items-center justify-between rounded-xl border border-accent-gold bg-navy-900/80 px-3 py-2 text-left text-sm text-white shadow-card focus:outline-none">
+                      <span className="truncate">{selectedLabel}</span>
+                      <ChevronDown
+                        className={clsx(
+                          'h-4 w-4 text-accent-gold transition-transform',
+                          open ? 'rotate-180' : '',
+                        )}
+                      />
+                    </Listbox.Button>
+                    <Transition
+                      as={Fragment}
+                      leave="transition ease-in duration-100"
+                      leaveFrom="opacity-100"
+                      leaveTo="opacity-0"
+                    >
+                      <Listbox.Options className="absolute z-50 mt-2 max-h-60 w-full overflow-auto rounded-xl border border-accent-gold bg-navy-800/95 text-sm shadow-xl backdrop-blur-md focus:outline-none">
+                        <Listbox.Option
+                          value=""
+                          className={({ active, selected }) =>
+                            clsx(
+                              'relative cursor-pointer select-none py-2 pl-3 pr-10',
+                              active ? 'bg-accent-gold/20 text-accent-gold' : 'text-white',
+                              selected ? 'font-semibold' : 'font-normal',
+                            )
+                          }
+                        >
+                          {({ selected }) => (
+                            <>
+                              <span>—</span>
+                              {selected ? (
+                                <span className="absolute inset-y-0 right-3 flex items-center text-accent-gold">
+                                  <Check className="h-4 w-4" />
+                                </span>
+                              ) : null}
+                            </>
+                          )}
+                        </Listbox.Option>
+
+                        {sortedPlayers.map((player) => {
+                          const label = `${player.fullName}${player.position ? ` · ${player.position}` : ''}`;
+                          const disabled =
+                            selectedPlayer !== player.id && selectedPlayerIds.has(player.id);
+                          return (
+                            <Listbox.Option
+                              key={`${rank}-${player.id}`}
+                              value={player.id}
+                              disabled={disabled}
+                              className={({ active, selected, disabled: optionDisabled }) =>
+                                clsx(
+                                  'relative cursor-pointer select-none py-2 pl-3 pr-10',
+                                  optionDisabled ? 'opacity-50 text-slate-400 cursor-not-allowed' : active
+                                    ? 'bg-accent-gold/20 text-accent-gold'
+                                    : 'text-white',
+                                  selected ? 'font-semibold' : 'font-normal',
+                                )
+                              }
+                            >
+                              {({ selected }) => (
+                                <>
+                                  <span>{label}</span>
+                                  {selected ? (
+                                    <span className="absolute inset-y-0 right-3 flex items-center text-accent-gold">
+                                      <Check className="h-4 w-4" />
+                                    </span>
+                                  ) : null}
+                                </>
+                              )}
+                            </Listbox.Option>
+                          );
+                        })}
+                      </Listbox.Options>
+                    </Transition>
+                  </>
+                )}
+              </Listbox>
             </div>
           </label>
         );
