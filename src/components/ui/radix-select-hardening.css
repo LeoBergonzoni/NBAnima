@@ -1,0 +1,32 @@
+/*
+ * Force readable text inside Radix Select portal on Chrome.
+ * Avoid any inherited -webkit-text-fill-color: transparent, mix-blend, or filter.
+ */
+.nb-radix-select-content {
+  position: relative;
+  z-index: 1000;
+  background: #0b1220 !important; /* solid opaque navy */
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  mix-blend-mode: normal !important;
+  filter: none !important;
+  border: 1px solid rgba(255, 215, 0, 0.6);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.nb-radix-select-viewport {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+.nb-radix-select-item {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+.nb-radix-select-item[data-highlighted] {
+  background: rgba(255, 215, 0, 0.18) !important;
+  color: #ffd700 !important;
+  -webkit-text-fill-color: #ffd700 !important;
+}

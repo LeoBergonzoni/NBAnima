@@ -3,6 +3,8 @@ import * as Select from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
 
+import '@/components/ui/radix-select-hardening.css';
+
 type PlayerOption = {
   id: string | number;
   first_name: string;
@@ -105,7 +107,7 @@ export function PlayerSelect({
     >
       <Select.Trigger
         className={clsx(
-          'w-full rounded-xl border border-accent-gold bg-navy-900 px-3 py-2 text-left text-white shadow-card inline-flex items-center justify-between',
+          'w-full rounded-xl border border-accent-gold bg-navy-900 px-3 py-2 text-white shadow-card inline-flex items-center justify-between',
           'text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60',
         )}
         aria-label="Player"
@@ -118,7 +120,7 @@ export function PlayerSelect({
 
       <Select.Portal>
         <Select.Content
-          className="z-[1000] rounded-xl border border-accent-gold bg-[#0B1220] shadow-xl"
+          className="nb-radix-select-content"
           position="popper"
           sideOffset={6}
         >
@@ -139,12 +141,12 @@ export function PlayerSelect({
             </div>
           ) : null}
 
-          <Select.Viewport className="max-h-72 w-[var(--radix-select-trigger-width)] overflow-auto">
+          <Select.Viewport className="nb-radix-select-viewport max-h-72 w-[var(--radix-select-trigger-width)] overflow-auto">
             {allowClear ? (
               <Select.Item
                 value={CLEAR_VALUE}
                 className={clsx(
-                  'relative cursor-pointer select-none py-2 pl-3 pr-8 text-sm text-white/70',
+                  'nb-radix-select-item relative cursor-pointer select-none py-2 pl-3 pr-8 text-sm text-white/70',
                   'data-[highlighted]:text-white data-[highlighted]:bg-accent-gold/10',
                 )}
               >
@@ -168,7 +170,7 @@ export function PlayerSelect({
                     value={valueId}
                     disabled={player.disabled}
                     className={clsx(
-                      'relative select-none py-2 pl-3 pr-8 text-sm text-white',
+                      'nb-radix-select-item relative select-none py-2 pl-3 pr-8 text-sm text-white',
                       'data-[highlighted]:cursor-pointer data-[highlighted]:bg-accent-gold/20 data-[highlighted]:text-accent-gold',
                       'data-[state=checked]:font-semibold',
                       player.disabled &&
