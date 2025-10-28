@@ -313,6 +313,7 @@ const GamePlayersCard = ({
       ),
     [],
   );
+  const clearLabel = locale === 'it' ? '↺ Pulisci selezione' : '↺ Clear selection';
 
   const isLoading = homeRoster.loading || awayRoster.loading;
   const loadError = homeRoster.error ?? awayRoster.error ?? null;
@@ -340,22 +341,32 @@ const GamePlayersCard = ({
         <p className="text-sm text-red-400">Failed to load players: {loadError}</p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {PLAYER_CATEGORIES.map((category) => (
-            <label key={category} className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                {dictionary.play.players.categories[category]}
-              </span>
-              <PlayerSelect
-                players={selectPlayers}
-                value={playerSelections[category] ?? ''}
-                onChange={(playerId) => onChange(category, playerId)}
-                placeholder="—"
-                searchPlaceholder={searchPlaceholder}
-                emptySearchLabel={emptySearchLabel}
-                filterByQuery={filterByQuery}
-              />
-            </label>
-          ))}
+          {PLAYER_CATEGORIES.map((category) => {
+            const rawValue = playerSelections[category];
+            const normalizedValue =
+              rawValue === undefined || rawValue === null || rawValue === ''
+                ? null
+                : rawValue;
+
+            return (
+              <label key={category} className="flex flex-col gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  {dictionary.play.players.categories[category]}
+                </span>
+                <PlayerSelect
+                  players={selectPlayers}
+                  value={normalizedValue}
+                  onChange={(playerId) => onChange(category, playerId ?? '')}
+                  placeholder="-"
+                  searchPlaceholder={searchPlaceholder}
+                  emptySearchLabel={emptySearchLabel}
+                  filterByQuery={filterByQuery}
+                  allowClear
+                  clearLabel={clearLabel}
+                />
+              </label>
+            );
+          })}
         </div>
       )}
       {process.env.NODE_ENV !== 'production' && (
@@ -434,6 +445,7 @@ const HighlightsSelector = ({
       ),
     [],
   );
+  const clearLabel = locale === 'it' ? '↺ Pulisci selezione' : '↺ Clear selection';
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
@@ -445,6 +457,12 @@ const HighlightsSelector = ({
           disabled:
             player.id !== selectedPlayer && selectedPlayerIds.has(player.id),
         }));
+        const normalizedValue =
+          selectedPlayer === undefined ||
+          selectedPlayer === null ||
+          selectedPlayer === ''
+            ? null
+            : selectedPlayer;
 
         return (
           <label key={rank} className="flex flex-col gap-2">
@@ -453,12 +471,14 @@ const HighlightsSelector = ({
             </span>
             <PlayerSelect
               players={playersForSelect}
-              value={selectedPlayer}
-              onChange={(playerId) => onChange(rank, playerId)}
-              placeholder="—"
+              value={normalizedValue}
+              onChange={(playerId) => onChange(rank, playerId ?? '')}
+              placeholder="-"
               searchPlaceholder={searchPlaceholder}
               emptySearchLabel={emptySearchLabel}
               filterByQuery={filterByQuery}
+              allowClear
+              clearLabel={clearLabel}
             />
           </label>
         );

@@ -13,18 +13,22 @@ type PlayerOption = {
 
 type PlayerSelectProps = {
   players: PlayerOption[];
-  value?: string | number | null;
-  onChange: (id: string) => void;
+  value?: string | number | null | undefined;
+  onChange: (id: string | null) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   emptySearchLabel?: string;
   enableSearch?: boolean;
   filterByQuery?: (player: PlayerOption, query: string) => boolean;
+  allowClear?: boolean;
+  clearLabel?: string;
 };
 
-const DEFAULT_PLACEHOLDER = '—';
+const DEFAULT_PLACEHOLDER = '-';
 const DEFAULT_SEARCH_PLACEHOLDER = 'Search player...';
 const DEFAULT_EMPTY_SEARCH = 'No players found';
+const DEFAULT_CLEAR_LABEL = '↺ Clear selection';
+const CLEAR_VALUE = '__CLEAR__';
 
 export function PlayerSelect({
   players,
@@ -35,31 +39,53 @@ export function PlayerSelect({
   emptySearchLabel = DEFAULT_EMPTY_SEARCH,
   enableSearch = true,
   filterByQuery,
+  allowClear = false,
+  clearLabel = DEFAULT_CLEAR_LABEL,
 }: PlayerSelectProps) {
   const [query, setQuery] = useState('');
 
-  const normalizedValue =
-    value === undefined || value === null ? '' : String(value);
+  const safeValue = value == null ? '' : String(value);
+
+  const cleanedPlayers = useMemo(() => {
+    const map = new Map<string, PlayerOption>();
+    players.forEach((player) => {
+      if (!player) {
+        return;
+      }
+      const rawId = player.id;
+      if (rawId === null || rawId === undefined) {
+        return;
+      }
+      const stringId = String(rawId).trim();
+      if (!stringId) {
+        return;
+      }
+      map.set(stringId, { ...player, id: stringId });
+    });
+    return Array.from(map.values());
+  }, [players]);
 
   const filteredPlayers = useMemo(() => {
     const trimmed = query.trim();
     if (!enableSearch || !trimmed) {
-      return players;
+      return cleanedPlayers;
     }
     if (filterByQuery) {
-      return players.filter((player) => filterByQuery(player, trimmed));
+      return cleanedPlayers.filter((player) => filterByQuery(player, trimmed));
     }
     const lower = trimmed.toLowerCase();
-    return players.filter((player) => {
-      const base = `${player.first_name} ${player.last_name} ${
-        player.position ?? ''
-      }`;
+    return cleanedPlayers.filter((player) => {
+      const base = `${player.first_name} ${player.last_name} ${player.position ?? ''}`;
       return base.toLowerCase().includes(lower);
     });
-  }, [enableSearch, filterByQuery, players, query]);
+  }, [cleanedPlayers, enableSearch, filterByQuery, query]);
 
   const handleValueChange = (nextValue: string) => {
-    onChange(nextValue);
+    if (nextValue === CLEAR_VALUE) {
+      onChange(null);
+      return;
+    }
+    onChange(nextValue === '' ? null : nextValue);
   };
 
   const showNoResults =
@@ -73,18 +99,18 @@ export function PlayerSelect({
 
   return (
     <Select.Root
-      value={normalizedValue}
+      value={safeValue}
       onValueChange={handleValueChange}
       onOpenChange={handleOpenChange}
     >
       <Select.Trigger
         className={clsx(
-          'inline-flex w-full items-center justify-between rounded-xl border border-accent-gold bg-navy-900 px-3 py-2 text-left text-sm text-white shadow-card transition',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60',
+          'w-full rounded-xl border border-accent-gold bg-navy-900 px-3 py-2 text-left text-white shadow-card inline-flex items-center justify-between',
+          'text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60',
         )}
         aria-label="Player"
       >
-        <Select.Value placeholder={placeholder} />
+        <Select.Value placeholder={placeholder ?? DEFAULT_PLACEHOLDER} />
         <Select.Icon className="ml-2 transition-transform data-[state=open]:rotate-180">
           <ChevronDown className="h-4 w-4 text-accent-gold" />
         </Select.Icon>
@@ -114,19 +140,17 @@ export function PlayerSelect({
           ) : null}
 
           <Select.Viewport className="max-h-72 w-[var(--radix-select-trigger-width)] overflow-auto">
-            <Select.Item
-              value=""
-              className={clsx(
-                'relative cursor-pointer select-none py-2 pl-3 pr-8 text-sm text-white',
-                'data-[highlighted]:bg-accent-gold/20 data-[highlighted]:text-accent-gold',
-                'data-[state=checked]:font-semibold',
-              )}
-            >
-              <Select.ItemText>{placeholder}</Select.ItemText>
-              <Select.ItemIndicator className="absolute inset-y-0 right-2 flex items-center text-accent-gold">
-                <Check className="h-4 w-4" />
-              </Select.ItemIndicator>
-            </Select.Item>
+            {allowClear ? (
+              <Select.Item
+                value={CLEAR_VALUE}
+                className={clsx(
+                  'relative cursor-pointer select-none py-2 pl-3 pr-8 text-sm text-white/70',
+                  'data-[highlighted]:text-white data-[highlighted]:bg-accent-gold/10',
+                )}
+              >
+                <Select.ItemText>{clearLabel}</Select.ItemText>
+              </Select.Item>
+            ) : null}
 
             {showNoResults ? (
               <div className="px-3 py-2 text-sm italic text-slate-400">
