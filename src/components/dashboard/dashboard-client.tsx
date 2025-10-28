@@ -208,6 +208,39 @@ const GamePlayersCard = ({
   const homeTeamId = String(game.homeTeam.id);
   const awayTeamId = String(game.awayTeam.id);
 
+// Normalizza un input team in una chiave stringa “stabile” e priva di doppi spazi
+const normalizeTeamInput = (team: any) => {
+  const firstNonEmpty =
+    team?.name ??
+    team?.abbreviation ??
+    (team?.id != null ? String(team.id) : '') ??
+    team?.full_name ??      // se mai presente
+    team?.fullName ??       // se mai presente
+    team?.city ?? '';       // fallback morbido
+
+  return String(firstNonEmpty).replace(/\s+/g, ' ').trim();
+};
+
+// Chiavi memoizzate e con dipendenze che NON cambiano di lunghezza
+const homeKey = useMemo(
+  () => normalizeTeamInput(game.homeTeam),
+  [game.homeTeam?.name, game.homeTeam?.abbreviation, game.homeTeam?.id],
+);
+
+const awayKey = useMemo(
+  () => normalizeTeamInput(game.awayTeam),
+  [game.awayTeam?.name, game.awayTeam?.abbreviation, game.awayTeam?.id],
+);
+
+const url =
+  `/api/players?` +
+  `homeId=${encodeURIComponent(String(game.homeTeam.id))}` +
+  `&homeAbbr=${encodeURIComponent(game.homeTeam.abbreviation ?? '')}` +
+  `&homeName=${encodeURIComponent(homeKey)}` +
+  `&awayId=${encodeURIComponent(String(game.awayTeam.id))}` +
+  `&awayAbbr=${encodeURIComponent(game.awayTeam.abbreviation ?? '')}` +
+  `&awayName=${encodeURIComponent(awayKey)}`;
+  
   const {
     players: apiPlayers,
     homePlayers: homeRosterPlayers,
@@ -278,6 +311,80 @@ const GamePlayersCard = ({
   const awayCount = awayRosterPlayers.length;
 
   useEffect(() => {
+    if (!homeKey || !awayKey) return;
+
+    let cancelled = false;
+    const ctrl = new AbortController();
+  
+    (async () => {
+      try {
+        const url =
+          `/api/players?` +
+          `homeName=${encodeURIComponent(homeKey)}` +
+          `&awayName=${encodeURIComponent(awayKey)}`;
+  
+        const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+  
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          console.warn('[players] fetch failed', {
+            gameId: game.id,
+            status: res.status,
+            error: body?.error,
+            input: { homeKey, awayKey },
+            attempts: body?.missing?.attempts,
+          });
+          return;
+        }
+  
+        const data = await res.json();
+  
+        // === costruiamo PlayerSummary completo ===
+        const toSummary = (p: any): PlayerSummary => {
+          const full =
+            (p.full_name ??
+              `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() ??
+              p.name ??
+              '').replace(/\s+/g, ' ').trim();
+  
+          const [first, ...rest] = full.split(' ');
+          const firstName = first || full;
+          const lastName = rest.join(' ');
+  
+          return {
+            id: String(p.id),
+            fullName: full,
+            firstName,
+            lastName,
+            position: (p.position ?? p.pos ?? null) as string | null,
+            teamId: String(p.team_id ?? p.teamId ?? ''),
+            jersey: p.jersey ?? null,
+          };
+        };
+  
+        const byId = new Map<string, PlayerSummary>();
+        (data?.home ?? []).forEach((p: any) => p?.id && byId.set(String(p.id), toSummary(p)));
+        (data?.away ?? []).forEach((p: any) => p?.id && byId.set(String(p.id), toSummary(p)));
+  
+        const merged: PlayerSummary[] = Array.from(byId.values()).sort((a, b) =>
+          a.fullName.localeCompare(b.fullName),
+        );
+  
+        if (!cancelled) {
+          onPlayersLoaded?.(game.id, merged);
+        }
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          console.error('[players] fetch error', { gameId: game.id, err });
+        }
+      }
+    })();
+  
+    return () => {
+      cancelled = true;
+      ctrl.abort();
+    };
+
     if (missingRosterKeys.length) {
       console.warn('[players] Missing roster entries', {
         gameId: game.id,

@@ -1,1 +1,25 @@
-{}
+{
+    "nyk": "NewYorkKnicks",
+    "new-york-knicks": "NewYorkKnicks",
+  
+    "okc": "OklahomaCityThunder",
+    "oklahoma-city-thunder": "OklahomaCityThunder",
+  
+    "gsw": "GoldenStateWarriors",
+    "golden-state-warriors": "GoldenStateWarriors",
+    "golden state warriors": "GoldenStateWarriors",
+    "golden-state": "GoldenStateWarriors",
+    "GSW": "GoldenStateWarriors",
+  
+    "phi": "Philadelphia76ers",
+    "philadelphia-76ers": "Philadelphia76ers",
+  
+    "mil": "MilwaukeeBucks",
+    "milwaukee-bucks": "MilwaukeeBucks",
+  
+    "sac": "SacramentoKings",
+    "sacramento-kings": "SacramentoKings",
+  
+    "lac": "LAClippers",
+    "los-angeles-clippers": "LAClippers"
+  }

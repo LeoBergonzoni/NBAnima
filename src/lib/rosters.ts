@@ -162,9 +162,17 @@ export async function resolveTeamKey(input: string | null | undefined): Promise<
     return directSlugMatch;
   }
 
-  const aliasMatch = aliases[normalized];
-  if (aliasMatch && aliasMatch in rosters) {
-    return aliasMatch;
+  // 1) alias per abbreviazione (es. "nyk") → chiave rosters
+  const abbrLower = upper.toLowerCase();
+  const abbrAlias = aliases[abbrLower];
+  if (abbrAlias && abbrAlias in rosters) {
+    return abbrAlias;
+  }
+
+  // 2) alias per slug normalizzato (es. "new-york-knicks")
+  const slugAlias = aliases[normalized];
+  if (slugAlias && slugAlias in rosters) {
+    return slugAlias;
   }
 
   for (const [slug, key] of slugCache.entries()) {
