@@ -3,9 +3,7 @@
 import clsx from 'clsx';
 import {
   ArrowRight,
-  Check,
   CheckCircle2,
-  ChevronDown,
   CircleDashed,
   Coins,
   Loader2,
@@ -15,12 +13,10 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Fragment, useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Listbox, Transition } from '@headlessui/react';
 
-import '@/components/ui/listbox-hardening.css';
-
+import { PlayerSelect, type PlayerOption } from '@/components/ui/PlayerSelect';
 import { useLocale } from '@/components/providers/locale-provider';
 import type { Locale } from '@/lib/constants';
 import { createBrowserSupabase } from '@/lib/supabase-browser';
@@ -295,20 +291,27 @@ const GamePlayersCard = ({
     });
   }, [combinedOptions]);
 
-  const [searchQueries, setSearchQueries] = useState<Record<string, string>>({});
-
   const searchPlaceholder = getSearchPlaceholder(locale);
   const emptySearchLabel = getEmptySearchLabel(locale);
 
-  const optionMap = useMemo(
+  const selectPlayers = useMemo(
     () =>
-      new Map(
-        combinedOptions.map((option) => [
-          option.value,
-          option,
-        ]),
+      combinedPlayers.map((player) => ({
+        id: player.id,
+        first_name: player.firstName,
+        last_name: player.lastName,
+        position: player.position,
+      })),
+    [combinedPlayers],
+  );
+
+  const filterByQuery = useCallback(
+    (player: PlayerOption, rawQuery: string) =>
+      fuzzyIncludes(
+        `${player.first_name} ${player.last_name} ${player.position ?? ''}`,
+        rawQuery,
       ),
-    [combinedOptions],
+    [],
   );
 
   const isLoading = homeRoster.loading || awayRoster.loading;
@@ -342,130 +345,15 @@ const GamePlayersCard = ({
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 {dictionary.play.players.categories[category]}
               </span>
-              <div className="nb-listbox w-full">
-                <Listbox
-                  value={playerSelections[category] ?? ''}
-                  onChange={(value) => onChange(category, value)}
-                >
-                  {({ open }) => {
-                    const selectedOption = optionMap.get(playerSelections[category] ?? '');
-                    const selectedLabel = selectedOption
-                      ? `${selectedOption.label}${selectedOption.meta.position ? ` · ${selectedOption.meta.position}` : ''}`
-                      : '—';
-
-                    const query = searchQueries[category] ?? '';
-                    const filteredOptions =
-                      query.trim().length === 0
-                        ? combinedOptions
-                        : combinedOptions.filter((option) =>
-                            fuzzyIncludes(
-                              `${option.label} ${option.meta.position ?? ''}`,
-                              query,
-                            ),
-                          );
-                    const showNoResults =
-                      query.trim().length > 0 && filteredOptions.length === 0;
-                    const optionsContent = showNoResults
-                      ? (
-                        <div className="px-3 py-2 text-sm italic text-slate-400">
-                          {emptySearchLabel}
-                        </div>
-                      )
-                      : filteredOptions.map((option) => {
-                          const label = `${option.label}${option.meta.position ? ` · ${option.meta.position}` : ''}`;
-                          return (
-                            <Listbox.Option
-                              key={option.value}
-                              value={option.value}
-                              className={({ active, selected }) =>
-                                clsx(
-                                  'nb-listbox-option relative cursor-pointer select-none py-2 pl-3 pr-10',
-                                  active && 'nb-listbox-option--active',
-                                  selected && 'nb-listbox-option--selected',
-                                )
-                              }
-                            >
-                              {({ selected }) => (
-                                <>
-                                  <span>{label}</span>
-                                  {selected ? (
-                                    <span className="absolute inset-y-0 right-3 flex items-center text-accent-gold">
-                                      <Check className="h-4 w-4" />
-                                    </span>
-                                  ) : null}
-                                </>
-                              )}
-                            </Listbox.Option>
-                          );
-                        });
-
-                    return (
-                      <>
-                        <Listbox.Button className="nb-listbox-button flex w-full cursor-pointer items-center justify-between rounded-xl border border-accent-gold bg-navy-900/90 px-3 py-2 text-left text-sm text-white shadow-card focus:outline-none">
-                          <span className="truncate">{selectedLabel}</span>
-                          <ChevronDown
-                            className={clsx(
-                              'h-4 w-4 text-accent-gold transition-transform',
-                              open ? 'rotate-180' : '',
-                            )}
-                          />
-                        </Listbox.Button>
-
-                        <Transition
-                          as={Fragment}
-                          enter="transition ease-out duration-100"
-                          enterFrom="opacity-0 translate-y-1"
-                          enterTo="opacity-100 translate-y-0"
-                          leave="transition ease-in duration-100"
-                          leaveFrom="opacity-100"
-                          leaveTo="opacity-0"
-                        >
-                          <Listbox.Options className="nb-listbox-options mt-2 max-h-72 w-full overflow-auto text-sm focus:outline-none">
-                            <div className="sticky top-0 z-10 border-b border-accent-gold/30 bg-[#0b1220] px-3 py-2">
-                              <input
-                                type="text"
-                                value={query}
-                                onChange={(event) =>
-                                  setSearchQueries((prev) => ({
-                                    ...prev,
-                                    [category]: event.target.value,
-                                  }))
-                                }
-                                placeholder={searchPlaceholder}
-                                autoComplete="off"
-                                className="w-full rounded-lg border border-accent-gold/40 bg-navy-900 px-2 py-1 text-sm text-white placeholder-slate-400 focus:border-accent-gold focus:outline-none"
-                              />
-                            </div>
-                            <Listbox.Option
-                              value=""
-                              className={({ active, selected }) =>
-                                clsx(
-                                  'nb-listbox-option relative cursor-pointer select-none py-2 pl-3 pr-10',
-                                  active && 'nb-listbox-option--active',
-                                  selected && 'nb-listbox-option--selected',
-                                )
-                              }
-                            >
-                              {({ selected }) => (
-                                <>
-                                  <span>—</span>
-                                  {selected ? (
-                                    <span className="absolute inset-y-0 right-3 flex items-center text-accent-gold">
-                                      <Check className="h-4 w-4" />
-                                    </span>
-                                  ) : null}
-                                </>
-                              )}
-                            </Listbox.Option>
-
-                            {optionsContent}
-                          </Listbox.Options>
-                        </Transition>
-                      </>
-                    );
-                  }}
-                </Listbox>
-              </div>
+              <PlayerSelect
+                players={selectPlayers}
+                value={playerSelections[category] ?? ''}
+                onChange={(playerId) => onChange(category, playerId)}
+                placeholder="—"
+                searchPlaceholder={searchPlaceholder}
+                emptySearchLabel={emptySearchLabel}
+                filterByQuery={filterByQuery}
+              />
             </label>
           ))}
         </div>
@@ -524,140 +412,54 @@ const HighlightsSelector = ({
     });
   }, [players]);
 
-  const [searchQueries, setSearchQueries] = useState<Record<number, string>>({});
   const searchPlaceholder = getSearchPlaceholder(locale);
   const emptySearchLabel = getEmptySearchLabel(locale);
+
+  const selectPlayers = useMemo(
+    () =>
+      sortedPlayers.map((player) => ({
+        id: player.id,
+        first_name: player.firstName,
+        last_name: player.lastName,
+        position: player.position,
+      })),
+    [sortedPlayers],
+  );
+
+  const filterByQuery = useCallback(
+    (player: PlayerOption, rawQuery: string) =>
+      fuzzyIncludes(
+        `${player.first_name} ${player.last_name} ${player.position ?? ''}`,
+        rawQuery,
+      ),
+    [],
+  );
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {Array.from({ length: 5 }).map((_, index) => {
         const rank = index + 1;
         const selectedPlayer = selectedByRank.get(rank) ?? '';
-        const selectedMeta = sortedPlayers.find((player) => player.id === selectedPlayer);
-        const selectedLabel = selectedMeta
-          ? `${selectedMeta.fullName}${selectedMeta.position ? ` · ${selectedMeta.position}` : ''}`
-          : '—';
-
-        const query = searchQueries[rank] ?? '';
-        const filteredPlayers =
-          query.trim().length === 0
-            ? sortedPlayers
-            : sortedPlayers.filter((player) => {
-                const label = `${player.fullName}${player.position ? ` ${player.position}` : ''}`;
-                return fuzzyIncludes(label, query);
-              });
-        const showNoResults =
-          query.trim().length > 0 && filteredPlayers.length === 0;
-        const optionsContent = showNoResults
-          ? (
-            <div className="px-3 py-2 text-sm italic text-slate-400">
-              {emptySearchLabel}
-            </div>
-          )
-          : filteredPlayers.map((player) => {
-              const label = `${player.fullName}${player.position ? ` · ${player.position}` : ''}`;
-              const disabled =
-                selectedPlayer !== player.id && selectedPlayerIds.has(player.id);
-              return (
-                <Listbox.Option
-                  key={`${rank}-${player.id}`}
-                  value={player.id}
-                  disabled={disabled}
-                  className={({ active, selected, disabled: optionDisabled }) =>
-                    clsx(
-                      'nb-listbox-option relative select-none py-2 pl-3 pr-10',
-                      optionDisabled ? 'nb-listbox-option--disabled' : 'cursor-pointer',
-                      !optionDisabled && active && 'nb-listbox-option--active',
-                      selected && 'nb-listbox-option--selected',
-                    )
-                  }
-                >
-                  {({ selected }) => (
-                    <>
-                      <span>{label}</span>
-                      {selected ? (
-                        <span className="absolute inset-y-0 right-3 flex items-center text-accent-gold">
-                          <Check className="h-4 w-4" />
-                        </span>
-                      ) : null}
-                    </>
-                  )}
-                </Listbox.Option>
-              );
-            });
+        const playersForSelect = selectPlayers.map((player) => ({
+          ...player,
+          disabled:
+            player.id !== selectedPlayer && selectedPlayerIds.has(player.id),
+        }));
 
         return (
           <label key={rank} className="flex flex-col gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               {dictionary.admin.rank} #{rank}
             </span>
-            <div className="nb-listbox w-full">
-              <Listbox value={selectedPlayer} onChange={(value) => onChange(rank, value)}>
-                {({ open }) => (
-                  <>
-                    <Listbox.Button className="nb-listbox-button flex w-full cursor-pointer items-center justify-between rounded-xl border border-accent-gold bg-navy-900/90 px-3 py-2 text-left text-sm text-white shadow-card focus:outline-none">
-                      <span className="truncate">{selectedLabel}</span>
-                      <ChevronDown
-                        className={clsx(
-                          'h-4 w-4 text-accent-gold transition-transform',
-                          open ? 'rotate-180' : '',
-                        )}
-                      />
-                    </Listbox.Button>
-                    <Transition
-                      as={Fragment}
-                      enter="transition ease-out duration-100"
-                      enterFrom="opacity-0 translate-y-1"
-                      enterTo="opacity-100 translate-y-0"
-                      leave="transition ease-in duration-100"
-                      leaveFrom="opacity-100"
-                      leaveTo="opacity-0"
-                    >
-                      <Listbox.Options className="nb-listbox-options mt-2 max-h-72 w-full overflow-auto text-sm focus:outline-none">
-                        <div className="sticky top-0 z-10 border-b border-accent-gold/30 bg-[#0b1220] px-3 py-2">
-                          <input
-                            type="text"
-                            value={query}
-                            onChange={(event) =>
-                              setSearchQueries((prev) => ({
-                                ...prev,
-                                [rank]: event.target.value,
-                              }))
-                            }
-                            placeholder={searchPlaceholder}
-                            autoComplete="off"
-                            className="w-full rounded-lg border border-accent-gold/40 bg-navy-900 px-2 py-1 text-sm text-white placeholder-slate-400 focus:border-accent-gold focus:outline-none"
-                          />
-                        </div>
-                        <Listbox.Option
-                          value=""
-                          className={({ active, selected }) =>
-                            clsx(
-                              'nb-listbox-option relative cursor-pointer select-none py-2 pl-3 pr-10',
-                              active && 'nb-listbox-option--active',
-                              selected && 'nb-listbox-option--selected',
-                            )
-                          }
-                        >
-                          {({ selected }) => (
-                            <>
-                              <span>—</span>
-                              {selected ? (
-                                <span className="absolute inset-y-0 right-3 flex items-center text-accent-gold">
-                                  <Check className="h-4 w-4" />
-                                </span>
-                              ) : null}
-                            </>
-                          )}
-                        </Listbox.Option>
-
-                        {optionsContent}
-                      </Listbox.Options>
-                    </Transition>
-                  </>
-                )}
-              </Listbox>
-            </div>
+            <PlayerSelect
+              players={playersForSelect}
+              value={selectedPlayer}
+              onChange={(playerId) => onChange(rank, playerId)}
+              placeholder="—"
+              searchPlaceholder={searchPlaceholder}
+              emptySearchLabel={emptySearchLabel}
+              filterByQuery={filterByQuery}
+            />
           </label>
         );
       })}
