@@ -38,7 +38,7 @@ const mapPlayer = (player: RosterPlayer, teamId: string): PlayerLite => {
     id: player.id,
     full_name: fullName,
     first_name: firstName,
-    last_name,
+    last_name: lastName,
     position: (player.pos ?? '').toUpperCase(),
     team_id: teamId,
     jersey: player.jersey ?? null,
