@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Select from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
@@ -40,37 +34,35 @@ export function PlayerSelect({
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // debounce ricerca
+  // Debounce ricerca
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    const t = window.setTimeout(() => {
       setDebouncedQuery(query.trim().toLowerCase());
     }, DEBOUNCE_MS);
-    return () => window.clearTimeout(timer);
+    return () => window.clearTimeout(t);
   }, [query]);
 
-  // apertura/chiusura menu
+  // Apertura/chiusura
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen);
-    if (!nextOpen) {
-      setQuery('');
-    }
+    if (!nextOpen) setQuery('');
   }, []);
 
-  // focus automatico sull'input
+  // Focus automatico sull'input quando apro
   useEffect(() => {
     if (!open) return;
-    const frame = requestAnimationFrame(() => {
+    const f = requestAnimationFrame(() => {
       searchRef.current?.focus({ preventScroll: true });
     });
-    return () => cancelAnimationFrame(frame);
+    return () => cancelAnimationFrame(f);
   }, [open]);
 
-  // shortcut Cmd/Ctrl + K
+  // Shortcut Cmd/Ctrl + K
   useEffect(() => {
     if (!open) return;
-    const handler = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
         searchRef.current?.focus({ preventScroll: true });
       }
     };
@@ -78,17 +70,13 @@ export function PlayerSelect({
     return () => window.removeEventListener('keydown', handler);
   }, [open]);
 
-  // filtro giocatori
+  // Filtro
   const filteredOptions = useMemo(() => {
     if (!debouncedQuery) return options;
-    return options.filter((option) => {
-      const labelMatch = option.label.toLowerCase().includes(debouncedQuery);
-      if (labelMatch) return true;
-      const altNames = option.meta?.altNames;
-      if (!altNames?.length) return false;
-      return altNames.some((name) =>
-        name.toLowerCase().includes(debouncedQuery),
-      );
+    return options.filter((opt) => {
+      if (opt.label.toLowerCase().includes(debouncedQuery)) return true;
+      const alt = opt.meta?.altNames ?? [];
+      return alt.some((n) => n.toLowerCase().includes(debouncedQuery));
     });
   }, [options, debouncedQuery]);
 
@@ -98,7 +86,6 @@ export function PlayerSelect({
   };
 
   const currentValue = value ?? '';
-
   const noResults = filteredOptions.length === 0;
 
   return (
@@ -125,29 +112,29 @@ export function PlayerSelect({
         </Select.Trigger>
 
         <Select.Portal>
-          <Select.Content
-            className="nb-radix-select-content"
-            position="popper"
-            sideOffset={6}
-          >
-            {/* barra di ricerca */}
-            <div className="sticky top-0 z-10 bg-navy-900 p-2 border-b border-white/10">
+        <Select.Content
+  className="nb-radix-select-content fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+  position="item-aligned"
+  sideOffset={0}
+>
+<div className="bg-navy-900 border border-white/10 rounded-xl shadow-2xl w-[90%] max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+            {/* 🔎 Ricerca centrata, NON sticky (scorre con la lista) */}
+            <div className="flex items-center justify-center p-3 border-b border-white/10 bg-navy-900">
               <input
                 ref={searchRef}
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  event.stopPropagation();
-                  if (event.key === 'Escape' && query) {
-                    event.preventDefault();
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Escape' && query) {
+                    e.preventDefault();
                     setQuery('');
-                    return;
                   }
                 }}
                 inputMode="search"
                 autoCapitalize="none"
                 autoCorrect="off"
-                className="w-full rounded-md bg-navy-800 px-3 py-2 text-white placeholder:text-slate-400 outline-none ring-1 ring-white/10 focus:ring-accent-gold/40"
+                className="w-[90%] max-w-sm rounded-md bg-navy-800 px-3 py-2 text-white placeholder:text-slate-400 outline-none ring-1 ring-white/10 focus:ring-accent-gold/40"
                 placeholder="Cerca giocatore…"
               />
             </div>
@@ -177,6 +164,7 @@ export function PlayerSelect({
                 ))
               )}
             </Select.Viewport>
+            </div>
           </Select.Content>
         </Select.Portal>
       </Select.Root>
