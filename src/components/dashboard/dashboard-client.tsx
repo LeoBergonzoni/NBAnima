@@ -19,6 +19,8 @@ import { Fragment, useCallback, useEffect, useMemo, useState, useTransition } fr
 import { useRouter } from 'next/navigation';
 import { Listbox, Transition } from '@headlessui/react';
 
+import '@/components/ui/listbox-hardening.css';
+
 import { useLocale } from '@/components/providers/locale-provider';
 import type { Locale } from '@/lib/constants';
 import { createBrowserSupabase } from '@/lib/supabase-browser';
@@ -41,6 +43,41 @@ const PLAYER_CATEGORIES = [
   'top_dunk',
   'top_threes',
 ] as const;
+
+const normalizeSearchValue = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const fuzzyIncludes = (value: string, rawQuery: string) => {
+  const query = normalizeSearchValue(rawQuery.trim());
+  if (!query) {
+    return true;
+  }
+
+  const normalizedValue = normalizeSearchValue(value);
+  if (normalizedValue.includes(query)) {
+    return true;
+  }
+
+  let searchIndex = 0;
+  for (const char of query) {
+    searchIndex = normalizedValue.indexOf(char, searchIndex);
+    if (searchIndex === -1) {
+      return false;
+    }
+    searchIndex += 1;
+  }
+
+  return true;
+};
+
+const getSearchPlaceholder = (locale: Locale) =>
+  locale === 'it' ? 'Cerca giocatore...' : 'Search player...';
+
+const getEmptySearchLabel = (locale: Locale) =>
+  locale === 'it' ? 'Nessun giocatore trovato' : 'No players found';
 
 interface ShopCard {
   id: string;
@@ -258,6 +295,11 @@ const GamePlayersCard = ({
     });
   }, [combinedOptions]);
 
+  const [searchQueries, setSearchQueries] = useState<Record<string, string>>({});
+
+  const searchPlaceholder = getSearchPlaceholder(locale);
+  const emptySearchLabel = getEmptySearchLabel(locale);
+
   const optionMap = useMemo(
     () =>
       new Map(
@@ -300,7 +342,7 @@ const GamePlayersCard = ({
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 {dictionary.play.players.categories[category]}
               </span>
-              <div className="relative w-full">
+              <div className="nb-listbox w-full">
                 <Listbox
                   value={playerSelections[category] ?? ''}
                   onChange={(value) => onChange(category, value)}
@@ -310,9 +352,56 @@ const GamePlayersCard = ({
                     const selectedLabel = selectedOption
                       ? `${selectedOption.label}${selectedOption.meta.position ? ` · ${selectedOption.meta.position}` : ''}`
                       : '—';
+
+                    const query = searchQueries[category] ?? '';
+                    const filteredOptions =
+                      query.trim().length === 0
+                        ? combinedOptions
+                        : combinedOptions.filter((option) =>
+                            fuzzyIncludes(
+                              `${option.label} ${option.meta.position ?? ''}`,
+                              query,
+                            ),
+                          );
+                    const showNoResults =
+                      query.trim().length > 0 && filteredOptions.length === 0;
+                    const optionsContent = showNoResults
+                      ? (
+                        <div className="px-3 py-2 text-sm italic text-slate-400">
+                          {emptySearchLabel}
+                        </div>
+                      )
+                      : filteredOptions.map((option) => {
+                          const label = `${option.label}${option.meta.position ? ` · ${option.meta.position}` : ''}`;
+                          return (
+                            <Listbox.Option
+                              key={option.value}
+                              value={option.value}
+                              className={({ active, selected }) =>
+                                clsx(
+                                  'nb-listbox-option relative cursor-pointer select-none py-2 pl-3 pr-10',
+                                  active && 'nb-listbox-option--active',
+                                  selected && 'nb-listbox-option--selected',
+                                )
+                              }
+                            >
+                              {({ selected }) => (
+                                <>
+                                  <span>{label}</span>
+                                  {selected ? (
+                                    <span className="absolute inset-y-0 right-3 flex items-center text-accent-gold">
+                                      <Check className="h-4 w-4" />
+                                    </span>
+                                  ) : null}
+                                </>
+                              )}
+                            </Listbox.Option>
+                          );
+                        });
+
                     return (
                       <>
-                        <Listbox.Button className="relative flex w-full cursor-pointer items-center justify-between rounded-xl border border-accent-gold bg-navy-900/80 px-3 py-2 text-left text-sm text-white shadow-card focus:outline-none">
+                        <Listbox.Button className="nb-listbox-button flex w-full cursor-pointer items-center justify-between rounded-xl border border-accent-gold bg-navy-900/90 px-3 py-2 text-left text-sm text-white shadow-card focus:outline-none">
                           <span className="truncate">{selectedLabel}</span>
                           <ChevronDown
                             className={clsx(
@@ -324,18 +413,36 @@ const GamePlayersCard = ({
 
                         <Transition
                           as={Fragment}
+                          enter="transition ease-out duration-100"
+                          enterFrom="opacity-0 translate-y-1"
+                          enterTo="opacity-100 translate-y-0"
                           leave="transition ease-in duration-100"
                           leaveFrom="opacity-100"
                           leaveTo="opacity-0"
                         >
-                          <Listbox.Options className="absolute z-50 mt-2 max-h-60 w-full overflow-auto rounded-xl border border-accent-gold bg-navy-800/95 text-sm shadow-xl backdrop-blur-md focus:outline-none">
+                          <Listbox.Options className="nb-listbox-options mt-2 max-h-72 w-full overflow-auto text-sm focus:outline-none">
+                            <div className="sticky top-0 z-10 border-b border-accent-gold/30 bg-[#0b1220] px-3 py-2">
+                              <input
+                                type="text"
+                                value={query}
+                                onChange={(event) =>
+                                  setSearchQueries((prev) => ({
+                                    ...prev,
+                                    [category]: event.target.value,
+                                  }))
+                                }
+                                placeholder={searchPlaceholder}
+                                autoComplete="off"
+                                className="w-full rounded-lg border border-accent-gold/40 bg-navy-900 px-2 py-1 text-sm text-white placeholder-slate-400 focus:border-accent-gold focus:outline-none"
+                              />
+                            </div>
                             <Listbox.Option
                               value=""
                               className={({ active, selected }) =>
                                 clsx(
-                                  'relative cursor-pointer select-none py-2 pl-3 pr-10',
-                                  active ? 'bg-accent-gold/20 text-accent-gold' : 'text-white',
-                                  selected ? 'font-semibold' : 'font-normal',
+                                  'nb-listbox-option relative cursor-pointer select-none py-2 pl-3 pr-10',
+                                  active && 'nb-listbox-option--active',
+                                  selected && 'nb-listbox-option--selected',
                                 )
                               }
                             >
@@ -351,33 +458,7 @@ const GamePlayersCard = ({
                               )}
                             </Listbox.Option>
 
-                            {combinedOptions.map((option) => {
-                              const label = `${option.label}${option.meta.position ? ` · ${option.meta.position}` : ''}`;
-                              return (
-                                <Listbox.Option
-                                  key={option.value}
-                                  value={option.value}
-                                  className={({ active, selected }) =>
-                                    clsx(
-                                      'relative cursor-pointer select-none py-2 pl-3 pr-10',
-                                      active ? 'bg-accent-gold/20 text-accent-gold' : 'text-white',
-                                      selected ? 'font-semibold' : 'font-normal',
-                                    )
-                                  }
-                                >
-                                  {({ selected }) => (
-                                    <>
-                                      <span>{label}</span>
-                                      {selected ? (
-                                        <span className="absolute inset-y-0 right-3 flex items-center text-accent-gold">
-                                          <Check className="h-4 w-4" />
-                                        </span>
-                                      ) : null}
-                                    </>
-                                  )}
-                                </Listbox.Option>
-                              );
-                            })}
+                            {optionsContent}
                           </Listbox.Options>
                         </Transition>
                       </>
@@ -407,11 +488,13 @@ const GamePlayersCard = ({
 };
 
 const HighlightsSelector = ({
+  locale,
   dictionary,
   highlightSelections,
   onChange,
   players,
 }: {
+  locale: Locale;
   dictionary: Dictionary;
   highlightSelections: HighlightPick[];
   onChange: (rank: number, playerId: string) => void;
@@ -441,6 +524,10 @@ const HighlightsSelector = ({
     });
   }, [players]);
 
+  const [searchQueries, setSearchQueries] = useState<Record<number, string>>({});
+  const searchPlaceholder = getSearchPlaceholder(locale);
+  const emptySearchLabel = getEmptySearchLabel(locale);
+
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {Array.from({ length: 5 }).map((_, index) => {
@@ -451,16 +538,64 @@ const HighlightsSelector = ({
           ? `${selectedMeta.fullName}${selectedMeta.position ? ` · ${selectedMeta.position}` : ''}`
           : '—';
 
+        const query = searchQueries[rank] ?? '';
+        const filteredPlayers =
+          query.trim().length === 0
+            ? sortedPlayers
+            : sortedPlayers.filter((player) => {
+                const label = `${player.fullName}${player.position ? ` ${player.position}` : ''}`;
+                return fuzzyIncludes(label, query);
+              });
+        const showNoResults =
+          query.trim().length > 0 && filteredPlayers.length === 0;
+        const optionsContent = showNoResults
+          ? (
+            <div className="px-3 py-2 text-sm italic text-slate-400">
+              {emptySearchLabel}
+            </div>
+          )
+          : filteredPlayers.map((player) => {
+              const label = `${player.fullName}${player.position ? ` · ${player.position}` : ''}`;
+              const disabled =
+                selectedPlayer !== player.id && selectedPlayerIds.has(player.id);
+              return (
+                <Listbox.Option
+                  key={`${rank}-${player.id}`}
+                  value={player.id}
+                  disabled={disabled}
+                  className={({ active, selected, disabled: optionDisabled }) =>
+                    clsx(
+                      'nb-listbox-option relative select-none py-2 pl-3 pr-10',
+                      optionDisabled ? 'nb-listbox-option--disabled' : 'cursor-pointer',
+                      !optionDisabled && active && 'nb-listbox-option--active',
+                      selected && 'nb-listbox-option--selected',
+                    )
+                  }
+                >
+                  {({ selected }) => (
+                    <>
+                      <span>{label}</span>
+                      {selected ? (
+                        <span className="absolute inset-y-0 right-3 flex items-center text-accent-gold">
+                          <Check className="h-4 w-4" />
+                        </span>
+                      ) : null}
+                    </>
+                  )}
+                </Listbox.Option>
+              );
+            });
+
         return (
           <label key={rank} className="flex flex-col gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               {dictionary.admin.rank} #{rank}
             </span>
-            <div className="relative w-full">
+            <div className="nb-listbox w-full">
               <Listbox value={selectedPlayer} onChange={(value) => onChange(rank, value)}>
                 {({ open }) => (
                   <>
-                    <Listbox.Button className="relative flex w-full cursor-pointer items-center justify-between rounded-xl border border-accent-gold bg-navy-900/80 px-3 py-2 text-left text-sm text-white shadow-card focus:outline-none">
+                    <Listbox.Button className="nb-listbox-button flex w-full cursor-pointer items-center justify-between rounded-xl border border-accent-gold bg-navy-900/90 px-3 py-2 text-left text-sm text-white shadow-card focus:outline-none">
                       <span className="truncate">{selectedLabel}</span>
                       <ChevronDown
                         className={clsx(
@@ -471,18 +606,36 @@ const HighlightsSelector = ({
                     </Listbox.Button>
                     <Transition
                       as={Fragment}
+                      enter="transition ease-out duration-100"
+                      enterFrom="opacity-0 translate-y-1"
+                      enterTo="opacity-100 translate-y-0"
                       leave="transition ease-in duration-100"
                       leaveFrom="opacity-100"
                       leaveTo="opacity-0"
                     >
-                      <Listbox.Options className="absolute z-50 mt-2 max-h-60 w-full overflow-auto rounded-xl border border-accent-gold bg-navy-800/95 text-sm shadow-xl backdrop-blur-md focus:outline-none">
+                      <Listbox.Options className="nb-listbox-options mt-2 max-h-72 w-full overflow-auto text-sm focus:outline-none">
+                        <div className="sticky top-0 z-10 border-b border-accent-gold/30 bg-[#0b1220] px-3 py-2">
+                          <input
+                            type="text"
+                            value={query}
+                            onChange={(event) =>
+                              setSearchQueries((prev) => ({
+                                ...prev,
+                                [rank]: event.target.value,
+                              }))
+                            }
+                            placeholder={searchPlaceholder}
+                            autoComplete="off"
+                            className="w-full rounded-lg border border-accent-gold/40 bg-navy-900 px-2 py-1 text-sm text-white placeholder-slate-400 focus:border-accent-gold focus:outline-none"
+                          />
+                        </div>
                         <Listbox.Option
                           value=""
                           className={({ active, selected }) =>
                             clsx(
-                              'relative cursor-pointer select-none py-2 pl-3 pr-10',
-                              active ? 'bg-accent-gold/20 text-accent-gold' : 'text-white',
-                              selected ? 'font-semibold' : 'font-normal',
+                              'nb-listbox-option relative cursor-pointer select-none py-2 pl-3 pr-10',
+                              active && 'nb-listbox-option--active',
+                              selected && 'nb-listbox-option--selected',
                             )
                           }
                         >
@@ -498,38 +651,7 @@ const HighlightsSelector = ({
                           )}
                         </Listbox.Option>
 
-                        {sortedPlayers.map((player) => {
-                          const label = `${player.fullName}${player.position ? ` · ${player.position}` : ''}`;
-                          const disabled =
-                            selectedPlayer !== player.id && selectedPlayerIds.has(player.id);
-                          return (
-                            <Listbox.Option
-                              key={`${rank}-${player.id}`}
-                              value={player.id}
-                              disabled={disabled}
-                              className={({ active, selected, disabled: optionDisabled }) =>
-                                clsx(
-                                  'relative cursor-pointer select-none py-2 pl-3 pr-10',
-                                  optionDisabled ? 'opacity-50 text-slate-400 cursor-not-allowed' : active
-                                    ? 'bg-accent-gold/20 text-accent-gold'
-                                    : 'text-white',
-                                  selected ? 'font-semibold' : 'font-normal',
-                                )
-                              }
-                            >
-                              {({ selected }) => (
-                                <>
-                                  <span>{label}</span>
-                                  {selected ? (
-                                    <span className="absolute inset-y-0 right-3 flex items-center text-accent-gold">
-                                      <Check className="h-4 w-4" />
-                                    </span>
-                                  ) : null}
-                                </>
-                              )}
-                            </Listbox.Option>
-                          );
-                        })}
+                        {optionsContent}
                       </Listbox.Options>
                     </Transition>
                   </>
@@ -1258,6 +1380,7 @@ export const DashboardClient = ({
                   </div>
                 </div>
                 <HighlightsSelector
+                  locale={locale}
                   dictionary={dictionary}
                   highlightSelections={highlightSelections}
                   onChange={handleHighlightSelect}
