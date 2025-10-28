@@ -114,8 +114,9 @@ export function PlayerSelect({
         <Select.Portal>
         <Select.Content
   className="nb-radix-select-content fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-  position="item-aligned"
+  position="popper"
   sideOffset={0}
+  onPointerDownOutside={() => setOpen(false)}
 >
 <div className="bg-navy-900 border border-white/10 rounded-xl shadow-2xl w-[90%] max-w-md max-h-[80vh] overflow-hidden flex flex-col">
             {/* 🔎 Ricerca centrata, NON sticky (scorre con la lista) */}
