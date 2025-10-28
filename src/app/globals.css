@@ -45,3 +45,20 @@ a {
 .pastel-accent {
   background-image: linear-gradient(120deg, rgba(142, 202, 230, 0.15), rgba(255, 159, 28, 0.12));
 }
+
+[role='listbox'],
+[role='option'] {
+  background-color: #0b1220 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  mix-blend-mode: normal !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+[role='option'][data-highlighted],
+[role='option'][aria-selected='true'] {
+  background: rgba(255, 215, 0, 0.18) !important;
+  color: #ffd700 !important;
+  -webkit-text-fill-color: #ffd700 !important;
+}

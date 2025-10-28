@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import * as Select from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
@@ -24,6 +24,7 @@ type PlayerSelectProps = {
   filterByQuery?: (player: PlayerOption, query: string) => boolean;
   allowClear?: boolean;
   clearLabel?: string;
+  portalId?: string;
 };
 
 const DEFAULT_PLACEHOLDER = '-';
@@ -43,6 +44,7 @@ export function PlayerSelect({
   filterByQuery,
   allowClear = false,
   clearLabel = DEFAULT_CLEAR_LABEL,
+  portalId,
 }: PlayerSelectProps) {
   const [query, setQuery] = useState('');
 
@@ -99,6 +101,8 @@ export function PlayerSelect({
     }
   };
 
+  const totalPlayers = cleanedPlayers.length;
+
   return (
     <Select.Root
       value={safeValue}
@@ -107,7 +111,7 @@ export function PlayerSelect({
     >
       <Select.Trigger
         className={clsx(
-          'w-full rounded-xl border border-accent-gold bg-navy-900 px-3 py-2 text-white shadow-card inline-flex items-center justify-between',
+          'w-full rounded-xl border border-accent-gold bg-navy-900 px-3 py-2 text-left text-white shadow-card inline-flex items-center justify-between',
           'text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60',
         )}
         aria-label="Player"
@@ -117,10 +121,18 @@ export function PlayerSelect({
           <ChevronDown className="h-4 w-4 text-accent-gold" />
         </Select.Icon>
       </Select.Trigger>
+      <div className="mt-1 text-xs">
+        {players.length === 0 ? (
+          <span className="text-red-400">No players loaded</span>
+        ) : (
+          <span className="text-slate-400">{totalPlayers} players</span>
+        )}
+      </div>
 
       <Select.Portal>
         <Select.Content
           className="nb-radix-select-content"
+          id={portalId}
           position="popper"
           sideOffset={6}
         >

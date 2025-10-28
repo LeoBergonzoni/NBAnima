@@ -363,6 +363,7 @@ const GamePlayersCard = ({
                   filterByQuery={filterByQuery}
                   allowClear
                   clearLabel={clearLabel}
+                  portalId={`players-select-${game.id}-${category}`}
                 />
               </label>
             );
@@ -479,6 +480,7 @@ const HighlightsSelector = ({
               filterByQuery={filterByQuery}
               allowClear
               clearLabel={clearLabel}
+              portalId={`players-select-highlights-${rank}`}
             />
           </label>
         );
