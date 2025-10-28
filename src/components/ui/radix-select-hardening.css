@@ -1,32 +1,51 @@
-/*
- * Force readable text inside Radix Select portal on Chrome.
- * Avoid any inherited -webkit-text-fill-color: transparent, mix-blend, or filter.
- */
+/* Contenitore del portal Radix */
 .nb-radix-select-content {
   position: relative;
-  z-index: 1000;
-  background: #0b1220 !important; /* solid opaque navy */
+  z-index: 9999;
+  background: #0b1220 !important;           /* opaco */
   color: #ffffff !important;
-  -webkit-text-fill-color: #ffffff !important;
-  mix-blend-mode: normal !important;
-  filter: none !important;
-  border: 1px solid rgba(255, 215, 0, 0.6);
+  border: 1px solid rgba(255, 215, 0, 0.3);
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  opacity: 1 !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
 }
 
+/* Viewport interno */
 .nb-radix-select-viewport {
+  background: #0b1220 !important;           /* opaco */
   color: #ffffff !important;
-  -webkit-text-fill-color: #ffffff !important;
+  opacity: 1 !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
 }
 
-.nb-radix-select-item {
+/* Item testo leggibile in ogni stato */
+.nb-radix-select-item,
+.nb-radix-select-item * {
   color: #ffffff !important;
-  -webkit-text-fill-color: #ffffff !important;
+  -webkit-text-fill-color: currentColor !important;
+  mix-blend-mode: normal !important;
 }
 
+/* Highlight voce selezionata/hover */
 .nb-radix-select-item[data-highlighted] {
   background: rgba(255, 215, 0, 0.18) !important;
   color: #ffd700 !important;
-  -webkit-text-fill-color: #ffd700 !important;
+}
+
+/* Radix avvolge Content in un wrapper Popper: neutralizziamo animazioni/opacity */
+[data-radix-popper-content-wrapper] {
+  opacity: 1 !important;
+  filter: none !important;
+  transform: none !important;
+  mix-blend-mode: normal !important;
+  z-index: 9999 !important;
+}
+
+/* Alcuni reset utili contro stili ereditati */
+.nb-radix-select-content,
+.nb-radix-select-content * {
+  text-shadow: none !important;
 }

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../components/ui/radix-select-hardening.css";
 
 :root {
   color-scheme: dark;

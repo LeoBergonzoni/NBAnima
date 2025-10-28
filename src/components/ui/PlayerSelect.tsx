@@ -26,14 +26,13 @@ type PlayerSelectProps = {
   disabled?: boolean;
 };
 
-const CLEAR_VALUE = '__none__';
 const DEBOUNCE_MS = 130;
 
 export function PlayerSelect({
   value,
   onChange,
   options,
-  placeholder = '-',
+  placeholder = 'Scegli giocatore',
   disabled = false,
 }: PlayerSelectProps) {
   const [open, setOpen] = useState(false);
@@ -41,6 +40,7 @@ export function PlayerSelect({
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
 
+  // debounce ricerca
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setDebouncedQuery(query.trim().toLowerCase());
@@ -48,6 +48,7 @@ export function PlayerSelect({
     return () => window.clearTimeout(timer);
   }, [query]);
 
+  // apertura/chiusura menu
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen);
     if (!nextOpen) {
@@ -55,20 +56,18 @@ export function PlayerSelect({
     }
   }, []);
 
+  // focus automatico sull'input
   useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
+    if (!open) return;
     const frame = requestAnimationFrame(() => {
       searchRef.current?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
   }, [open]);
 
+  // shortcut Cmd/Ctrl + K
   useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
+    if (!open) return;
     const handler = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
@@ -79,19 +78,14 @@ export function PlayerSelect({
     return () => window.removeEventListener('keydown', handler);
   }, [open]);
 
+  // filtro giocatori
   const filteredOptions = useMemo(() => {
-    if (!debouncedQuery) {
-      return options;
-    }
+    if (!debouncedQuery) return options;
     return options.filter((option) => {
       const labelMatch = option.label.toLowerCase().includes(debouncedQuery);
-      if (labelMatch) {
-        return true;
-      }
+      if (labelMatch) return true;
       const altNames = option.meta?.altNames;
-      if (!altNames || altNames.length === 0) {
-        return false;
-      }
+      if (!altNames?.length) return false;
       return altNames.some((name) =>
         name.toLowerCase().includes(debouncedQuery),
       );
@@ -99,15 +93,12 @@ export function PlayerSelect({
   }, [options, debouncedQuery]);
 
   const handleValueChange = (nextValue: string) => {
-    if (nextValue === CLEAR_VALUE) {
-      onChange(undefined);
-    } else {
-      onChange(nextValue);
-    }
+    onChange(nextValue || undefined);
     setOpen(false);
   };
 
-  const currentValue = value ?? CLEAR_VALUE;
+  const currentValue = value ?? '';
+
   const noResults = filteredOptions.length === 0;
 
   return (
@@ -135,10 +126,11 @@ export function PlayerSelect({
 
         <Select.Portal>
           <Select.Content
-            className="bg-navy-900 shadow-2xl border border-white/10 rounded-xl overflow-hidden"
+            className="nb-radix-select-content"
             position="popper"
             sideOffset={6}
           >
+            {/* barra di ricerca */}
             <div className="sticky top-0 z-10 bg-navy-900 p-2 border-b border-white/10">
               <input
                 ref={searchRef}
@@ -155,21 +147,16 @@ export function PlayerSelect({
                 inputMode="search"
                 autoCapitalize="none"
                 autoCorrect="off"
-                className="w-full rounded-md bg-navy-800/80 px-3 py-2 text-white placeholder:text-slate-400 outline-none ring-1 ring-white/10 focus:ring-accent-gold/40"
+                className="w-full rounded-md bg-navy-800 px-3 py-2 text-white placeholder:text-slate-400 outline-none ring-1 ring-white/10 focus:ring-accent-gold/40"
                 placeholder="Cerca giocatore…"
               />
             </div>
 
-            <Select.Viewport className="max-h-[60vh] w-[var(--radix-select-trigger-width)] overflow-auto bg-navy-900/95 supports-[backdrop-filter]:bg-navy-900/80">
-              <Select.Item
-                value={CLEAR_VALUE}
-                className="px-3 py-2 min-h-10 text-white cursor-pointer data-[highlighted]:bg-accent-gold/20 data-[state=checked]:bg-accent-gold/30"
-              >
-                <Select.ItemText>Pulisci selezione</Select.ItemText>
-              </Select.Item>
-
+            <Select.Viewport className="nb-radix-select-viewport max-h-[60vh] w-[var(--radix-select-trigger-width)] overflow-auto">
               {noResults ? (
-                <div className="px-3 py-3 text-sm text-slate-400">Nessun giocatore trovato</div>
+                <div className="px-3 py-3 text-sm text-slate-400">
+                  Nessun giocatore trovato
+                </div>
               ) : (
                 filteredOptions.map((option) => (
                   <Select.Item
@@ -177,7 +164,7 @@ export function PlayerSelect({
                     value={option.value}
                     disabled={Boolean(option.meta?.disabled)}
                     className={clsx(
-                      'px-3 py-2 min-h-10 text-white cursor-pointer data-[highlighted]:bg-accent-gold/20 data-[state=checked]:bg-accent-gold/30',
+                      'nb-radix-select-item px-3 py-2 min-h-10 text-white cursor-pointer select-none data-[highlighted]:bg-accent-gold/20 data-[state=checked]:bg-accent-gold/30',
                       option.meta?.disabled &&
                         'opacity-60 cursor-not-allowed text-slate-400 data-[highlighted]:bg-accent-gold/10',
                     )}
