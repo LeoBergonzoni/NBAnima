@@ -1,201 +1,198 @@
-import { useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import * as Select from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
 
-import '@/components/ui/radix-select-hardening.css';
-
 type PlayerOption = {
-  id: string | number;
-  first_name: string;
-  last_name: string;
-  position?: string | null;
-  disabled?: boolean;
+  value: string;
+  label: string;
+  meta?: {
+    altNames?: string[];
+    disabled?: boolean;
+  };
 };
 
 type PlayerSelectProps = {
-  players: PlayerOption[];
-  value?: string | number | null | undefined;
-  onChange: (id: string | null) => void;
+  value?: string;
+  onChange: (val: string | undefined) => void;
+  options: PlayerOption[];
   placeholder?: string;
-  searchPlaceholder?: string;
-  emptySearchLabel?: string;
-  enableSearch?: boolean;
-  filterByQuery?: (player: PlayerOption, query: string) => boolean;
-  allowClear?: boolean;
-  clearLabel?: string;
-  portalId?: string;
+  disabled?: boolean;
 };
 
-const DEFAULT_PLACEHOLDER = '-';
-const DEFAULT_SEARCH_PLACEHOLDER = 'Search player...';
-const DEFAULT_EMPTY_SEARCH = 'No players found';
-const DEFAULT_CLEAR_LABEL = '↺ Clear selection';
-const CLEAR_VALUE = '__CLEAR__';
+const CLEAR_VALUE = '__none__';
+const DEBOUNCE_MS = 130;
 
 export function PlayerSelect({
-  players,
   value,
   onChange,
-  placeholder = DEFAULT_PLACEHOLDER,
-  searchPlaceholder = DEFAULT_SEARCH_PLACEHOLDER,
-  emptySearchLabel = DEFAULT_EMPTY_SEARCH,
-  enableSearch = true,
-  filterByQuery,
-  allowClear = false,
-  clearLabel = DEFAULT_CLEAR_LABEL,
-  portalId,
+  options,
+  placeholder = '-',
+  disabled = false,
 }: PlayerSelectProps) {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
 
-  const safeValue = value == null ? '' : String(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedQuery(query.trim().toLowerCase());
+    }, DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
-  const cleanedPlayers = useMemo(() => {
-    const map = new Map<string, PlayerOption>();
-    players.forEach((player) => {
-      if (!player) {
-        return;
-      }
-      const rawId = player.id;
-      if (rawId === null || rawId === undefined) {
-        return;
-      }
-      const stringId = String(rawId).trim();
-      if (!stringId) {
-        return;
-      }
-      map.set(stringId, { ...player, id: stringId });
-    });
-    return Array.from(map.values());
-  }, [players]);
-
-  const filteredPlayers = useMemo(() => {
-    const trimmed = query.trim();
-    if (!enableSearch || !trimmed) {
-      return cleanedPlayers;
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setQuery('');
     }
-    if (filterByQuery) {
-      return cleanedPlayers.filter((player) => filterByQuery(player, trimmed));
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
     }
-    const lower = trimmed.toLowerCase();
-    return cleanedPlayers.filter((player) => {
-      const base = `${player.first_name} ${player.last_name} ${player.position ?? ''}`;
-      return base.toLowerCase().includes(lower);
+    const frame = requestAnimationFrame(() => {
+      searchRef.current?.focus({ preventScroll: true });
     });
-  }, [cleanedPlayers, enableSearch, filterByQuery, query]);
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+    const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchRef.current?.focus({ preventScroll: true });
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open]);
+
+  const filteredOptions = useMemo(() => {
+    if (!debouncedQuery) {
+      return options;
+    }
+    return options.filter((option) => {
+      const labelMatch = option.label.toLowerCase().includes(debouncedQuery);
+      if (labelMatch) {
+        return true;
+      }
+      const altNames = option.meta?.altNames;
+      if (!altNames || altNames.length === 0) {
+        return false;
+      }
+      return altNames.some((name) =>
+        name.toLowerCase().includes(debouncedQuery),
+      );
+    });
+  }, [options, debouncedQuery]);
 
   const handleValueChange = (nextValue: string) => {
     if (nextValue === CLEAR_VALUE) {
-      onChange(null);
-      return;
+      onChange(undefined);
+    } else {
+      onChange(nextValue);
     }
-    onChange(nextValue === '' ? null : nextValue);
+    setOpen(false);
   };
 
-  const showNoResults =
-    enableSearch && query.trim().length > 0 && filteredPlayers.length === 0;
-
-  const handleOpenChange = (open: boolean) => {
-    if (!open) {
-      setQuery('');
-    }
-  };
+  const currentValue = value ?? CLEAR_VALUE;
+  const noResults = filteredOptions.length === 0;
 
   return (
-    <Select.Root
-      value={safeValue}
-      onValueChange={handleValueChange}
-      onOpenChange={handleOpenChange}
-    >
-      <Select.Trigger
-        className={clsx(
-          'w-full rounded-xl border border-accent-gold bg-navy-900 px-3 py-2 text-left text-white shadow-card inline-flex items-center justify-between',
-          'text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60',
-        )}
-        aria-label="Player"
+    <div data-disabled-typeahead="true">
+      <Select.Root
+        open={open}
+        onOpenChange={handleOpenChange}
+        value={currentValue}
+        onValueChange={handleValueChange}
+        disabled={disabled}
       >
-        <Select.Value placeholder={placeholder ?? DEFAULT_PLACEHOLDER} />
-        <Select.Icon className="ml-2 transition-transform data-[state=open]:rotate-180">
-          <ChevronDown className="h-4 w-4 text-accent-gold" />
-        </Select.Icon>
-      </Select.Trigger>
-      <Select.Portal>
-        <Select.Content
-          className="nb-radix-select-content"
-          id={portalId}
-          position="popper"
-          sideOffset={6}
+        <Select.Trigger
+          disabled={disabled}
+          aria-autocomplete="none"
+          className={clsx(
+            'w-full rounded-xl border border-accent-gold bg-navy-900 px-3 py-2 text-white shadow-card inline-flex items-center justify-between',
+            'text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 disabled:cursor-not-allowed disabled:opacity-60',
+          )}
         >
-          <Select.ScrollUpButton className="flex items-center justify-center py-1 text-accent-gold">
-            <ChevronDown className="h-4 w-4 rotate-180" />
-          </Select.ScrollUpButton>
+          <Select.Value placeholder={placeholder} />
+          <Select.Icon className="ml-2 transition-transform data-[state=open]:rotate-180">
+            <ChevronDown className="h-4 w-4 text-accent-gold" />
+          </Select.Icon>
+        </Select.Trigger>
 
-          {enableSearch ? (
-            <div className="sticky top-0 z-10 border-b border-accent-gold/30 bg-[#0B1220] px-3 py-2">
+        <Select.Portal>
+          <Select.Content
+            className="bg-navy-900 shadow-2xl border border-white/10 rounded-xl overflow-hidden"
+            position="popper"
+            sideOffset={6}
+          >
+            <div className="sticky top-0 z-10 bg-navy-900 p-2 border-b border-white/10">
               <input
-                type="text"
+                ref={searchRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder={searchPlaceholder}
-                className="w-full rounded-lg border border-accent-gold/40 bg-navy-900 px-2 py-1 text-sm text-white placeholder-slate-400 focus:border-accent-gold focus:outline-none"
-                autoComplete="off"
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                  if (event.key === 'Escape' && query) {
+                    event.preventDefault();
+                    setQuery('');
+                    return;
+                  }
+                }}
+                inputMode="search"
+                autoCapitalize="none"
+                autoCorrect="off"
+                className="w-full rounded-md bg-navy-800/80 px-3 py-2 text-white placeholder:text-slate-400 outline-none ring-1 ring-white/10 focus:ring-accent-gold/40"
+                placeholder="Cerca giocatore…"
               />
             </div>
-          ) : null}
 
-          <Select.Viewport className="nb-radix-select-viewport max-h-72 w-[var(--radix-select-trigger-width)] overflow-auto">
-            {allowClear ? (
+            <Select.Viewport className="max-h-[60vh] w-[var(--radix-select-trigger-width)] overflow-auto bg-navy-900/95 supports-[backdrop-filter]:bg-navy-900/80">
               <Select.Item
                 value={CLEAR_VALUE}
-                className={clsx(
-                  'nb-radix-select-item relative cursor-pointer select-none py-2 pl-3 pr-8 text-sm text-white/70',
-                  'data-[highlighted]:text-white data-[highlighted]:bg-accent-gold/10',
-                )}
+                className="px-3 py-2 min-h-10 text-white cursor-pointer data-[highlighted]:bg-accent-gold/20 data-[state=checked]:bg-accent-gold/30"
               >
-                <Select.ItemText>{clearLabel}</Select.ItemText>
+                <Select.ItemText>Pulisci selezione</Select.ItemText>
               </Select.Item>
-            ) : null}
 
-            {showNoResults ? (
-              <div className="px-3 py-2 text-sm italic text-slate-400">
-                {emptySearchLabel}
-              </div>
-            ) : (
-              filteredPlayers.map((player) => {
-                const valueId = String(player.id);
-                const label = `${player.first_name} ${player.last_name}${
-                  player.position ? ` (${player.position})` : ''
-                }`;
-                return (
+              {noResults ? (
+                <div className="px-3 py-3 text-sm text-slate-400">Nessun giocatore trovato</div>
+              ) : (
+                filteredOptions.map((option) => (
                   <Select.Item
-                    key={valueId}
-                    value={valueId}
-                    disabled={player.disabled}
+                    key={option.value}
+                    value={option.value}
+                    disabled={Boolean(option.meta?.disabled)}
                     className={clsx(
-                      'nb-radix-select-item relative select-none py-2 pl-3 pr-8 text-sm text-white',
-                      'data-[highlighted]:cursor-pointer data-[highlighted]:bg-accent-gold/20 data-[highlighted]:text-accent-gold',
-                      'data-[state=checked]:font-semibold',
-                      player.disabled &&
-                        'cursor-not-allowed text-slate-500 opacity-60 data-[highlighted]:bg-accent-gold/10 data-[highlighted]:text-slate-500',
+                      'px-3 py-2 min-h-10 text-white cursor-pointer data-[highlighted]:bg-accent-gold/20 data-[state=checked]:bg-accent-gold/30',
+                      option.meta?.disabled &&
+                        'opacity-60 cursor-not-allowed text-slate-400 data-[highlighted]:bg-accent-gold/10',
                     )}
                   >
-                    <Select.ItemText>{label}</Select.ItemText>
-                    <Select.ItemIndicator className="absolute inset-y-0 right-2 flex items-center text-accent-gold">
+                    <Select.ItemText>{option.label}</Select.ItemText>
+                    <Select.ItemIndicator className="ml-auto pl-2 text-accent-gold">
                       <Check className="h-4 w-4" />
                     </Select.ItemIndicator>
                   </Select.Item>
-                );
-              })
-            )}
-          </Select.Viewport>
-
-          <Select.ScrollDownButton className="flex items-center justify-center py-1 text-accent-gold">
-            <ChevronDown className="h-4 w-4" />
-          </Select.ScrollDownButton>
-        </Select.Content>
-      </Select.Portal>
-    </Select.Root>
+                ))
+              )}
+            </Select.Viewport>
+          </Select.Content>
+        </Select.Portal>
+      </Select.Root>
+    </div>
   );
 }
-
-export type { PlayerOption };

@@ -2,12 +2,10 @@
 
 import { useEffect } from 'react';
 
-import { preloadRosters } from '@/lib/rosters';
-
 export function RosterPreload() {
   useEffect(() => {
-    preloadRosters().catch(() => {
-      // silent fail
+    fetch('/rosters.json', { cache: 'force-cache', credentials: 'omit' }).catch(() => {
+      // ignore failures; the API route will handle missing data
     });
   }, []);
 

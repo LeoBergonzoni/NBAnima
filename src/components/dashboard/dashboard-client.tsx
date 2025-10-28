@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { PlayerSelect, type PlayerOption } from '@/components/ui/PlayerSelect';
+import { PlayerSelect } from '@/components/ui/PlayerSelect';
 import { useLocale } from '@/components/providers/locale-provider';
 import type { Locale } from '@/lib/constants';
 import { createBrowserSupabase } from '@/lib/supabase-browser';
@@ -39,41 +39,6 @@ const PLAYER_CATEGORIES = [
   'top_dunk',
   'top_threes',
 ] as const;
-
-const normalizeSearchValue = (value: string) =>
-  value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-
-const fuzzyIncludes = (value: string, rawQuery: string) => {
-  const query = normalizeSearchValue(rawQuery.trim());
-  if (!query) {
-    return true;
-  }
-
-  const normalizedValue = normalizeSearchValue(value);
-  if (normalizedValue.includes(query)) {
-    return true;
-  }
-
-  let searchIndex = 0;
-  for (const char of query) {
-    searchIndex = normalizedValue.indexOf(char, searchIndex);
-    if (searchIndex === -1) {
-      return false;
-    }
-    searchIndex += 1;
-  }
-
-  return true;
-};
-
-const getSearchPlaceholder = (locale: Locale) =>
-  locale === 'it' ? 'Cerca giocatore...' : 'Search player...';
-
-const getEmptySearchLabel = (locale: Locale) =>
-  locale === 'it' ? 'Nessun giocatore trovato' : 'No players found';
 
 interface ShopCard {
   id: string;
@@ -117,6 +82,7 @@ interface PlayerSummary {
   lastName: string;
   position: string | null;
   teamId: string;
+  jersey?: string | null;
 }
 
 type PlayerSelections = Record<string, Record<string, string>>;
@@ -244,12 +210,19 @@ const GamePlayersCard = ({
 
   const {
     players: apiPlayers,
+    homePlayers,
+    awayPlayers,
+    missing: missingRosterKeys,
     isLoading: playersLoading,
     isError: playersError,
     error: playersErrorMessage,
   } = useTeamPlayers({
     homeId: homeTeamId,
+    homeAbbr: game.homeTeam.abbreviation ?? null,
+    homeName: game.homeTeam.name,
     awayId: awayTeamId,
+    awayAbbr: game.awayTeam.abbreviation ?? null,
+    awayName: game.awayTeam.name,
   });
 
   const [cachedPlayers, setCachedPlayers] = useState<PlayerSummary[]>([]);
@@ -269,6 +242,7 @@ const GamePlayersCard = ({
         lastName,
         position: player.position || null,
         teamId: player.team_id,
+        jersey: player.jersey ?? null,
       });
     });
     return Array.from(map.values());
@@ -285,29 +259,29 @@ const GamePlayersCard = ({
     [combinedPlayers, cachedPlayers],
   );
 
-  const searchPlaceholder = getSearchPlaceholder(locale);
-  const emptySearchLabel = getEmptySearchLabel(locale);
+  const createOptionLabel = useCallback((player: PlayerSummary) => {
+    const parts = [player.fullName];
+    if (player.jersey) {
+      const jerseyValue = player.jersey.startsWith('#') ? player.jersey : `#${player.jersey}`;
+      parts.push(jerseyValue);
+    }
+    if (player.position) {
+      parts.push(`· ${player.position}`);
+    }
+    return parts.join(' ');
+  }, []);
 
-  const selectPlayers = useMemo(
+  const selectOptions = useMemo(
     () =>
       displayPlayers.map((player) => ({
-        id: player.id,
-        first_name: player.firstName,
-        last_name: player.lastName,
-        position: player.position,
+        value: player.id,
+        label: createOptionLabel(player),
+        meta: {
+          altNames: [player.fullName, player.firstName, player.lastName].filter(Boolean),
+        },
       })),
-    [displayPlayers],
+    [createOptionLabel, displayPlayers],
   );
-
-  const filterByQuery = useCallback(
-    (player: PlayerOption, rawQuery: string) =>
-      fuzzyIncludes(
-        `${player.first_name} ${player.last_name} ${player.position ?? ''}`,
-        rawQuery,
-      ),
-    [],
-  );
-  const clearLabel = locale === 'it' ? '↺ Pulisci selezione' : '↺ Clear selection';
 
   const isLoading = playersLoading;
   const loadErrorRaw = playersError
@@ -321,14 +295,28 @@ const GamePlayersCard = ({
   const hasNoPlayers =
     !isLoading && !loadError && displayPlayers.length === 0 && cachedPlayers.length === 0;
 
-  const homeCount = useMemo(
-    () => displayPlayers.filter((player) => player.teamId === homeTeamId).length,
-    [displayPlayers, homeTeamId],
-  );
-  const awayCount = useMemo(
-    () => displayPlayers.filter((player) => player.teamId === awayTeamId).length,
-    [displayPlayers, awayTeamId],
-  );
+  const homeCount = useMemo(() => {
+    if (homePlayers.length) {
+      return homePlayers.length;
+    }
+    return displayPlayers.filter((player) => player.teamId === homeTeamId).length;
+  }, [displayPlayers, homePlayers, homeTeamId]);
+
+  const awayCount = useMemo(() => {
+    if (awayPlayers.length) {
+      return awayPlayers.length;
+    }
+    return displayPlayers.filter((player) => player.teamId === awayTeamId).length;
+  }, [awayPlayers, displayPlayers, awayTeamId]);
+
+  useEffect(() => {
+    if (missingRosterKeys.length) {
+      console.warn('[players] Missing roster entries', {
+        gameId: game.id,
+        missing: missingRosterKeys,
+      });
+    }
+  }, [game.id, missingRosterKeys]);
 
   useEffect(() => {
     if (combinedPlayers.length > 0) {
@@ -371,16 +359,11 @@ const GamePlayersCard = ({
                   {dictionary.play.players.categories[category]}
                 </span>
                 <PlayerSelect
-                  players={selectPlayers}
-                  value={normalizedValue}
+                  options={selectOptions}
+                  value={normalizedValue ?? undefined}
                   onChange={(playerId) => onChange(category, playerId ?? '')}
                   placeholder="-"
-                  searchPlaceholder={searchPlaceholder}
-                  emptySearchLabel={emptySearchLabel}
-                  filterByQuery={filterByQuery}
-                  allowClear
-                  clearLabel={clearLabel}
-                  portalId={`players-select-${game.id}-${category}`}
+                  disabled={displayPlayers.length === 0 && isLoading}
                 />
               </label>
             );
@@ -441,39 +424,30 @@ const HighlightsSelector = ({
     });
   }, [players]);
 
-  const searchPlaceholder = getSearchPlaceholder(locale);
-  const emptySearchLabel = getEmptySearchLabel(locale);
-
-  const selectPlayers = useMemo(
-    () =>
-      sortedPlayers.map((player) => ({
-        id: player.id,
-        first_name: player.firstName,
-        last_name: player.lastName,
-        position: player.position,
-      })),
-    [sortedPlayers],
-  );
-
-  const filterByQuery = useCallback(
-    (player: PlayerOption, rawQuery: string) =>
-      fuzzyIncludes(
-        `${player.first_name} ${player.last_name} ${player.position ?? ''}`,
-        rawQuery,
-      ),
-    [],
-  );
-  const clearLabel = locale === 'it' ? '↺ Pulisci selezione' : '↺ Clear selection';
+  const createOptionLabel = useCallback((player: PlayerSummary) => {
+    const parts = [player.fullName];
+    if (player.jersey) {
+      const jerseyValue = player.jersey.startsWith('#') ? player.jersey : `#${player.jersey}`;
+      parts.push(jerseyValue);
+    }
+    if (player.position) {
+      parts.push(`· ${player.position}`);
+    }
+    return parts.join(' ');
+  }, []);
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {Array.from({ length: 5 }).map((_, index) => {
         const rank = index + 1;
         const selectedPlayer = selectedByRank.get(rank) ?? '';
-        const playersForSelect = selectPlayers.map((player) => ({
-          ...player,
-          disabled:
-            player.id !== selectedPlayer && selectedPlayerIds.has(player.id),
+        const options = sortedPlayers.map((player) => ({
+          value: player.id,
+          label: createOptionLabel(player),
+          meta: {
+            altNames: [player.fullName, player.firstName, player.lastName].filter(Boolean),
+            disabled: player.id !== selectedPlayer && selectedPlayerIds.has(player.id),
+          },
         }));
         const normalizedValue =
           selectedPlayer === undefined ||
@@ -488,16 +462,10 @@ const HighlightsSelector = ({
               {dictionary.admin.rank} #{rank}
             </span>
             <PlayerSelect
-              players={playersForSelect}
-              value={normalizedValue}
+              options={options}
+              value={normalizedValue ?? undefined}
               onChange={(playerId) => onChange(rank, playerId ?? '')}
               placeholder="-"
-              searchPlaceholder={searchPlaceholder}
-              emptySearchLabel={emptySearchLabel}
-              filterByQuery={filterByQuery}
-              allowClear
-              clearLabel={clearLabel}
-              portalId={`players-select-highlights-${rank}`}
             />
           </label>
         );

@@ -1,0 +1,2672 @@
+{
+  "AtlantaHawks": [
+    {
+      "id": "asa-newell-14-f",
+      "name": "Asa Newell 14",
+      "pos": "F"
+    },
+    {
+      "id": "caleb-houstan-33-g",
+      "name": "Caleb Houstan 33",
+      "pos": "G"
+    },
+    {
+      "id": "dyson-daniels-5-g",
+      "name": "Dyson Daniels 5",
+      "pos": "G"
+    },
+    {
+      "id": "eli-john-n-diaye-30-c",
+      "name": "Eli John N'Diaye 30",
+      "pos": "C"
+    },
+    {
+      "id": "jacob-toppin-0-f",
+      "name": "Jacob Toppin 0",
+      "pos": "F"
+    },
+    {
+      "id": "jalen-johnson-1-f",
+      "name": "Jalen Johnson 1",
+      "pos": "F"
+    },
+    {
+      "id": "keaton-wallace-2-g",
+      "name": "Keaton Wallace 2",
+      "pos": "G"
+    },
+    {
+      "id": "kristaps-porzingis-8-c",
+      "name": "Kristaps Porzingis 8",
+      "pos": "C"
+    },
+    {
+      "id": "luke-kennard-3-g",
+      "name": "Luke Kennard 3",
+      "pos": "G"
+    },
+    {
+      "id": "mouhamed-gueye-18-f",
+      "name": "Mouhamed Gueye 18",
+      "pos": "F"
+    },
+    {
+      "id": "n-faly-dante-12-c",
+      "name": "N'Faly Dante 12",
+      "pos": "C"
+    },
+    {
+      "id": "nickeil-alexander-walker-7-g",
+      "name": "Nickeil Alexander-Walker 7",
+      "pos": "G"
+    },
+    {
+      "id": "nikola-durisic-22-f",
+      "name": "Nikola Durisic 22",
+      "pos": "F"
+    },
+    {
+      "id": "onyeka-okongwu-17-f",
+      "name": "Onyeka Okongwu 17",
+      "pos": "F"
+    },
+    {
+      "id": "trae-young-11-g",
+      "name": "Trae Young 11",
+      "pos": "G"
+    },
+    {
+      "id": "vit-krejci-27-g",
+      "name": "Vit Krejci 27",
+      "pos": "G"
+    },
+    {
+      "id": "zaccharie-risacher-10-f",
+      "name": "Zaccharie Risacher 10",
+      "pos": "F"
+    }
+  ],
+  "BostonCeltics": [
+    {
+      "id": "amari-williams-77-f",
+      "name": "Amari Williams 77",
+      "pos": "F"
+    },
+    {
+      "id": "anfernee-simons-4-g",
+      "name": "Anfernee Simons 4",
+      "pos": "G"
+    },
+    {
+      "id": "baylor-scheierman-55-g",
+      "name": "Baylor Scheierman 55",
+      "pos": "G"
+    },
+    {
+      "id": "chris-boucher-99-f",
+      "name": "Chris Boucher 99",
+      "pos": "F"
+    },
+    {
+      "id": "derrick-white-9-g",
+      "name": "Derrick White 9",
+      "pos": "G"
+    },
+    {
+      "id": "hugo-gonzalez-28-g",
+      "name": "Hugo Gonzalez 28",
+      "pos": "G"
+    },
+    {
+      "id": "jaylen-brown-7-g",
+      "name": "Jaylen Brown 7",
+      "pos": "G"
+    },
+    {
+      "id": "jayson-tatum-0-f",
+      "name": "Jayson Tatum 0",
+      "pos": "F"
+    },
+    {
+      "id": "jordan-walsh-27-g",
+      "name": "Jordan Walsh 27",
+      "pos": "G"
+    },
+    {
+      "id": "josh-minott-8-f",
+      "name": "Josh Minott 8",
+      "pos": "F"
+    },
+    {
+      "id": "luka-garza-52-c",
+      "name": "Luka Garza 52",
+      "pos": "C"
+    },
+    {
+      "id": "max-shulga-44-g",
+      "name": "Max Shulga 44",
+      "pos": "G"
+    },
+    {
+      "id": "neemias-queta-88-c",
+      "name": "Neemias Queta 88",
+      "pos": "C"
+    },
+    {
+      "id": "payton-pritchard-11-g",
+      "name": "Payton Pritchard 11",
+      "pos": "G"
+    },
+    {
+      "id": "ron-harper-jr-13-g",
+      "name": "Ron Harper Jr. 13",
+      "pos": "G"
+    },
+    {
+      "id": "sam-hauser-30-f",
+      "name": "Sam Hauser 30",
+      "pos": "F"
+    },
+    {
+      "id": "xavier-tillman-26-f",
+      "name": "Xavier Tillman 26",
+      "pos": "F"
+    }
+  ],
+  "BrooklynNets": [
+    {
+      "id": "ben-saraf-77-g",
+      "name": "Ben Saraf 77",
+      "pos": "G"
+    },
+    {
+      "id": "cam-thomas-24-g",
+      "name": "Cam Thomas 24",
+      "pos": "G"
+    },
+    {
+      "id": "danny-wolf-2-f",
+      "name": "Danny Wolf 2",
+      "pos": "F"
+    },
+    {
+      "id": "day-ron-sharpe-20-c",
+      "name": "Day'Ron Sharpe 20",
+      "pos": "C"
+    },
+    {
+      "id": "drake-powell-4-g",
+      "name": "Drake Powell 4",
+      "pos": "G"
+    },
+    {
+      "id": "e-j-liddell-9-f",
+      "name": "E.J. Liddell 9",
+      "pos": "F"
+    },
+    {
+      "id": "egor-demin-8-g",
+      "name": "Egor Demin 8",
+      "pos": "G"
+    },
+    {
+      "id": "haywood-highsmith-7-f",
+      "name": "Haywood Highsmith 7",
+      "pos": "F"
+    },
+    {
+      "id": "jalen-wilson-22-f",
+      "name": "Jalen Wilson 22",
+      "pos": "F"
+    },
+    {
+      "id": "michael-porter-jr-17-f",
+      "name": "Michael Porter Jr. 17",
+      "pos": "F"
+    },
+    {
+      "id": "nic-claxton-33-c",
+      "name": "Nic Claxton 33",
+      "pos": "C"
+    },
+    {
+      "id": "noah-clowney-21-f",
+      "name": "Noah Clowney 21",
+      "pos": "F"
+    },
+    {
+      "id": "nolan-traore-88-g",
+      "name": "Nolan Traore 88",
+      "pos": "G"
+    },
+    {
+      "id": "terance-mann-14-g",
+      "name": "Terance Mann 14",
+      "pos": "G"
+    },
+    {
+      "id": "tyrese-martin-13-g",
+      "name": "Tyrese Martin 13",
+      "pos": "G"
+    },
+    {
+      "id": "tyson-etienne-10-g",
+      "name": "Tyson Etienne 10",
+      "pos": "G"
+    },
+    {
+      "id": "ziaire-williams-1-f",
+      "name": "Ziaire Williams 1",
+      "pos": "F"
+    }
+  ],
+  "CharlotteHornets": [
+    {
+      "id": "antonio-reeves-12-g",
+      "name": "Antonio Reeves 12",
+      "pos": "G"
+    },
+    {
+      "id": "brandon-miller-24-f",
+      "name": "Brandon Miller 24",
+      "pos": "F"
+    },
+    {
+      "id": "collin-sexton-8-g",
+      "name": "Collin Sexton 8",
+      "pos": "G"
+    },
+    {
+      "id": "drew-peterson-13-f",
+      "name": "Drew Peterson 13",
+      "pos": "F"
+    },
+    {
+      "id": "grant-williams-2-f",
+      "name": "Grant Williams 2",
+      "pos": "F"
+    },
+    {
+      "id": "josh-green-10-g",
+      "name": "Josh Green 10",
+      "pos": "G"
+    },
+    {
+      "id": "kj-simpson-25-g",
+      "name": "KJ Simpson 25",
+      "pos": "G"
+    },
+    {
+      "id": "kon-knueppel-7-g",
+      "name": "Kon Knueppel 7",
+      "pos": "G"
+    },
+    {
+      "id": "lamelo-ball-1-g",
+      "name": "LaMelo Ball 1",
+      "pos": "G"
+    },
+    {
+      "id": "liam-mcneeley-33-g",
+      "name": "Liam McNeeley 33",
+      "pos": "G"
+    },
+    {
+      "id": "mason-plumlee-22-c",
+      "name": "Mason Plumlee 22",
+      "pos": "C"
+    },
+    {
+      "id": "miles-bridges-0-f",
+      "name": "Miles Bridges 0",
+      "pos": "F"
+    },
+    {
+      "id": "moussa-diabate-14-f",
+      "name": "Moussa Diabate 14",
+      "pos": "F"
+    },
+    {
+      "id": "pat-connaughton-21-g",
+      "name": "Pat Connaughton 21",
+      "pos": "G"
+    },
+    {
+      "id": "ryan-kalkbrenner-11-c",
+      "name": "Ryan Kalkbrenner 11",
+      "pos": "C"
+    },
+    {
+      "id": "sion-james-4-g",
+      "name": "Sion James 4",
+      "pos": "G"
+    },
+    {
+      "id": "tidjane-salaun-31-f",
+      "name": "Tidjane Salaun 31",
+      "pos": "F"
+    },
+    {
+      "id": "tre-mann-23-g",
+      "name": "Tre Mann 23",
+      "pos": "G"
+    }
+  ],
+  "ChicagoBulls": [
+    {
+      "id": "ayo-dosunmu-11-g",
+      "name": "Ayo Dosunmu 11",
+      "pos": "G"
+    },
+    {
+      "id": "coby-white-0-g",
+      "name": "Coby White 0",
+      "pos": "G"
+    },
+    {
+      "id": "dalen-terry-7-f",
+      "name": "Dalen Terry 7",
+      "pos": "F"
+    },
+    {
+      "id": "emanuel-miller-2-f",
+      "name": "Emanuel Miller 2",
+      "pos": "F"
+    },
+    {
+      "id": "isaac-okoro-35-f",
+      "name": "Isaac Okoro 35",
+      "pos": "F"
+    },
+    {
+      "id": "jalen-smith-25-f",
+      "name": "Jalen Smith 25",
+      "pos": "F"
+    },
+    {
+      "id": "jevon-carter-5-g",
+      "name": "Jevon Carter 5",
+      "pos": "G"
+    },
+    {
+      "id": "josh-giddey-3-g",
+      "name": "Josh Giddey 3",
+      "pos": "G"
+    },
+    {
+      "id": "julian-phillips-15-f",
+      "name": "Julian Phillips 15",
+      "pos": "F"
+    },
+    {
+      "id": "kevin-huerter-13-g",
+      "name": "Kevin Huerter 13",
+      "pos": "G"
+    },
+    {
+      "id": "lachlan-olbrich-47-c",
+      "name": "Lachlan Olbrich 47",
+      "pos": "C"
+    },
+    {
+      "id": "matas-buzelis-14-f",
+      "name": "Matas Buzelis 14",
+      "pos": "F"
+    },
+    {
+      "id": "nikola-vucevic-9-c",
+      "name": "Nikola Vucevic 9",
+      "pos": "C"
+    },
+    {
+      "id": "noa-essengue-24-f",
+      "name": "Noa Essengue 24",
+      "pos": "F"
+    },
+    {
+      "id": "patrick-williams-44-f",
+      "name": "Patrick Williams 44",
+      "pos": "F"
+    },
+    {
+      "id": "tre-jones-30-g",
+      "name": "Tre Jones 30",
+      "pos": "G"
+    },
+    {
+      "id": "trentyn-flowers-9-f",
+      "name": "Trentyn Flowers 9",
+      "pos": "F"
+    },
+    {
+      "id": "zach-collins-12-f",
+      "name": "Zach Collins 12",
+      "pos": "F"
+    }
+  ],
+  "ClevelandCavaliers": [
+    {
+      "id": "craig-porter-jr-9-g",
+      "name": "Craig Porter Jr. 9",
+      "pos": "G"
+    },
+    {
+      "id": "darius-garland-10-g",
+      "name": "Darius Garland 10",
+      "pos": "G"
+    },
+    {
+      "id": "de-andre-hunter-12-f",
+      "name": "De'Andre Hunter 12",
+      "pos": "F"
+    },
+    {
+      "id": "dean-wade-32-f",
+      "name": "Dean Wade 32",
+      "pos": "F"
+    },
+    {
+      "id": "donovan-mitchell-45-g",
+      "name": "Donovan Mitchell 45",
+      "pos": "G"
+    },
+    {
+      "id": "evan-mobley-4-c",
+      "name": "Evan Mobley 4",
+      "pos": "C"
+    },
+    {
+      "id": "jarrett-allen-31-c",
+      "name": "Jarrett Allen 31",
+      "pos": "C"
+    },
+    {
+      "id": "jaylon-tyson-20-g",
+      "name": "Jaylon Tyson 20",
+      "pos": "G"
+    },
+    {
+      "id": "larry-nance-jr-22-f",
+      "name": "Larry Nance Jr. 22",
+      "pos": "F"
+    },
+    {
+      "id": "lonzo-ball-2-g",
+      "name": "Lonzo Ball 2",
+      "pos": "G"
+    },
+    {
+      "id": "luke-travers-33-f",
+      "name": "Luke Travers 33",
+      "pos": "F"
+    },
+    {
+      "id": "max-strus-1-g",
+      "name": "Max Strus 1",
+      "pos": "G"
+    },
+    {
+      "id": "nae-qwan-tomlin-30-f",
+      "name": "Nae'Qwan Tomlin 30",
+      "pos": "F"
+    },
+    {
+      "id": "sam-merrill-5-g",
+      "name": "Sam Merrill 5",
+      "pos": "G"
+    },
+    {
+      "id": "thomas-bryant-3-c",
+      "name": "Thomas Bryant 3",
+      "pos": "C"
+    },
+    {
+      "id": "tyrese-proctor-24-g",
+      "name": "Tyrese Proctor 24",
+      "pos": "G"
+    }
+  ],
+  "DallasMavericks": [
+    {
+      "id": "anthony-davis-3-f",
+      "name": "Anthony Davis 3",
+      "pos": "F"
+    },
+    {
+      "id": "brandon-williams-10-g",
+      "name": "Brandon Williams 10",
+      "pos": "G"
+    },
+    {
+      "id": "caleb-martin-16-f",
+      "name": "Caleb Martin 16",
+      "pos": "F"
+    },
+    {
+      "id": "cooper-flagg-32-f",
+      "name": "Cooper Flagg 32",
+      "pos": "F"
+    },
+    {
+      "id": "d-angelo-russell-5-g",
+      "name": "D'Angelo Russell 5",
+      "pos": "G"
+    },
+    {
+      "id": "daniel-gafford-21-f",
+      "name": "Daniel Gafford 21",
+      "pos": "F"
+    },
+    {
+      "id": "dante-exum-0-g",
+      "name": "Dante Exum 0",
+      "pos": "G"
+    },
+    {
+      "id": "dereck-lively-ii-2-c",
+      "name": "Dereck Lively II 2",
+      "pos": "C"
+    },
+    {
+      "id": "dwight-powell-7-f",
+      "name": "Dwight Powell 7",
+      "pos": "F"
+    },
+    {
+      "id": "jaden-hardy-1-g",
+      "name": "Jaden Hardy 1",
+      "pos": "G"
+    },
+    {
+      "id": "klay-thompson-31-g",
+      "name": "Klay Thompson 31",
+      "pos": "G"
+    },
+    {
+      "id": "kyrie-irving-11-g",
+      "name": "Kyrie Irving 11",
+      "pos": "G"
+    },
+    {
+      "id": "max-christie-00-g",
+      "name": "Max Christie 00",
+      "pos": "G"
+    },
+    {
+      "id": "miles-kelly-14-g",
+      "name": "Miles Kelly 14",
+      "pos": "G"
+    },
+    {
+      "id": "moussa-cisse-30-c",
+      "name": "Moussa Cisse 30",
+      "pos": "C"
+    },
+    {
+      "id": "naji-marshall-13-f",
+      "name": "Naji Marshall 13",
+      "pos": "F"
+    },
+    {
+      "id": "p-j-washington-25-f",
+      "name": "P.J. Washington 25",
+      "pos": "F"
+    },
+    {
+      "id": "ryan-nembhard-9-g",
+      "name": "Ryan Nembhard 9",
+      "pos": "G"
+    }
+  ],
+  "DenverNuggets": [
+    {
+      "id": "aaron-gordon-32-f",
+      "name": "Aaron Gordon 32",
+      "pos": "F"
+    },
+    {
+      "id": "bruce-brown-11-g",
+      "name": "Bruce Brown 11",
+      "pos": "G"
+    },
+    {
+      "id": "cameron-johnson-23-f",
+      "name": "Cameron Johnson 23",
+      "pos": "F"
+    },
+    {
+      "id": "christian-braun-0-g",
+      "name": "Christian Braun 0",
+      "pos": "G"
+    },
+    {
+      "id": "curtis-jones-1-g",
+      "name": "Curtis Jones 1",
+      "pos": "G"
+    },
+    {
+      "id": "daron-holmes-ii-14-f",
+      "name": "DaRon Holmes II 14",
+      "pos": "F"
+    },
+    {
+      "id": "hunter-tyson-5-f",
+      "name": "Hunter Tyson 5",
+      "pos": "F"
+    },
+    {
+      "id": "jalen-pickett-24-g",
+      "name": "Jalen Pickett 24",
+      "pos": "G"
+    },
+    {
+      "id": "jamal-murray-27-g",
+      "name": "Jamal Murray 27",
+      "pos": "G"
+    },
+    {
+      "id": "jonas-valanciunas-17-c",
+      "name": "Jonas Valanciunas 17",
+      "pos": "C"
+    },
+    {
+      "id": "julian-strawther-3-g",
+      "name": "Julian Strawther 3",
+      "pos": "G"
+    },
+    {
+      "id": "nikola-jokic-15-c",
+      "name": "Nikola Jokic 15",
+      "pos": "C"
+    },
+    {
+      "id": "peyton-watson-8-g",
+      "name": "Peyton Watson 8",
+      "pos": "G"
+    },
+    {
+      "id": "spencer-jones-21-f",
+      "name": "Spencer Jones 21",
+      "pos": "F"
+    },
+    {
+      "id": "tamar-bates-7-g",
+      "name": "Tamar Bates 7",
+      "pos": "G"
+    },
+    {
+      "id": "tim-hardaway-jr-10-g",
+      "name": "Tim Hardaway Jr. 10",
+      "pos": "G"
+    },
+    {
+      "id": "zeke-nnaji-22-f",
+      "name": "Zeke Nnaji 22",
+      "pos": "F"
+    }
+  ],
+  "DetroitPistons": [
+    {
+      "id": "ausar-thompson-9-g",
+      "name": "Ausar Thompson 9",
+      "pos": "G"
+    },
+    {
+      "id": "bobi-klintman-34-f",
+      "name": "Bobi Klintman 34",
+      "pos": "F"
+    },
+    {
+      "id": "cade-cunningham-2-g",
+      "name": "Cade Cunningham 2",
+      "pos": "G"
+    },
+    {
+      "id": "caris-levert-8-g",
+      "name": "Caris LeVert 8",
+      "pos": "G"
+    },
+    {
+      "id": "chaz-lanier-20-g",
+      "name": "Chaz Lanier 20",
+      "pos": "G"
+    },
+    {
+      "id": "colby-jones-1-g",
+      "name": "Colby Jones 1",
+      "pos": "G"
+    },
+    {
+      "id": "daniss-jenkins-24-g",
+      "name": "Daniss Jenkins 24",
+      "pos": "G"
+    },
+    {
+      "id": "duncan-robinson-55-f",
+      "name": "Duncan Robinson 55",
+      "pos": "F"
+    },
+    {
+      "id": "isaiah-stewart-28-f",
+      "name": "Isaiah Stewart 28",
+      "pos": "F"
+    },
+    {
+      "id": "jaden-ivey-23-g",
+      "name": "Jaden Ivey 23",
+      "pos": "G"
+    },
+    {
+      "id": "jalen-duren-0-c",
+      "name": "Jalen Duren 0",
+      "pos": "C"
+    },
+    {
+      "id": "javonte-green-31-g",
+      "name": "Javonte Green 31",
+      "pos": "G"
+    },
+    {
+      "id": "marcus-sasser-25-g",
+      "name": "Marcus Sasser 25",
+      "pos": "G"
+    },
+    {
+      "id": "paul-reed-7-f",
+      "name": "Paul Reed 7",
+      "pos": "F"
+    },
+    {
+      "id": "ronald-holland-ii-5-f",
+      "name": "Ronald Holland II 5",
+      "pos": "F"
+    },
+    {
+      "id": "tobias-harris-12-f",
+      "name": "Tobias Harris 12",
+      "pos": "F"
+    },
+    {
+      "id": "tolu-smith-35-f",
+      "name": "Tolu Smith 35",
+      "pos": "F"
+    }
+  ],
+  "Golden StateWarriors": [
+    {
+      "id": "al-horford-20-c",
+      "name": "Al Horford 20",
+      "pos": "C"
+    },
+    {
+      "id": "alex-toohey-22-f",
+      "name": "Alex Toohey 22",
+      "pos": "F"
+    },
+    {
+      "id": "brandin-podziemski-2-g",
+      "name": "Brandin Podziemski 2",
+      "pos": "G"
+    },
+    {
+      "id": "buddy-hield-7-g",
+      "name": "Buddy Hield 7",
+      "pos": "G"
+    },
+    {
+      "id": "de-anthony-melton-8-g",
+      "name": "De'Anthony Melton 8",
+      "pos": "G"
+    },
+    {
+      "id": "draymond-green-23-f",
+      "name": "Draymond Green 23",
+      "pos": "F"
+    },
+    {
+      "id": "gary-payton-ii-0-g",
+      "name": "Gary Payton II 0",
+      "pos": "G"
+    },
+    {
+      "id": "gui-santos-15-f",
+      "name": "Gui Santos 15",
+      "pos": "F"
+    },
+    {
+      "id": "jackson-rowe-44-f",
+      "name": "Jackson Rowe 44",
+      "pos": "F"
+    },
+    {
+      "id": "jimmy-butler-iii-10-f",
+      "name": "Jimmy Butler III 10",
+      "pos": "F"
+    },
+    {
+      "id": "jonathan-kuminga-1-f",
+      "name": "Jonathan Kuminga 1",
+      "pos": "F"
+    },
+    {
+      "id": "moses-moody-4-g",
+      "name": "Moses Moody 4",
+      "pos": "G"
+    },
+    {
+      "id": "pat-spencer-61-g",
+      "name": "Pat Spencer 61",
+      "pos": "G"
+    },
+    {
+      "id": "quinten-post-21-c",
+      "name": "Quinten Post 21",
+      "pos": "C"
+    },
+    {
+      "id": "stephen-curry-30-g",
+      "name": "Stephen Curry 30",
+      "pos": "G"
+    },
+    {
+      "id": "trayce-jackson-davis-32-f",
+      "name": "Trayce Jackson-Davis 32",
+      "pos": "F"
+    },
+    {
+      "id": "will-richard-3-g",
+      "name": "Will Richard 3",
+      "pos": "G"
+    }
+  ],
+  "HoustonRockets": [
+    {
+      "id": "aaron-holiday-0-g",
+      "name": "Aaron Holiday 0",
+      "pos": "G"
+    },
+    {
+      "id": "alperen-sengun-28-c",
+      "name": "Alperen Sengun 28",
+      "pos": "C"
+    },
+    {
+      "id": "amen-thompson-1-g",
+      "name": "Amen Thompson 1",
+      "pos": "G"
+    },
+    {
+      "id": "clint-capela-30-c",
+      "name": "Clint Capela 30",
+      "pos": "C"
+    },
+    {
+      "id": "dorian-finney-smith-2-f",
+      "name": "Dorian Finney-Smith 2",
+      "pos": "F"
+    },
+    {
+      "id": "fred-vanvleet-5-g",
+      "name": "Fred VanVleet 5",
+      "pos": "G"
+    },
+    {
+      "id": "isaiah-crawford-27-f",
+      "name": "Isaiah Crawford 27",
+      "pos": "F"
+    },
+    {
+      "id": "jabari-smith-jr-10-f",
+      "name": "Jabari Smith Jr. 10",
+      "pos": "F"
+    },
+    {
+      "id": "jae-sean-tate-8-f",
+      "name": "Jae'Sean Tate 8",
+      "pos": "F"
+    },
+    {
+      "id": "jd-davison-4-g",
+      "name": "JD Davison 4",
+      "pos": "G"
+    },
+    {
+      "id": "jeff-green-32-f",
+      "name": "Jeff Green 32",
+      "pos": "F"
+    },
+    {
+      "id": "josh-okogie-20-g",
+      "name": "Josh Okogie 20",
+      "pos": "G"
+    },
+    {
+      "id": "kevin-durant-7-f",
+      "name": "Kevin Durant 7",
+      "pos": "F"
+    },
+    {
+      "id": "kevon-harris-00-g",
+      "name": "Kevon Harris 00",
+      "pos": "G"
+    },
+    {
+      "id": "reed-sheppard-15-g",
+      "name": "Reed Sheppard 15",
+      "pos": "G"
+    },
+    {
+      "id": "steven-adams-12-c",
+      "name": "Steven Adams 12",
+      "pos": "C"
+    },
+    {
+      "id": "tari-eason-17-f",
+      "name": "Tari Eason 17",
+      "pos": "F"
+    }
+  ],
+  "IndianaPacers": [
+    {
+      "id": "aaron-nesmith-23-g",
+      "name": "Aaron Nesmith 23",
+      "pos": "G"
+    },
+    {
+      "id": "andrew-nembhard-2-g",
+      "name": "Andrew Nembhard 2",
+      "pos": "G"
+    },
+    {
+      "id": "ben-sheppard-26-g",
+      "name": "Ben Sheppard 26",
+      "pos": "G"
+    },
+    {
+      "id": "bennedict-mathurin-00-g",
+      "name": "Bennedict Mathurin 00",
+      "pos": "G"
+    },
+    {
+      "id": "isaiah-jackson-22-f",
+      "name": "Isaiah Jackson 22",
+      "pos": "F"
+    },
+    {
+      "id": "james-wiseman-11-c",
+      "name": "James Wiseman 11",
+      "pos": "C"
+    },
+    {
+      "id": "jarace-walker-5-f",
+      "name": "Jarace Walker 5",
+      "pos": "F"
+    },
+    {
+      "id": "jay-huff-32-c",
+      "name": "Jay Huff 32",
+      "pos": "C"
+    },
+    {
+      "id": "johnny-furphy-12-g",
+      "name": "Johnny Furphy 12",
+      "pos": "G"
+    },
+    {
+      "id": "kam-jones-7-g",
+      "name": "Kam Jones 7",
+      "pos": "G"
+    },
+    {
+      "id": "obi-toppin-1-f",
+      "name": "Obi Toppin 1",
+      "pos": "F"
+    },
+    {
+      "id": "pascal-siakam-43-f",
+      "name": "Pascal Siakam 43",
+      "pos": "F"
+    },
+    {
+      "id": "quenton-jackson-29-g",
+      "name": "Quenton Jackson 29",
+      "pos": "G"
+    },
+    {
+      "id": "rayj-dennis-10-g",
+      "name": "RayJ Dennis 10",
+      "pos": "G"
+    },
+    {
+      "id": "t-j-mcconnell-9-g",
+      "name": "T.J. McConnell 9",
+      "pos": "G"
+    },
+    {
+      "id": "taelon-peter-4-g",
+      "name": "Taelon Peter 4",
+      "pos": "G"
+    },
+    {
+      "id": "tony-bradley-13-c",
+      "name": "Tony Bradley 13",
+      "pos": "C"
+    },
+    {
+      "id": "tyrese-haliburton-0-g",
+      "name": "Tyrese Haliburton 0",
+      "pos": "G"
+    }
+  ],
+  "LAClippers": [
+    {
+      "id": "bogdan-bogdanovic-10-g",
+      "name": "Bogdan Bogdanovic 10",
+      "pos": "G"
+    },
+    {
+      "id": "bradley-beal-0-g",
+      "name": "Bradley Beal 0",
+      "pos": "G"
+    },
+    {
+      "id": "brook-lopez-11-c",
+      "name": "Brook Lopez 11",
+      "pos": "C"
+    },
+    {
+      "id": "cam-christie-12-g",
+      "name": "Cam Christie 12",
+      "pos": "G"
+    },
+    {
+      "id": "chris-paul-3-g",
+      "name": "Chris Paul 3",
+      "pos": "G"
+    },
+    {
+      "id": "derrick-jones-jr-5-f",
+      "name": "Derrick Jones Jr. 5",
+      "pos": "F"
+    },
+    {
+      "id": "ivica-zubac-40-c",
+      "name": "Ivica Zubac 40",
+      "pos": "C"
+    },
+    {
+      "id": "jahmyl-telfort-19-f",
+      "name": "Jahmyl Telfort 19",
+      "pos": "F"
+    },
+    {
+      "id": "james-harden-1-g",
+      "name": "James Harden 1",
+      "pos": "G"
+    },
+    {
+      "id": "john-collins-20-f",
+      "name": "John Collins 20",
+      "pos": "F"
+    },
+    {
+      "id": "jordan-miller-22-g",
+      "name": "Jordan Miller 22",
+      "pos": "G"
+    },
+    {
+      "id": "kawhi-leonard-2-f",
+      "name": "Kawhi Leonard 2",
+      "pos": "F"
+    },
+    {
+      "id": "kobe-brown-24-g",
+      "name": "Kobe Brown 24",
+      "pos": "G"
+    },
+    {
+      "id": "kobe-sanders-4-g",
+      "name": "Kobe Sanders 4",
+      "pos": "G"
+    },
+    {
+      "id": "kris-dunn-8-g",
+      "name": "Kris Dunn 8",
+      "pos": "G"
+    },
+    {
+      "id": "nicolas-batum-33-f",
+      "name": "Nicolas Batum 33",
+      "pos": "F"
+    },
+    {
+      "id": "yanic-konan-niederhauser-14-c",
+      "name": "Yanic Konan Niederhauser 14",
+      "pos": "C"
+    }
+  ],
+  "Los AngelesLakers": [
+    {
+      "id": "adou-thiero-1-f",
+      "name": "Adou Thiero 1",
+      "pos": "F"
+    },
+    {
+      "id": "austin-reaves-15-g",
+      "name": "Austin Reaves 15",
+      "pos": "G"
+    },
+    {
+      "id": "bronny-james-9-g",
+      "name": "Bronny James 9",
+      "pos": "G"
+    },
+    {
+      "id": "chris-manon-30-g",
+      "name": "Chris Manon 30",
+      "pos": "G"
+    },
+    {
+      "id": "christian-koloko-10-c",
+      "name": "Christian Koloko 10",
+      "pos": "C"
+    },
+    {
+      "id": "dalton-knecht-4-f",
+      "name": "Dalton Knecht 4",
+      "pos": "F"
+    },
+    {
+      "id": "deandre-ayton-5-c",
+      "name": "Deandre Ayton 5",
+      "pos": "C"
+    },
+    {
+      "id": "gabe-vincent-7-g",
+      "name": "Gabe Vincent 7",
+      "pos": "G"
+    },
+    {
+      "id": "jake-laravia-12-f",
+      "name": "Jake LaRavia 12",
+      "pos": "F"
+    },
+    {
+      "id": "jarred-vanderbilt-2-f",
+      "name": "Jarred Vanderbilt 2",
+      "pos": "F"
+    },
+    {
+      "id": "jaxson-hayes-11-c",
+      "name": "Jaxson Hayes 11",
+      "pos": "C"
+    },
+    {
+      "id": "lebron-james-23-f",
+      "name": "LeBron James 23",
+      "pos": "F"
+    },
+    {
+      "id": "luka-doncic-77-g",
+      "name": "Luka Doncic 77",
+      "pos": "G"
+    },
+    {
+      "id": "marcus-smart-36-g",
+      "name": "Marcus Smart 36",
+      "pos": "G"
+    },
+    {
+      "id": "maxi-kleber-14-f",
+      "name": "Maxi Kleber 14",
+      "pos": "F"
+    },
+    {
+      "id": "nick-smith-jr-20-g",
+      "name": "Nick Smith Jr. 20",
+      "pos": "G"
+    },
+    {
+      "id": "rui-hachimura-28-f",
+      "name": "Rui Hachimura 28",
+      "pos": "F"
+    }
+  ],
+  "MemphisGrizzlies": [
+    {
+      "id": "brandon-clarke-15-f",
+      "name": "Brandon Clarke 15",
+      "pos": "F"
+    },
+    {
+      "id": "cam-spencer-24-g",
+      "name": "Cam Spencer 24",
+      "pos": "G"
+    },
+    {
+      "id": "cedric-coward-23-f",
+      "name": "Cedric Coward 23",
+      "pos": "F"
+    },
+    {
+      "id": "gg-jackson-45-f",
+      "name": "GG Jackson 45",
+      "pos": "F"
+    },
+    {
+      "id": "ja-morant-12-g",
+      "name": "Ja Morant 12",
+      "pos": "G"
+    },
+    {
+      "id": "jaren-jackson-jr-8-f",
+      "name": "Jaren Jackson Jr. 8",
+      "pos": "F"
+    },
+    {
+      "id": "javon-small-10-g",
+      "name": "Javon Small 10",
+      "pos": "G"
+    },
+    {
+      "id": "jaylen-wells-0-f",
+      "name": "Jaylen Wells 0",
+      "pos": "F"
+    },
+    {
+      "id": "jock-landale-31-c",
+      "name": "Jock Landale 31",
+      "pos": "C"
+    },
+    {
+      "id": "john-konchar-46-g",
+      "name": "John Konchar 46",
+      "pos": "G"
+    },
+    {
+      "id": "kentavious-caldwell-pope-3-g",
+      "name": "Kentavious Caldwell-Pope 3",
+      "pos": "G"
+    },
+    {
+      "id": "olivier-maxence-prosper-18-f",
+      "name": "Olivier-Maxence Prosper 18",
+      "pos": "F"
+    },
+    {
+      "id": "pj-hall-16-c",
+      "name": "PJ Hall 16",
+      "pos": "C"
+    },
+    {
+      "id": "santi-aldama-7-f",
+      "name": "Santi Aldama 7",
+      "pos": "F"
+    },
+    {
+      "id": "scotty-pippen-jr-1-g",
+      "name": "Scotty Pippen Jr. 1",
+      "pos": "G"
+    },
+    {
+      "id": "ty-jerome-2-g",
+      "name": "Ty Jerome 2",
+      "pos": "G"
+    },
+    {
+      "id": "vince-williams-jr-5-g",
+      "name": "Vince Williams Jr. 5",
+      "pos": "G"
+    },
+    {
+      "id": "zach-edey-14-c",
+      "name": "Zach Edey 14",
+      "pos": "C"
+    }
+  ],
+  "MiamiHeat": [
+    {
+      "id": "andrew-wiggins-22-f",
+      "name": "Andrew Wiggins 22",
+      "pos": "F"
+    },
+    {
+      "id": "bam-adebayo-13-c",
+      "name": "Bam Adebayo 13",
+      "pos": "C"
+    },
+    {
+      "id": "davion-mitchell-45-g",
+      "name": "Davion Mitchell 45",
+      "pos": "G"
+    },
+    {
+      "id": "dru-smith-12-g",
+      "name": "Dru Smith 12",
+      "pos": "G"
+    },
+    {
+      "id": "jahmir-young-17-g",
+      "name": "Jahmir Young 17",
+      "pos": "G"
+    },
+    {
+      "id": "jaime-jaquez-jr-11-f",
+      "name": "Jaime Jaquez Jr. 11",
+      "pos": "F"
+    },
+    {
+      "id": "kasparas-jakucionis-25-g",
+      "name": "Kasparas Jakucionis 25",
+      "pos": "G"
+    },
+    {
+      "id": "kel-el-ware-7-c",
+      "name": "Kel'el Ware 7",
+      "pos": "C"
+    },
+    {
+      "id": "keshad-johnson-16-f",
+      "name": "Keshad Johnson 16",
+      "pos": "F"
+    },
+    {
+      "id": "myron-gardner-15-f",
+      "name": "Myron Gardner 15",
+      "pos": "F"
+    },
+    {
+      "id": "nikola-jovic-5-f",
+      "name": "Nikola Jovic 5",
+      "pos": "F"
+    },
+    {
+      "id": "norman-powell-24-g",
+      "name": "Norman Powell 24",
+      "pos": "G"
+    },
+    {
+      "id": "pelle-larsson-9-g",
+      "name": "Pelle Larsson 9",
+      "pos": "G"
+    },
+    {
+      "id": "simone-fontecchio-0-f",
+      "name": "Simone Fontecchio 0",
+      "pos": "F"
+    },
+    {
+      "id": "terry-rozier-2-g",
+      "name": "Terry Rozier 2",
+      "pos": "G"
+    },
+    {
+      "id": "tyler-herro-14-g",
+      "name": "Tyler Herro 14",
+      "pos": "G"
+    },
+    {
+      "id": "vladislav-goldin-50-c",
+      "name": "Vladislav Goldin 50",
+      "pos": "C"
+    }
+  ],
+  "MilwaukeeBucks": [
+    {
+      "id": "aj-green-20-g",
+      "name": "AJ Green 20",
+      "pos": "G"
+    },
+    {
+      "id": "alex-antetokounmpo-f",
+      "name": "Alex Antetokounmpo",
+      "pos": "F"
+    },
+    {
+      "id": "amir-coffey-17-g",
+      "name": "Amir Coffey 17",
+      "pos": "G"
+    },
+    {
+      "id": "andre-jackson-jr-44-g",
+      "name": "Andre Jackson Jr. 44",
+      "pos": "G"
+    },
+    {
+      "id": "bobby-portis-9-f",
+      "name": "Bobby Portis 9",
+      "pos": "F"
+    },
+    {
+      "id": "cole-anthony-50-g",
+      "name": "Cole Anthony 50",
+      "pos": "G"
+    },
+    {
+      "id": "gary-harris-11-g",
+      "name": "Gary Harris 11",
+      "pos": "G"
+    },
+    {
+      "id": "gary-trent-jr-5-g",
+      "name": "Gary Trent Jr. 5",
+      "pos": "G"
+    },
+    {
+      "id": "giannis-antetokounmpo-34-f",
+      "name": "Giannis Antetokounmpo 34",
+      "pos": "F"
+    },
+    {
+      "id": "jericho-sims-00-c",
+      "name": "Jericho Sims 00",
+      "pos": "C"
+    },
+    {
+      "id": "kevin-porter-jr-7-g",
+      "name": "Kevin Porter Jr. 7",
+      "pos": "G"
+    },
+    {
+      "id": "kyle-kuzma-18-f",
+      "name": "Kyle Kuzma 18",
+      "pos": "F"
+    },
+    {
+      "id": "mark-sears-19-g",
+      "name": "Mark Sears 19",
+      "pos": "G"
+    },
+    {
+      "id": "myles-turner-3-c",
+      "name": "Myles Turner 3",
+      "pos": "C"
+    },
+    {
+      "id": "pete-nance-35-f",
+      "name": "Pete Nance 35",
+      "pos": "F"
+    },
+    {
+      "id": "ryan-rollins-13-g",
+      "name": "Ryan Rollins 13",
+      "pos": "G"
+    },
+    {
+      "id": "taurean-prince-12-f",
+      "name": "Taurean Prince 12",
+      "pos": "F"
+    },
+    {
+      "id": "thanasis-antetokounmpo-43-f",
+      "name": "Thanasis Antetokounmpo 43",
+      "pos": "F"
+    }
+  ],
+  "MinnesotaTimberwolves": [
+    {
+      "id": "anthony-edwards-5-g",
+      "name": "Anthony Edwards 5",
+      "pos": "G"
+    },
+    {
+      "id": "bones-hyland-8-g",
+      "name": "Bones Hyland 8",
+      "pos": "G"
+    },
+    {
+      "id": "donte-divincenzo-0-g",
+      "name": "Donte DiVincenzo 0",
+      "pos": "G"
+    },
+    {
+      "id": "enrique-freeman-25-f",
+      "name": "Enrique Freeman 25",
+      "pos": "F"
+    },
+    {
+      "id": "jaden-mcdaniels-3-f",
+      "name": "Jaden McDaniels 3",
+      "pos": "F"
+    },
+    {
+      "id": "jaylen-clark-22-g",
+      "name": "Jaylen Clark 22",
+      "pos": "G"
+    },
+    {
+      "id": "joan-beringer-19-f",
+      "name": "Joan Beringer 19",
+      "pos": "F"
+    },
+    {
+      "id": "joe-ingles-7-f",
+      "name": "Joe Ingles 7",
+      "pos": "F"
+    },
+    {
+      "id": "johnny-juzang-33-g",
+      "name": "Johnny Juzang 33",
+      "pos": "G"
+    },
+    {
+      "id": "julius-randle-30-f",
+      "name": "Julius Randle 30",
+      "pos": "F"
+    },
+    {
+      "id": "leonard-miller-33-f",
+      "name": "Leonard Miller 33",
+      "pos": "F"
+    },
+    {
+      "id": "mike-conley-10-g",
+      "name": "Mike Conley 10",
+      "pos": "G"
+    },
+    {
+      "id": "naz-reid-11-c",
+      "name": "Naz Reid 11",
+      "pos": "C"
+    },
+    {
+      "id": "rob-dillingham-4-g",
+      "name": "Rob Dillingham 4",
+      "pos": "G"
+    },
+    {
+      "id": "rocco-zikarsky-44-c",
+      "name": "Rocco Zikarsky 44",
+      "pos": "C"
+    },
+    {
+      "id": "rudy-gobert-27-c",
+      "name": "Rudy Gobert 27",
+      "pos": "C"
+    },
+    {
+      "id": "terrence-shannon-jr-1-g",
+      "name": "Terrence Shannon Jr. 1",
+      "pos": "G"
+    }
+  ],
+  "New OrleansPelicans": [
+    {
+      "id": "bryce-mcgowens-11-g",
+      "name": "Bryce McGowens 11",
+      "pos": "G"
+    },
+    {
+      "id": "dejounte-murray-5-g",
+      "name": "Dejounte Murray 5",
+      "pos": "G"
+    },
+    {
+      "id": "derik-queen-22-c",
+      "name": "Derik Queen 22",
+      "pos": "C"
+    },
+    {
+      "id": "herbert-jones-2-f",
+      "name": "Herbert Jones 2",
+      "pos": "F"
+    },
+    {
+      "id": "hunter-dickinson-4-c",
+      "name": "Hunter Dickinson 4",
+      "pos": "C"
+    },
+    {
+      "id": "jaden-springer-9-g",
+      "name": "Jaden Springer 9",
+      "pos": "G"
+    },
+    {
+      "id": "jeremiah-fears-0-g",
+      "name": "Jeremiah Fears 0",
+      "pos": "G"
+    },
+    {
+      "id": "jordan-hawkins-24-g",
+      "name": "Jordan Hawkins 24",
+      "pos": "G"
+    },
+    {
+      "id": "jordan-poole-3-g",
+      "name": "Jordan Poole 3",
+      "pos": "G"
+    },
+    {
+      "id": "jose-alvarado-15-g",
+      "name": "Jose Alvarado 15",
+      "pos": "G"
+    },
+    {
+      "id": "karlo-matkovic-17-f",
+      "name": "Karlo Matkovic 17",
+      "pos": "F"
+    },
+    {
+      "id": "kevon-looney-55-f",
+      "name": "Kevon Looney 55",
+      "pos": "F"
+    },
+    {
+      "id": "micah-peavy-14-g",
+      "name": "Micah Peavy 14",
+      "pos": "G"
+    },
+    {
+      "id": "saddiq-bey-41-g",
+      "name": "Saddiq Bey 41",
+      "pos": "G"
+    },
+    {
+      "id": "trey-alexander-23-g",
+      "name": "Trey Alexander 23",
+      "pos": "G"
+    },
+    {
+      "id": "trey-murphy-iii-25-f",
+      "name": "Trey Murphy III 25",
+      "pos": "F"
+    },
+    {
+      "id": "yves-missi-21-c",
+      "name": "Yves Missi 21",
+      "pos": "C"
+    },
+    {
+      "id": "zion-williamson-1-f",
+      "name": "Zion Williamson 1",
+      "pos": "F"
+    }
+  ],
+  "New YorkKnicks": [
+    {
+      "id": "ariel-hukporti-55-c",
+      "name": "Ariel Hukporti 55",
+      "pos": "C"
+    },
+    {
+      "id": "guerschon-yabusele-28-f",
+      "name": "Guerschon Yabusele 28",
+      "pos": "F"
+    },
+    {
+      "id": "jalen-brunson-11-g",
+      "name": "Jalen Brunson 11",
+      "pos": "G"
+    },
+    {
+      "id": "jordan-clarkson-00-g",
+      "name": "Jordan Clarkson 00",
+      "pos": "G"
+    },
+    {
+      "id": "josh-hart-3-g",
+      "name": "Josh Hart 3",
+      "pos": "G"
+    },
+    {
+      "id": "karl-anthony-towns-32-c",
+      "name": "Karl-Anthony Towns 32",
+      "pos": "C"
+    },
+    {
+      "id": "kevin-mccullar-jr-9-g",
+      "name": "Kevin McCullar Jr. 9",
+      "pos": "G"
+    },
+    {
+      "id": "landry-shamet-44-g",
+      "name": "Landry Shamet 44",
+      "pos": "G"
+    },
+    {
+      "id": "mikal-bridges-25-g",
+      "name": "Mikal Bridges 25",
+      "pos": "G"
+    },
+    {
+      "id": "miles-mcbride-2-g",
+      "name": "Miles McBride 2",
+      "pos": "G"
+    },
+    {
+      "id": "mitchell-robinson-23-c",
+      "name": "Mitchell Robinson 23",
+      "pos": "C"
+    },
+    {
+      "id": "mohamed-diawara-51-f",
+      "name": "Mohamed Diawara 51",
+      "pos": "F"
+    },
+    {
+      "id": "og-anunoby-8-f",
+      "name": "OG Anunoby 8",
+      "pos": "F"
+    },
+    {
+      "id": "pacome-dadiet-4-f",
+      "name": "Pacome Dadiet 4",
+      "pos": "F"
+    },
+    {
+      "id": "tosan-evbuomwan-20-f",
+      "name": "Tosan Evbuomwan 20",
+      "pos": "F"
+    },
+    {
+      "id": "trey-jemison-iii-50-f",
+      "name": "Trey Jemison III 50",
+      "pos": "F"
+    },
+    {
+      "id": "tyler-kolek-13-g",
+      "name": "Tyler Kolek 13",
+      "pos": "G"
+    }
+  ],
+  "Oklahoma CityThunder": [
+    {
+      "id": "aaron-wiggins-21-g",
+      "name": "Aaron Wiggins 21",
+      "pos": "G"
+    },
+    {
+      "id": "ajay-mitchell-25-g",
+      "name": "Ajay Mitchell 25",
+      "pos": "G"
+    },
+    {
+      "id": "alex-caruso-9-g",
+      "name": "Alex Caruso 9",
+      "pos": "G"
+    },
+    {
+      "id": "branden-carlson-15-c",
+      "name": "Branden Carlson 15",
+      "pos": "C"
+    },
+    {
+      "id": "brooks-barnhizer-23-f",
+      "name": "Brooks Barnhizer 23",
+      "pos": "F"
+    },
+    {
+      "id": "cason-wallace-22-g",
+      "name": "Cason Wallace 22",
+      "pos": "G"
+    },
+    {
+      "id": "chet-holmgren-7-c",
+      "name": "Chet Holmgren 7",
+      "pos": "C"
+    },
+    {
+      "id": "chris-youngblood-3-g",
+      "name": "Chris Youngblood 3",
+      "pos": "G"
+    },
+    {
+      "id": "isaiah-hartenstein-55-c",
+      "name": "Isaiah Hartenstein 55",
+      "pos": "C"
+    },
+    {
+      "id": "isaiah-joe-11-g",
+      "name": "Isaiah Joe 11",
+      "pos": "G"
+    },
+    {
+      "id": "jalen-williams-8-g",
+      "name": "Jalen Williams 8",
+      "pos": "G"
+    },
+    {
+      "id": "jaylin-williams-6-f",
+      "name": "Jaylin Williams 6",
+      "pos": "F"
+    },
+    {
+      "id": "kenrich-williams-34-g",
+      "name": "Kenrich Williams 34",
+      "pos": "G"
+    },
+    {
+      "id": "luguentz-dort-5-g",
+      "name": "Luguentz Dort 5",
+      "pos": "G"
+    },
+    {
+      "id": "nikola-topic-44-g",
+      "name": "Nikola Topic 44",
+      "pos": "G"
+    },
+    {
+      "id": "ousmane-dieng-13-f",
+      "name": "Ousmane Dieng 13",
+      "pos": "F"
+    },
+    {
+      "id": "shai-gilgeous-alexander-2-g",
+      "name": "Shai Gilgeous-Alexander 2",
+      "pos": "G"
+    },
+    {
+      "id": "thomas-sorber-12-c",
+      "name": "Thomas Sorber 12",
+      "pos": "C"
+    }
+  ],
+  "OrlandoMagic": [
+    {
+      "id": "anthony-black-0-g",
+      "name": "Anthony Black 0",
+      "pos": "G"
+    },
+    {
+      "id": "colin-castleton-14-c",
+      "name": "Colin Castleton 14",
+      "pos": "C"
+    },
+    {
+      "id": "desmond-bane-3-g",
+      "name": "Desmond Bane 3",
+      "pos": "G"
+    },
+    {
+      "id": "franz-wagner-22-f",
+      "name": "Franz Wagner 22",
+      "pos": "F"
+    },
+    {
+      "id": "goga-bitadze-35-c",
+      "name": "Goga Bitadze 35",
+      "pos": "C"
+    },
+    {
+      "id": "jalen-suggs-4-g",
+      "name": "Jalen Suggs 4",
+      "pos": "G"
+    },
+    {
+      "id": "jamal-cain-8-f",
+      "name": "Jamal Cain 8",
+      "pos": "F"
+    },
+    {
+      "id": "jase-richardson-11-g",
+      "name": "Jase Richardson 11",
+      "pos": "G"
+    },
+    {
+      "id": "jett-howard-13-g",
+      "name": "Jett Howard 13",
+      "pos": "G"
+    },
+    {
+      "id": "jonathan-isaac-1-f",
+      "name": "Jonathan Isaac 1",
+      "pos": "F"
+    },
+    {
+      "id": "moritz-wagner-21-f",
+      "name": "Moritz Wagner 21",
+      "pos": "F"
+    },
+    {
+      "id": "noah-penda-93-f",
+      "name": "Noah Penda 93",
+      "pos": "F"
+    },
+    {
+      "id": "orlando-robinson-7-c",
+      "name": "Orlando Robinson 7",
+      "pos": "C"
+    },
+    {
+      "id": "paolo-banchero-5-f",
+      "name": "Paolo Banchero 5",
+      "pos": "F"
+    },
+    {
+      "id": "tristan-da-silva-23-f",
+      "name": "Tristan da Silva 23",
+      "pos": "F"
+    },
+    {
+      "id": "tyus-jones-2-g",
+      "name": "Tyus Jones 2",
+      "pos": "G"
+    },
+    {
+      "id": "wendell-carter-jr-34-c",
+      "name": "Wendell Carter Jr. 34",
+      "pos": "C"
+    }
+  ],
+  "Philadelphia76ers": [
+    {
+      "id": "adem-bona-30-c",
+      "name": "Adem Bona 30",
+      "pos": "C"
+    },
+    {
+      "id": "andre-drummond-1-c",
+      "name": "Andre Drummond 1",
+      "pos": "C"
+    },
+    {
+      "id": "dominick-barlow-25-f",
+      "name": "Dominick Barlow 25",
+      "pos": "F"
+    },
+    {
+      "id": "eric-gordon-23-g",
+      "name": "Eric Gordon 23",
+      "pos": "G"
+    },
+    {
+      "id": "hunter-sallis-45-g",
+      "name": "Hunter Sallis 45",
+      "pos": "G"
+    },
+    {
+      "id": "jabari-walker-33-f",
+      "name": "Jabari Walker 33",
+      "pos": "F"
+    },
+    {
+      "id": "jared-mccain-20-g",
+      "name": "Jared McCain 20",
+      "pos": "G"
+    },
+    {
+      "id": "joel-embiid-21-c",
+      "name": "Joel Embiid 21",
+      "pos": "C"
+    },
+    {
+      "id": "johni-broome-22-f",
+      "name": "Johni Broome 22",
+      "pos": "F"
+    },
+    {
+      "id": "justin-edwards-11-f",
+      "name": "Justin Edwards 11",
+      "pos": "F"
+    },
+    {
+      "id": "kelly-oubre-jr-9-g",
+      "name": "Kelly Oubre Jr. 9",
+      "pos": "G"
+    },
+    {
+      "id": "kyle-lowry-7-g",
+      "name": "Kyle Lowry 7",
+      "pos": "G"
+    },
+    {
+      "id": "paul-george-8-f",
+      "name": "Paul George 8",
+      "pos": "F"
+    },
+    {
+      "id": "quentin-grimes-5-g",
+      "name": "Quentin Grimes 5",
+      "pos": "G"
+    },
+    {
+      "id": "trendon-watford-12-f",
+      "name": "Trendon Watford 12",
+      "pos": "F"
+    },
+    {
+      "id": "tyrese-maxey-0-g",
+      "name": "Tyrese Maxey 0",
+      "pos": "G"
+    },
+    {
+      "id": "vj-edgecombe-77-g",
+      "name": "VJ Edgecombe 77",
+      "pos": "G"
+    }
+  ],
+  "PhoenixSuns": [
+    {
+      "id": "cj-huntley-22-f",
+      "name": "CJ Huntley 22",
+      "pos": "F"
+    },
+    {
+      "id": "collin-gillespie-12-g",
+      "name": "Collin Gillespie 12",
+      "pos": "G"
+    },
+    {
+      "id": "devin-booker-1-g",
+      "name": "Devin Booker 1",
+      "pos": "G"
+    },
+    {
+      "id": "dillon-brooks-3-f",
+      "name": "Dillon Brooks 3",
+      "pos": "F"
+    },
+    {
+      "id": "grayson-allen-8-g",
+      "name": "Grayson Allen 8",
+      "pos": "G"
+    },
+    {
+      "id": "isaiah-livers-18-f",
+      "name": "Isaiah Livers 18",
+      "pos": "F"
+    },
+    {
+      "id": "jalen-green-4-g",
+      "name": "Jalen Green 4",
+      "pos": "G"
+    },
+    {
+      "id": "jordan-goodwin-23-g",
+      "name": "Jordan Goodwin 23",
+      "pos": "G"
+    },
+    {
+      "id": "khaman-maluach-10-c",
+      "name": "Khaman Maluach 10",
+      "pos": "C"
+    },
+    {
+      "id": "koby-brea-14-g",
+      "name": "Koby Brea 14",
+      "pos": "G"
+    },
+    {
+      "id": "mark-williams-15-c",
+      "name": "Mark Williams 15",
+      "pos": "C"
+    },
+    {
+      "id": "nick-richards-2-c",
+      "name": "Nick Richards 2",
+      "pos": "C"
+    },
+    {
+      "id": "nigel-hayes-davis-21-f",
+      "name": "Nigel Hayes-Davis 21",
+      "pos": "F"
+    },
+    {
+      "id": "oso-ighodaro-11-f",
+      "name": "Oso Ighodaro 11",
+      "pos": "F"
+    },
+    {
+      "id": "rasheer-fleming-20-f",
+      "name": "Rasheer Fleming 20",
+      "pos": "F"
+    },
+    {
+      "id": "royce-o-neale-00-f",
+      "name": "Royce O'Neale 00",
+      "pos": "F"
+    },
+    {
+      "id": "ryan-dunn-0-f",
+      "name": "Ryan Dunn 0",
+      "pos": "F"
+    }
+  ],
+  "PortlandTrail Blazers": [
+    {
+      "id": "blake-wesley-1-g",
+      "name": "Blake Wesley 1",
+      "pos": "G"
+    },
+    {
+      "id": "caleb-love-2-g",
+      "name": "Caleb Love 2",
+      "pos": "G"
+    },
+    {
+      "id": "damian-lillard-0-g",
+      "name": "Damian Lillard 0",
+      "pos": "G"
+    },
+    {
+      "id": "deni-avdija-8-f",
+      "name": "Deni Avdija 8",
+      "pos": "F"
+    },
+    {
+      "id": "donovan-clingan-23-c",
+      "name": "Donovan Clingan 23",
+      "pos": "C"
+    },
+    {
+      "id": "duop-reath-26-c",
+      "name": "Duop Reath 26",
+      "pos": "C"
+    },
+    {
+      "id": "javonte-cooke-15-g",
+      "name": "Javonte Cooke 15",
+      "pos": "G"
+    },
+    {
+      "id": "jerami-grant-9-f",
+      "name": "Jerami Grant 9",
+      "pos": "F"
+    },
+    {
+      "id": "jrue-holiday-5-g",
+      "name": "Jrue Holiday 5",
+      "pos": "G"
+    },
+    {
+      "id": "kris-murray-24-f",
+      "name": "Kris Murray 24",
+      "pos": "F"
+    },
+    {
+      "id": "matisse-thybulle-4-g",
+      "name": "Matisse Thybulle 4",
+      "pos": "G"
+    },
+    {
+      "id": "rayan-rupert-21-g",
+      "name": "Rayan Rupert 21",
+      "pos": "G"
+    },
+    {
+      "id": "robert-williams-iii-35-c",
+      "name": "Robert Williams III 35",
+      "pos": "C"
+    },
+    {
+      "id": "scoot-henderson-00-g",
+      "name": "Scoot Henderson 00",
+      "pos": "G"
+    },
+    {
+      "id": "shaedon-sharpe-17-g",
+      "name": "Shaedon Sharpe 17",
+      "pos": "G"
+    },
+    {
+      "id": "sidy-cissoko-91-g",
+      "name": "Sidy Cissoko 91",
+      "pos": "G"
+    },
+    {
+      "id": "toumani-camara-33-f",
+      "name": "Toumani Camara 33",
+      "pos": "F"
+    },
+    {
+      "id": "yang-hansen-16-c",
+      "name": "Yang Hansen 16",
+      "pos": "C"
+    }
+  ],
+  "SacramentoKings": [
+    {
+      "id": "daeqwon-plowden-29-g",
+      "name": "Daeqwon Plowden 29",
+      "pos": "G"
+    },
+    {
+      "id": "dario-saric-9-f",
+      "name": "Dario Saric 9",
+      "pos": "F"
+    },
+    {
+      "id": "demar-derozan-10-g",
+      "name": "DeMar DeRozan 10",
+      "pos": "G"
+    },
+    {
+      "id": "dennis-schroder-17-g",
+      "name": "Dennis Schroder 17",
+      "pos": "G"
+    },
+    {
+      "id": "devin-carter-22-g",
+      "name": "Devin Carter 22",
+      "pos": "G"
+    },
+    {
+      "id": "domantas-sabonis-11-f",
+      "name": "Domantas Sabonis 11",
+      "pos": "F"
+    },
+    {
+      "id": "doug-mcdermott-7-f",
+      "name": "Doug McDermott 7",
+      "pos": "F"
+    },
+    {
+      "id": "drew-eubanks-19-f",
+      "name": "Drew Eubanks 19",
+      "pos": "F"
+    },
+    {
+      "id": "dylan-cardwell-32-c",
+      "name": "Dylan Cardwell 32",
+      "pos": "C"
+    },
+    {
+      "id": "isaac-jones-3-c",
+      "name": "Isaac Jones 3",
+      "pos": "C"
+    },
+    {
+      "id": "isaiah-stevens-24-g",
+      "name": "Isaiah Stevens 24",
+      "pos": "G"
+    },
+    {
+      "id": "keegan-murray-13-f",
+      "name": "Keegan Murray 13",
+      "pos": "F"
+    },
+    {
+      "id": "keon-ellis-23-g",
+      "name": "Keon Ellis 23",
+      "pos": "G"
+    },
+    {
+      "id": "malik-monk-0-g",
+      "name": "Malik Monk 0",
+      "pos": "G"
+    },
+    {
+      "id": "maxime-raynaud-42-c",
+      "name": "Maxime Raynaud 42",
+      "pos": "C"
+    },
+    {
+      "id": "nique-clifford-5-g",
+      "name": "Nique Clifford 5",
+      "pos": "G"
+    },
+    {
+      "id": "russell-westbrook-4-g",
+      "name": "Russell Westbrook 4",
+      "pos": "G"
+    },
+    {
+      "id": "zach-lavine-8-g",
+      "name": "Zach LaVine 8",
+      "pos": "G"
+    }
+  ],
+  "San AntonioSpurs": [
+    {
+      "id": "bismack-biyombo-18-c",
+      "name": "Bismack Biyombo 18",
+      "pos": "C"
+    },
+    {
+      "id": "carter-bryant-11-f",
+      "name": "Carter Bryant 11",
+      "pos": "F"
+    },
+    {
+      "id": "david-jones-garcia-25-f",
+      "name": "David Jones Garcia 25",
+      "pos": "F"
+    },
+    {
+      "id": "de-aaron-fox-4-g",
+      "name": "De'Aaron Fox 4",
+      "pos": "G"
+    },
+    {
+      "id": "devin-vassell-24-g",
+      "name": "Devin Vassell 24",
+      "pos": "G"
+    },
+    {
+      "id": "dylan-harper-2-g",
+      "name": "Dylan Harper 2",
+      "pos": "G"
+    },
+    {
+      "id": "harrison-barnes-40-f",
+      "name": "Harrison Barnes 40",
+      "pos": "F"
+    },
+    {
+      "id": "harrison-ingram-55-f",
+      "name": "Harrison Ingram 55",
+      "pos": "F"
+    },
+    {
+      "id": "jeremy-sochan-10-f",
+      "name": "Jeremy Sochan 10",
+      "pos": "F"
+    },
+    {
+      "id": "jordan-mclaughlin-0-g",
+      "name": "Jordan McLaughlin 0",
+      "pos": "G"
+    },
+    {
+      "id": "julian-champagnie-30-f",
+      "name": "Julian Champagnie 30",
+      "pos": "F"
+    },
+    {
+      "id": "keldon-johnson-3-f",
+      "name": "Keldon Johnson 3",
+      "pos": "F"
+    },
+    {
+      "id": "kelly-olynyk-8-f",
+      "name": "Kelly Olynyk 8",
+      "pos": "F"
+    },
+    {
+      "id": "lindy-waters-iii-43-f",
+      "name": "Lindy Waters III 43",
+      "pos": "F"
+    },
+    {
+      "id": "luke-kornet-7-c",
+      "name": "Luke Kornet 7",
+      "pos": "C"
+    },
+    {
+      "id": "riley-minix-27-f",
+      "name": "Riley Minix 27",
+      "pos": "F"
+    },
+    {
+      "id": "stephon-castle-5-g",
+      "name": "Stephon Castle 5",
+      "pos": "G"
+    },
+    {
+      "id": "victor-wembanyama-1-f",
+      "name": "Victor Wembanyama 1",
+      "pos": "F"
+    }
+  ],
+  "TorontoRaptors": [
+    {
+      "id": "a-j-lawson-0-g",
+      "name": "A.J. Lawson 0",
+      "pos": "G"
+    },
+    {
+      "id": "alijah-martin-55-g",
+      "name": "Alijah Martin 55",
+      "pos": "G"
+    },
+    {
+      "id": "brandon-ingram-3-f",
+      "name": "Brandon Ingram 3",
+      "pos": "F"
+    },
+    {
+      "id": "chucky-hepburn-24-g",
+      "name": "Chucky Hepburn 24",
+      "pos": "G"
+    },
+    {
+      "id": "collin-murray-boyles-12-f",
+      "name": "Collin Murray-Boyles 12",
+      "pos": "F"
+    },
+    {
+      "id": "garrett-temple-17-g",
+      "name": "Garrett Temple 17",
+      "pos": "G"
+    },
+    {
+      "id": "gradey-dick-1-g",
+      "name": "Gradey Dick 1",
+      "pos": "G"
+    },
+    {
+      "id": "immanuel-quickley-5-g",
+      "name": "Immanuel Quickley 5",
+      "pos": "G"
+    },
+    {
+      "id": "ja-kobe-walter-14-g",
+      "name": "Ja'Kobe Walter 14",
+      "pos": "G"
+    },
+    {
+      "id": "jakob-poeltl-19-c",
+      "name": "Jakob Poeltl 19",
+      "pos": "C"
+    },
+    {
+      "id": "jamal-shead-23-g",
+      "name": "Jamal Shead 23",
+      "pos": "G"
+    },
+    {
+      "id": "jamison-battle-77-f",
+      "name": "Jamison Battle 77",
+      "pos": "F"
+    },
+    {
+      "id": "jonathan-mogbo-2-f",
+      "name": "Jonathan Mogbo 2",
+      "pos": "F"
+    },
+    {
+      "id": "ochai-agbaji-30-g",
+      "name": "Ochai Agbaji 30",
+      "pos": "G"
+    },
+    {
+      "id": "rj-barrett-9-f",
+      "name": "RJ Barrett 9",
+      "pos": "F"
+    },
+    {
+      "id": "sandro-mamukelashvili-54-f",
+      "name": "Sandro Mamukelashvili 54",
+      "pos": "F"
+    },
+    {
+      "id": "scottie-barnes-4-f",
+      "name": "Scottie Barnes 4",
+      "pos": "F"
+    }
+  ],
+  "UtahJazz": [
+    {
+      "id": "ace-bailey-19-g",
+      "name": "Ace Bailey 19",
+      "pos": "G"
+    },
+    {
+      "id": "brice-sensabaugh-28-f",
+      "name": "Brice Sensabaugh 28",
+      "pos": "F"
+    },
+    {
+      "id": "cody-williams-5-f",
+      "name": "Cody Williams 5",
+      "pos": "F"
+    },
+    {
+      "id": "elijah-harkless-16-g",
+      "name": "Elijah Harkless 16",
+      "pos": "G"
+    },
+    {
+      "id": "georges-niang-31-f",
+      "name": "Georges Niang 31",
+      "pos": "F"
+    },
+    {
+      "id": "isaiah-collier-8-g",
+      "name": "Isaiah Collier 8",
+      "pos": "G"
+    },
+    {
+      "id": "john-tonje-17-f",
+      "name": "John Tonje 17",
+      "pos": "F"
+    },
+    {
+      "id": "jusuf-nurkic-30-c",
+      "name": "Jusuf Nurkic 30",
+      "pos": "C"
+    },
+    {
+      "id": "kevin-love-42-f",
+      "name": "Kevin Love 42",
+      "pos": "F"
+    },
+    {
+      "id": "keyonte-george-3-g",
+      "name": "Keyonte George 3",
+      "pos": "G"
+    },
+    {
+      "id": "kyle-anderson-2-f",
+      "name": "Kyle Anderson 2",
+      "pos": "F"
+    },
+    {
+      "id": "kyle-filipowski-22-f",
+      "name": "Kyle Filipowski 22",
+      "pos": "F"
+    },
+    {
+      "id": "lauri-markkanen-23-f",
+      "name": "Lauri Markkanen 23",
+      "pos": "F"
+    },
+    {
+      "id": "oscar-tshiebwe-34-c",
+      "name": "Oscar Tshiebwe 34",
+      "pos": "C"
+    },
+    {
+      "id": "svi-mykhailiuk-10-g",
+      "name": "Svi Mykhailiuk 10",
+      "pos": "G"
+    },
+    {
+      "id": "taylor-hendricks-0-f",
+      "name": "Taylor Hendricks 0",
+      "pos": "F"
+    },
+    {
+      "id": "walker-kessler-24-c",
+      "name": "Walker Kessler 24",
+      "pos": "C"
+    },
+    {
+      "id": "walter-clayton-jr-13-g",
+      "name": "Walter Clayton Jr. 13",
+      "pos": "G"
+    }
+  ],
+  "WashingtonWizards": [
+    {
+      "id": "aj-johnson-4-g",
+      "name": "AJ Johnson 4",
+      "pos": "G"
+    },
+    {
+      "id": "alex-sarr-20-c",
+      "name": "Alex Sarr 20",
+      "pos": "C"
+    },
+    {
+      "id": "anthony-gill-16-f",
+      "name": "Anthony Gill 16",
+      "pos": "F"
+    },
+    {
+      "id": "bilal-coulibaly-0-g",
+      "name": "Bilal Coulibaly 0",
+      "pos": "G"
+    },
+    {
+      "id": "bub-carrington-7-g",
+      "name": "Bub Carrington 7",
+      "pos": "G"
+    },
+    {
+      "id": "cam-whitmore-1-f",
+      "name": "Cam Whitmore 1",
+      "pos": "F"
+    },
+    {
+      "id": "cj-mccollum-3-g",
+      "name": "CJ McCollum 3",
+      "pos": "G"
+    },
+    {
+      "id": "corey-kispert-24-f",
+      "name": "Corey Kispert 24",
+      "pos": "F"
+    },
+    {
+      "id": "jamir-watkins-5-g",
+      "name": "Jamir Watkins 5",
+      "pos": "G"
+    },
+    {
+      "id": "justin-champagnie-9-f",
+      "name": "Justin Champagnie 9",
+      "pos": "F"
+    },
+    {
+      "id": "khris-middleton-22-f",
+      "name": "Khris Middleton 22",
+      "pos": "F"
+    },
+    {
+      "id": "kyshawn-george-18-f",
+      "name": "Kyshawn George 18",
+      "pos": "F"
+    },
+    {
+      "id": "malaki-branham-8-g",
+      "name": "Malaki Branham 8",
+      "pos": "G"
+    },
+    {
+      "id": "marvin-bagley-iii-35-f",
+      "name": "Marvin Bagley III 35",
+      "pos": "F"
+    },
+    {
+      "id": "sharife-cooper-13-g",
+      "name": "Sharife Cooper 13",
+      "pos": "G"
+    },
+    {
+      "id": "tre-johnson-12-g",
+      "name": "Tre Johnson 12",
+      "pos": "G"
+    },
+    {
+      "id": "tristan-vukcevic-00-f",
+      "name": "Tristan Vukcevic 00",
+      "pos": "F"
+    },
+    {
+      "id": "will-riley-27-g",
+      "name": "Will Riley 27",
+      "pos": "G"
+    }
+  ]
+}

@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import useSWR from 'swr';
 
-import { getPlayersByTeam } from '@/lib/rosters';
+import type { PlayerLite } from './useTeamPlayers';
+
+type Rosters = Record<string, { id: string; name: string; pos?: string; jersey?: string }[]>;
 
 interface PlayerSummary {
   id: string;
@@ -17,88 +20,88 @@ interface UsePlayersParams {
   teamId?: string | number;
   teamName?: string;
   triCode?: string | null;
-  season?: number;
 }
 
-const toNumericId = (value?: string | number): number | undefined => {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : undefined;
+const fetchRosters = async (): Promise<Rosters> => {
+  const response = await fetch('/rosters.json', { cache: 'force-cache', credentials: 'omit' });
+  if (!response.ok) {
+    throw new Error('Failed to load rosters.json');
   }
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-  return undefined;
+  return response.json();
 };
 
-export const usePlayers = ({ teamId, teamName, triCode, season }: UsePlayersParams) => {
-  const [players, setPlayers] = useState<PlayerSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
-  const numericId = useMemo(() => toNumericId(teamId), [teamId]);
-  const key = useMemo(
-    () => `${teamName ?? ''}|${triCode ?? ''}|${numericId ?? ''}|${season ?? ''}`,
-    [teamName, triCode, numericId, season],
-  );
-
-  const hasIdentifier = Boolean(teamName || triCode || numericId);
-
-  useEffect(() => {
-    if (hasIdentifier) {
-      return;
+const toLookupKeys = ({ teamId, teamName, triCode }: UsePlayersParams): string[] => {
+  const keys = new Set<string>();
+  if (teamId !== undefined && teamId !== null && `${teamId}`.trim() !== '') {
+    keys.add(`${teamId}`.trim());
+  }
+  if (triCode) {
+    const trimmed = triCode.trim();
+    if (trimmed) {
+      keys.add(trimmed.toUpperCase());
     }
-    setPlayers([]);
-    setIsLoading(false);
-    setError(null);
-  }, [hasIdentifier]);
-
-  useEffect(() => {
-    if (!hasIdentifier) {
-      return;
+  }
+  if (teamName) {
+    const trimmed = teamName.trim();
+    if (trimmed) {
+      keys.add(slugify(trimmed));
+      keys.add(trimmed.toUpperCase());
     }
+  }
+  return Array.from(keys);
+};
 
-    let active = true;
-    setIsLoading(true);
-    setError(null);
+const mapPlayer = (player: PlayerLite): PlayerSummary => ({
+  id: player.id,
+  fullName: player.full_name,
+  firstName: player.first_name,
+  lastName: player.last_name,
+  position: player.position || null,
+  teamId: player.team_id,
+});
 
-    getPlayersByTeam({
-      teamName,
-      triCode: triCode ?? undefined,
-      teamId: numericId,
-    })
-      .then((list) => {
-        if (!active) return;
-        const mapped = list.map((player, index) => {
-          const [first, ...rest] = player.name.trim().split(/\s+/);
-          const lastName = rest.join(' ');
+export const usePlayers = ({ teamId, teamName, triCode }: UsePlayersParams) => {
+  const { data, error, isLoading } = useSWR<Rosters>('local-rosters', fetchRosters, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+
+  const keys = useMemo(() => toLookupKeys({ teamId, teamName, triCode }), [teamId, teamName, triCode]);
+
+  const players = useMemo(() => {
+    if (!data) {
+      return [] as PlayerSummary[];
+    }
+    for (const key of keys) {
+      const roster = data[key];
+      if (roster && roster.length) {
+        const mapped: PlayerLite[] = roster.map((player) => {
+          const fullName = player.name ? player.name.replace(/\s+/g, ' ').trim() : `Player ${player.id}`;
+          const parts = fullName.split(' ');
+          const firstName = parts[0] ?? fullName;
+          const lastName = parts.slice(1).join(' ');
           return {
-            id: `${numericId ?? triCode ?? teamName ?? 'team'}-${index}-${player.name}`,
-            fullName: player.name,
-            firstName: first ?? player.name,
-            lastName: lastName || '',
-            position: player.position || null,
-            teamId: String(numericId ?? teamName ?? triCode ?? ''),
-          } satisfies PlayerSummary;
+            id: player.id,
+            full_name: fullName,
+            first_name: firstName,
+            last_name: lastName,
+            position: player.pos ?? '',
+            team_id: key,
+            jersey: player.jersey,
+          } satisfies PlayerLite;
         });
-        setPlayers(mapped);
-      })
-      .catch((err) => {
-        if (!active) return;
-        setError(err instanceof Error ? err : new Error('Failed to load players'));
-        setPlayers([]);
-      })
-      .finally(() => {
-        if (active) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, hasIdentifier]);
+        return mapped.map(mapPlayer);
+      }
+    }
+    return [] as PlayerSummary[];
+  }, [data, keys]);
 
   return { players, isLoading, error };
 };
