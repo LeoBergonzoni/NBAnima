@@ -252,6 +252,8 @@ const GamePlayersCard = ({
     awayId: awayTeamId,
   });
 
+  const [cachedPlayers, setCachedPlayers] = useState<PlayerSummary[]>([]);
+
   const combinedPlayers = useMemo(() => {
     const map = new Map<string, PlayerSummary>();
     apiPlayers.forEach((player) => {
@@ -272,18 +274,29 @@ const GamePlayersCard = ({
     return Array.from(map.values());
   }, [apiPlayers]);
 
+  useEffect(() => {
+    if (combinedPlayers.length > 0) {
+      setCachedPlayers(combinedPlayers);
+    }
+  }, [combinedPlayers]);
+
+  const displayPlayers = useMemo(
+    () => (combinedPlayers.length > 0 ? combinedPlayers : cachedPlayers),
+    [combinedPlayers, cachedPlayers],
+  );
+
   const searchPlaceholder = getSearchPlaceholder(locale);
   const emptySearchLabel = getEmptySearchLabel(locale);
 
   const selectPlayers = useMemo(
     () =>
-      combinedPlayers.map((player) => ({
+      displayPlayers.map((player) => ({
         id: player.id,
         first_name: player.firstName,
         last_name: player.lastName,
         position: player.position,
       })),
-    [combinedPlayers],
+    [displayPlayers],
   );
 
   const filterByQuery = useCallback(
@@ -297,20 +310,30 @@ const GamePlayersCard = ({
   const clearLabel = locale === 'it' ? '↺ Pulisci selezione' : '↺ Clear selection';
 
   const isLoading = playersLoading;
-  const loadError = playersError ? playersErrorMessage ?? 'Players unavailable' : null;
-  const hasNoPlayers = !isLoading && !loadError && combinedPlayers.length === 0;
+  const loadErrorRaw = playersError
+    ? playersErrorMessage ?? 'Players unavailable'
+    : null;
+  const showRateLimitMessage =
+    typeof loadErrorRaw === 'string' && loadErrorRaw.includes('429');
+  const loadError = showRateLimitMessage
+    ? 'API temporaneamente sovraccaricata, riprova tra pochi minuti.'
+    : loadErrorRaw;
+  const hasNoPlayers =
+    !isLoading && !loadError && displayPlayers.length === 0 && cachedPlayers.length === 0;
 
   const homeCount = useMemo(
-    () => apiPlayers.filter((player) => player.team_id === homeTeamId).length,
-    [apiPlayers, homeTeamId],
+    () => displayPlayers.filter((player) => player.teamId === homeTeamId).length,
+    [displayPlayers, homeTeamId],
   );
   const awayCount = useMemo(
-    () => apiPlayers.filter((player) => player.team_id === awayTeamId).length,
-    [apiPlayers, awayTeamId],
+    () => displayPlayers.filter((player) => player.teamId === awayTeamId).length,
+    [displayPlayers, awayTeamId],
   );
 
   useEffect(() => {
-    onPlayersLoaded(game.id, combinedPlayers);
+    if (combinedPlayers.length > 0) {
+      onPlayersLoaded(game.id, combinedPlayers);
+    }
   }, [combinedPlayers, game.id, onPlayersLoaded]);
 
   return (
@@ -326,13 +349,14 @@ const GamePlayersCard = ({
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{dictionary.common.loading}</span>
         </div>
-      ) : loadError ? (
-        <p className="text-sm text-red-400">
-          Players unavailable{loadError ? `: ${loadError}` : ''}
-        </p>
-      ) : hasNoPlayers ? (
+      ) : null}
+      {!isLoading && loadError ? (
+        <p className="text-sm text-red-400">{loadError}</p>
+      ) : null}
+      {!isLoading && !loadError && hasNoPlayers ? (
         <p className="text-sm text-red-400">No players loaded.</p>
-      ) : (
+      ) : null}
+      {displayPlayers.length > 0 ? (
         <div className="grid gap-3 md:grid-cols-2">
           {PLAYER_CATEGORIES.map((category) => {
             const rawValue = playerSelections[category];
@@ -362,7 +386,7 @@ const GamePlayersCard = ({
             );
           })}
         </div>
-      )}
+      ) : null}
       {process.env.NODE_ENV !== 'production' && (
         <div className="text-[11px] text-slate-400">
           <div>

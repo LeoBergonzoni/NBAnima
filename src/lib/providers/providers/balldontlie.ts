@@ -10,18 +10,24 @@ import type {
 const BASE_URL = 'https://api.balldontlie.io/v1';
 
 async function blFetch<T>(endpoint: string, init?: RequestInit): Promise<T> {
+  const headers = {
+    Accept: 'application/json',
+    'User-Agent': 'NBAnima/1.0',
+    Authorization: process.env.BALLDONTLIE_API_KEY ?? '',
+    'Content-Type': 'application/json',
+    ...(init?.headers || {}),
+  };
+
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     ...init,
-    headers: {
-      Authorization: process.env.BALLDONTLIE_API_KEY ?? '',
-      'Content-Type': 'application/json',
-      ...(init?.headers || {}),
-    },
+    headers,
     cache: 'no-store',
+    credentials: init?.credentials ?? 'omit',
   });
 
   if (!res.ok) {
-    const err = await res.text();
+    const err = await res.text().catch(() => '');
+    console.error('[Games API]', res.status, err || res.statusText);
     throw new Error(`Balldontlie request failed (${res.status}): ${err}`);
   }
 

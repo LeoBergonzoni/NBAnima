@@ -2,6 +2,31 @@ import { NextResponse } from 'next/server';
 
 import { getServerEnv } from '@/lib/env';
 
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+type CachedEntry = { expiresAt: number; players: PlayerResponse[] };
+const playersCache = new Map<string, CachedEntry>();
+
+type PlayerResponse = {
+  id: string;
+  full_name: string;
+  number: string | number | null;
+  position: string;
+  team_id: string;
+  active: boolean;
+};
+
+class BalldontlieError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public body: string,
+  ) {
+    super(message);
+  }
+}
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function fetchBalldontlie(
   path: string,
   search?: Record<string, string | number | undefined>,
@@ -18,13 +43,20 @@ async function fetchBalldontlie(
 
   const { BALLDONTLIE_API_KEY } = getServerEnv();
   const response = await fetch(url.toString(), {
-    headers: BALLDONTLIE_API_KEY ? { Authorization: BALLDONTLIE_API_KEY } : {},
-    cache: 'no-store',
+    headers: BALLDONTLIE_API_KEY
+      ? { Authorization: BALLDONTLIE_API_KEY }
+      : {},
+    next: { revalidate: 3600 },
+    credentials: 'omit',
   });
 
   if (!response.ok) {
     const text = await response.text().catch(() => '');
-    throw new Error(`balldontlie ${response.status}: ${text || response.statusText}`);
+    throw new BalldontlieError(
+      `balldontlie ${response.status}: ${text || response.statusText}`,
+      response.status,
+      text,
+    );
   }
 
   return response.json();
@@ -44,28 +76,105 @@ export async function GET(req: Request) {
       );
     }
 
-    const per_page = 100;
-    const [home, away] = await Promise.all([
-      fetchBalldontlie('/players', { 'team_ids[]': homeId, per_page, season }),
-      fetchBalldontlie('/players', { 'team_ids[]': awayId, per_page, season }),
-    ]);
+    const cacheKey = `${homeId}:${awayId}:${season}`;
+    const cached = playersCache.get(cacheKey);
+    const now = Date.now();
+    let cachedPlayers: PlayerResponse[] | null = null;
+    if (cached) {
+      if (cached.expiresAt > now) {
+        cachedPlayers = cached.players;
+      } else {
+        playersCache.delete(cacheKey);
+      }
+    }
 
-    const normalize = (list: any[], teamId: string) =>
+    const headers = new Headers({
+      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=300',
+    });
+
+    const per_page = 100;
+    const normalize = (list: any[], teamId: string): PlayerResponse[] =>
       (list ?? []).map((player) => ({
         id: String(player.id),
-        full_name: [player.first_name, player.last_name].filter(Boolean).join(' ').trim(),
+        full_name: [player.first_name, player.last_name]
+          .filter(Boolean)
+          .join(' ')
+          .trim(),
         number: player.jersey_number ?? player.jersey ?? null,
         position: player.position ?? '',
         team_id: teamId,
         active: player.active ?? true,
       }));
 
+    const fetchTeams = () =>
+      Promise.all([
+        fetchBalldontlie('/players', {
+          'team_ids[]': homeId,
+          per_page,
+          season,
+        }),
+        fetchBalldontlie('/players', {
+          'team_ids[]': awayId,
+          per_page,
+          season,
+        }),
+      ]);
+
+    let homeData: any;
+    let awayData: any;
+
+    try {
+      [homeData, awayData] = await fetchTeams();
+    } catch (initialError) {
+      const shouldRetry =
+        initialError instanceof BalldontlieError &&
+        initialError.status === 429;
+      if (shouldRetry) {
+        await delay(1000);
+        try {
+          [homeData, awayData] = await fetchTeams();
+        } catch (retryError) {
+          if (cachedPlayers) {
+            console.warn(
+              '[api/players] returning cached data after rate limit retry failure',
+              retryError,
+            );
+            headers.set('x-nb-cache', 'hit');
+            return NextResponse.json(
+              { ok: true, players: cachedPlayers, cached: true },
+              { status: 200, headers },
+            );
+          }
+          throw retryError;
+        }
+      } else {
+        if (cachedPlayers) {
+          console.warn(
+            '[api/players] returning cached data after upstream error',
+            initialError,
+          );
+          headers.set('x-nb-cache', 'hit');
+          return NextResponse.json(
+            { ok: true, players: cachedPlayers, cached: true },
+            { status: 200, headers },
+          );
+        }
+        throw initialError;
+      }
+    }
+
     const players = [
-      ...normalize(home.data, String(homeId)),
-      ...normalize(away.data, String(awayId)),
+      ...normalize(homeData.data, String(homeId)),
+      ...normalize(awayData.data, String(awayId)),
     ];
 
-    return NextResponse.json({ ok: true, players }, { status: 200 });
+    playersCache.set(cacheKey, {
+      players,
+      expiresAt: now + CACHE_TTL_MS,
+    });
+    headers.set('x-nb-cache', cachedPlayers ? 'refreshed' : 'miss');
+
+    return NextResponse.json({ ok: true, players }, { status: 200, headers });
   } catch (error: unknown) {
     console.error('[api/players] Error:', error);
     return NextResponse.json(
