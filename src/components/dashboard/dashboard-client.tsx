@@ -210,8 +210,8 @@ const GamePlayersCard = ({
 
   const {
     players: apiPlayers,
-    homePlayers,
-    awayPlayers,
+    homePlayers: homeRosterPlayers,
+    awayPlayers: awayRosterPlayers,
     missing: missingRosterKeys,
     isLoading: playersLoading,
     isError: playersError,
@@ -224,8 +224,6 @@ const GamePlayersCard = ({
     awayAbbr: game.awayTeam.abbreviation ?? null,
     awayName: game.awayTeam.name,
   });
-
-  const [cachedPlayers, setCachedPlayers] = useState<PlayerSummary[]>([]);
 
   const combinedPlayers = useMemo(() => {
     const map = new Map<string, PlayerSummary>();
@@ -248,17 +246,6 @@ const GamePlayersCard = ({
     return Array.from(map.values());
   }, [apiPlayers]);
 
-  useEffect(() => {
-    if (combinedPlayers.length > 0) {
-      setCachedPlayers(combinedPlayers);
-    }
-  }, [combinedPlayers]);
-
-  const displayPlayers = useMemo(
-    () => (combinedPlayers.length > 0 ? combinedPlayers : cachedPlayers),
-    [combinedPlayers, cachedPlayers],
-  );
-
   const createOptionLabel = useCallback((player: PlayerSummary) => {
     const parts = [player.fullName];
     if (player.jersey) {
@@ -273,41 +260,22 @@ const GamePlayersCard = ({
 
   const selectOptions = useMemo(
     () =>
-      displayPlayers.map((player) => ({
+      combinedPlayers.map((player) => ({
         value: player.id,
         label: createOptionLabel(player),
         meta: {
           altNames: [player.fullName, player.firstName, player.lastName].filter(Boolean),
         },
       })),
-    [createOptionLabel, displayPlayers],
+    [combinedPlayers, createOptionLabel],
   );
 
   const isLoading = playersLoading;
-  const loadErrorRaw = playersError
-    ? playersErrorMessage ?? 'Players unavailable'
-    : null;
-  const showRateLimitMessage =
-    typeof loadErrorRaw === 'string' && loadErrorRaw.includes('429');
-  const loadError = showRateLimitMessage
-    ? 'API temporaneamente sovraccaricata, riprova tra pochi minuti.'
-    : loadErrorRaw;
-  const hasNoPlayers =
-    !isLoading && !loadError && displayPlayers.length === 0 && cachedPlayers.length === 0;
+  const loadError = playersError ? playersErrorMessage ?? 'Players unavailable' : null;
+  const hasNoPlayers = !isLoading && !loadError && combinedPlayers.length === 0;
 
-  const homeCount = useMemo(() => {
-    if (homePlayers.length) {
-      return homePlayers.length;
-    }
-    return displayPlayers.filter((player) => player.teamId === homeTeamId).length;
-  }, [displayPlayers, homePlayers, homeTeamId]);
-
-  const awayCount = useMemo(() => {
-    if (awayPlayers.length) {
-      return awayPlayers.length;
-    }
-    return displayPlayers.filter((player) => player.teamId === awayTeamId).length;
-  }, [awayPlayers, displayPlayers, awayTeamId]);
+  const homeCount = homeRosterPlayers.length;
+  const awayCount = awayRosterPlayers.length;
 
   useEffect(() => {
     if (missingRosterKeys.length) {
@@ -317,12 +285,6 @@ const GamePlayersCard = ({
       });
     }
   }, [game.id, missingRosterKeys]);
-
-  useEffect(() => {
-    if (combinedPlayers.length > 0) {
-      onPlayersLoaded(game.id, combinedPlayers);
-    }
-  }, [combinedPlayers, game.id, onPlayersLoaded]);
 
   return (
     <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-900/60 p-4 shadow-card">
@@ -344,7 +306,7 @@ const GamePlayersCard = ({
       {!isLoading && !loadError && hasNoPlayers ? (
         <p className="text-sm text-red-400">No players loaded.</p>
       ) : null}
-      {displayPlayers.length > 0 ? (
+      {combinedPlayers.length > 0 ? (
         <div className="grid gap-3 md:grid-cols-2">
           {PLAYER_CATEGORIES.map((category) => {
             const rawValue = playerSelections[category];
@@ -363,7 +325,7 @@ const GamePlayersCard = ({
                   value={normalizedValue ?? undefined}
                   onChange={(playerId) => onChange(category, playerId ?? '')}
                   placeholder="-"
-                  disabled={displayPlayers.length === 0 && isLoading}
+                  disabled={combinedPlayers.length === 0 && isLoading}
                 />
               </label>
             );

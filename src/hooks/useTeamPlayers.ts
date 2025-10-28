@@ -1,33 +1,32 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import useSWR from 'swr';
 
-export type PlayerLite = {
+type PlayerLite = {
   id: string;
   full_name: string;
   first_name: string;
   last_name: string;
   position: string;
   team_id: string;
-  jersey?: string;
+  jersey?: string | null;
 };
 
-type PlayerResponse = {
-  id: string;
-  name: string;
-  pos?: string;
-  jersey?: string;
+type ApiSuccess = {
+  ok: true;
+  source: string;
+  home: PlayerLite[];
+  away: PlayerLite[];
 };
 
-type PlayersApiResponse =
-  | {
-      ok: true;
-      players: { home: PlayerResponse[]; away: PlayerResponse[] };
-      source: string;
-      missing?: string[];
-    }
-  | { ok: false; error: string };
+type ApiError = {
+  ok: false;
+  error: string;
+  missing?: unknown;
+};
+
+type ApiResponse = ApiSuccess | ApiError;
 
 type TeamPlayersParams = {
   homeId?: string | number | null;
@@ -38,8 +37,11 @@ type TeamPlayersParams = {
   awayName?: string | null;
 };
 
-const fetcher = async (url: string): Promise<PlayersApiResponse> => {
-  const response = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
+const fetcher = async (url: string): Promise<ApiResponse> => {
+  const response = await fetch(url, {
+    cache: 'no-store',
+    credentials: 'same-origin',
+  });
   if (!response.ok) {
     const text = await response.text().catch(() => 'Failed to load players');
     throw new Error(text || 'Failed to load players');
@@ -47,83 +49,89 @@ const fetcher = async (url: string): Promise<PlayersApiResponse> => {
   return response.json();
 };
 
-const toLite = (players: PlayerResponse[], teamId: string): PlayerLite[] =>
-  players.map((player) => {
-    const fullName = player.name ? player.name.replace(/\s+/g, ' ').trim() : `Player ${player.id}`;
-    const parts = fullName.split(' ');
-    const firstName = parts[0] ?? fullName;
-    const lastName = parts.slice(1).join(' ');
-    return {
-      id: player.id,
-      full_name: fullName,
-      first_name: firstName,
-      last_name: lastName,
-      position: player.pos?.toUpperCase?.() ?? '',
-      team_id: teamId,
-      jersey: player.jersey,
-    } satisfies PlayerLite;
-  });
+const buildQuery = (params: TeamPlayersParams): string | null => {
+  const search = new URLSearchParams();
+  if (params.homeId !== undefined && params.homeId !== null) {
+    search.set('homeId', String(params.homeId));
+  }
+  if (params.homeAbbr) {
+    search.set('homeAbbr', params.homeAbbr);
+  }
+  if (params.homeName) {
+    search.set('homeName', params.homeName);
+  }
+  if (params.awayId !== undefined && params.awayId !== null) {
+    search.set('awayId', String(params.awayId));
+  }
+  if (params.awayAbbr) {
+    search.set('awayAbbr', params.awayAbbr);
+  }
+  if (params.awayName) {
+    search.set('awayName', params.awayName);
+  }
+  const query = search.toString();
+  return query ? `/api/players?${query}` : null;
+};
 
-export function useTeamPlayers({
-  homeId,
-  homeAbbr,
-  homeName,
-  awayId,
-  awayAbbr,
-  awayName,
-}: TeamPlayersParams) {
-  const homeIdString = homeId !== undefined && homeId !== null ? String(homeId) : '';
-  const awayIdString = awayId !== undefined && awayId !== null ? String(awayId) : '';
+export function useTeamPlayers(params: TeamPlayersParams) {
+  const key = useMemo(() => buildQuery(params), [params]);
 
-  const hasHomeIdentifier = Boolean(homeIdString || homeAbbr || homeName);
-  const hasAwayIdentifier = Boolean(awayIdString || awayAbbr || awayName);
-
-  const searchParams = useMemo(() => {
-    if (!hasHomeIdentifier || !hasAwayIdentifier) {
-      return null;
-    }
-    const params = new URLSearchParams();
-    if (homeIdString) params.set('homeId', homeIdString);
-    if (homeAbbr) params.set('homeAbbr', homeAbbr);
-    if (homeName) params.set('homeName', homeName);
-    if (awayIdString) params.set('awayId', awayIdString);
-    if (awayAbbr) params.set('awayAbbr', awayAbbr);
-    if (awayName) params.set('awayName', awayName);
-    return params.toString();
-  }, [hasHomeIdentifier, hasAwayIdentifier, homeIdString, homeAbbr, homeName, awayIdString, awayAbbr, awayName]);
-
-  const key = searchParams ? `/api/players?${searchParams}` : null;
-
-  const { data, error, isLoading, mutate } = useSWR<PlayersApiResponse>(key, fetcher, {
+  const lastSuccessRef = useRef<ApiSuccess | null>(null);
+  const { data, error, isLoading, mutate } = useSWR<ApiResponse>(key, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 30_000,
+    keepPreviousData: true,
   });
 
+  const success = data && 'ok' in data && data.ok;
+  if (success) {
+    lastSuccessRef.current = data;
+  }
+
+  const latestSuccess = lastSuccessRef.current;
+
   const homePlayers = useMemo(() => {
-    if (!data || !('ok' in data) || !data.ok) {
-      return [] as PlayerLite[];
+    if (success && data.ok) {
+      return data.home;
     }
-    return toLite(data.players.home ?? [], homeIdString || homeAbbr || homeName || 'home');
-  }, [data, homeAbbr, homeIdString, homeName]);
+    return latestSuccess?.home ?? [];
+  }, [success, data, latestSuccess]);
 
   const awayPlayers = useMemo(() => {
-    if (!data || !('ok' in data) || !data.ok) {
-      return [] as PlayerLite[];
+    if (success && data.ok) {
+      return data.away;
     }
-    return toLite(data.players.away ?? [], awayIdString || awayAbbr || awayName || 'away');
-  }, [data, awayAbbr, awayIdString, awayName]);
+    return latestSuccess?.away ?? [];
+  }, [success, data, latestSuccess]);
 
   const players = useMemo(
     () => [...homePlayers, ...awayPlayers],
     [homePlayers, awayPlayers],
   );
 
+  const errorMessage = useMemo(() => {
+    if (error) {
+      return String(error);
+    }
+    if (data && 'ok' in data && !data.ok) {
+      return data.error || 'unresolved teams';
+    }
+    return null;
+  }, [data, error]);
+
   const missing = useMemo(() => {
-    if (!data || !('ok' in data) || !data.ok) {
+    if (success) {
       return [] as string[];
     }
-    return data.missing ?? [];
-  }, [data]);
+    if (data && 'ok' in data && !data.ok && data.missing) {
+      try {
+        return [JSON.stringify(data.missing)];
+      } catch {
+        return ['unresolved teams'];
+      }
+    }
+    return [] as string[];
+  }, [data, success]);
 
   return {
     players,
@@ -131,12 +139,10 @@ export function useTeamPlayers({
     awayPlayers,
     missing,
     isLoading,
-    isError: Boolean(error) || (data !== undefined && 'ok' in data && data.ok === false),
-    error: error
-      ? String(error)
-      : data && 'ok' in data && data.ok === false
-        ? String(data.error)
-        : null,
+    isError: Boolean(errorMessage),
+    error: errorMessage,
     reload: mutate,
   };
 }
+
+export type { PlayerLite };

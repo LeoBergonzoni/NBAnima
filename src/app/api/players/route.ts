@@ -1,112 +1,155 @@
 import { NextResponse } from 'next/server';
 
-import { getRosters, lookupTeamKeys, type RosterPlayer } from '@/lib/rosters';
+import { getRosters, resolveTeamKey, slugTeam, type RosterPlayer } from '@/lib/rosters';
 
 export const runtime = 'nodejs';
 
-type TeamParamSet = {
+type PlayerLite = {
+  id: string;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  position: string;
+  team_id: string;
+  jersey?: string | null;
+};
+
+type TeamQuery = {
   id: string | null;
   abbr: string | null;
   name: string | null;
 };
 
-const buildTeamParams = (searchParams: URLSearchParams, prefix: 'home' | 'away'): TeamParamSet => {
-  const id =
-    searchParams.get(`${prefix}Id`) ??
-    searchParams.get(`${prefix}_id`) ??
-    null;
-  const abbr =
-    searchParams.get(`${prefix}Abbr`) ??
-    searchParams.get(`${prefix}_abbr`) ??
-    null;
-  const name =
-    searchParams.get(`${prefix}Name`) ??
-    searchParams.get(`${prefix}_name`) ??
-    null;
-  return { id, abbr, name };
-};
-
-const resolveTeamPlayers = (
-  label: 'home' | 'away',
-  keys: string[],
-  rosters: Record<string, RosterPlayer[]>,
-  missingCollector: Set<string>,
-): RosterPlayer[] => {
-  for (const key of keys) {
-    const players = rosters[key];
-    if (players && players.length) {
-      return players;
-    }
-  }
-  if (keys.length === 0) {
-    missingCollector.add(`${label}:<none>`);
-  } else {
-    keys.forEach((key) => missingCollector.add(`${label}:${key}`));
-  }
-  return [];
+type Resolution = {
+  key: string;
+  attempts: Array<{ raw: string; normalized: string }>;
 };
 
 const headers = new Headers({
   'Cache-Control': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=600',
 });
 
+const mapPlayer = (player: RosterPlayer, teamId: string): PlayerLite => {
+  const fullName = player.name ? player.name.replace(/\s+/g, ' ').trim() : `Player ${player.id}`;
+  const parts = fullName.split(' ');
+  const firstName = parts[0] ?? fullName;
+  const lastName = parts.slice(1).join(' ');
+  return {
+    id: player.id,
+    full_name: fullName,
+    first_name: firstName,
+    last_name,
+    position: (player.pos ?? '').toUpperCase(),
+    team_id: teamId,
+    jersey: player.jersey ?? null,
+  };
+};
+
+const readTeamParams = (params: URLSearchParams, prefix: 'home' | 'away'): TeamQuery => ({
+  id: params.get(`${prefix}Id`) ?? params.get(`${prefix}_id`),
+  abbr: params.get(`${prefix}Abbr`) ?? params.get(`${prefix}_abbr`),
+  name: params.get(`${prefix}Name`) ?? params.get(`${prefix}_name`),
+});
+
+const resolveFromCandidates = async (
+  candidates: Array<string | null>,
+): Promise<Resolution | null> => {
+  const attempts: Array<{ raw: string; normalized: string }> = [];
+  for (const candidate of candidates) {
+    if (!candidate || !candidate.trim()) {
+      continue;
+    }
+    const raw = candidate.trim();
+    const normalized = slugTeam(raw);
+    attempts.push({ raw, normalized });
+    const resolved = await resolveTeamKey(raw);
+    if (resolved) {
+      return { key: resolved, attempts };
+    }
+  }
+  return attempts.length ? { key: '', attempts } : null;
+};
+
 export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const homeParams = buildTeamParams(searchParams, 'home');
-    const awayParams = buildTeamParams(searchParams, 'away');
+  const { searchParams } = new URL(req.url);
+  const homeParams = readTeamParams(searchParams, 'home');
+  const awayParams = readTeamParams(searchParams, 'away');
 
-    const hasHomeIdentifier = Boolean(homeParams.id || homeParams.abbr || homeParams.name);
-    const hasAwayIdentifier = Boolean(awayParams.id || awayParams.abbr || awayParams.name);
-
-    if (!hasHomeIdentifier || !hasAwayIdentifier) {
-      return NextResponse.json(
-        { error: 'home team and away team identifiers are required' },
-        { status: 400 },
-      );
-    }
-
-    const rosters = await getRosters();
-    const missing = new Set<string>();
-
-    const homeKeys = lookupTeamKeys({
-      id: homeParams.id ?? undefined,
-      abbr: homeParams.abbr ?? undefined,
-      name: homeParams.name ?? undefined,
-    });
-    const awayKeys = lookupTeamKeys({
-      id: awayParams.id ?? undefined,
-      abbr: awayParams.abbr ?? undefined,
-      name: awayParams.name ?? undefined,
-    });
-
-    const homePlayers = resolveTeamPlayers('home', homeKeys, rosters, missing);
-    const awayPlayers = resolveTeamPlayers('away', awayKeys, rosters, missing);
-
-    const payload: {
-      ok: true;
-      players: { home: RosterPlayer[]; away: RosterPlayer[] };
-      source: 'local-rosters';
-      missing?: string[];
-    } = {
-      ok: true,
-      players: {
-        home: homePlayers,
-        away: awayPlayers,
-      },
-      source: 'local-rosters',
-    };
-
-    if (missing.size > 0) {
-      payload.missing = Array.from(missing);
-    }
-
-    return NextResponse.json(payload, { status: 200, headers });
-  } catch (error: unknown) {
-    console.error('[api/players] Error:', error);
+  if (!homeParams.id && !homeParams.abbr && !homeParams.name) {
     return NextResponse.json(
-      { ok: false, error: String((error as Error)?.message ?? error) },
-      { status: 500 },
+      { ok: false, error: 'missing-team', missing: { team: 'home', tried: [] } },
+      { status: 404 },
     );
   }
+
+  if (!awayParams.id && !awayParams.abbr && !awayParams.name) {
+    return NextResponse.json(
+      { ok: false, error: 'missing-team', missing: { team: 'away', tried: [] } },
+      { status: 404 },
+    );
+  }
+
+  const rosters = await getRosters();
+
+  const homeResolution = await resolveFromCandidates([
+    homeParams.id,
+    homeParams.abbr,
+    homeParams.name,
+  ]);
+
+  if (!homeResolution || !homeResolution.key) {
+    console.warn('[api/players] Missing home roster entry', {
+      input: homeParams,
+      attempts: homeResolution?.attempts ?? [],
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'missing-team',
+        missing: {
+          team: 'home',
+          input: homeParams,
+          attempts: homeResolution?.attempts ?? [],
+        },
+      },
+      { status: 404 },
+    );
+  }
+
+  const awayResolution = await resolveFromCandidates([
+    awayParams.id,
+    awayParams.abbr,
+    awayParams.name,
+  ]);
+
+  if (!awayResolution || !awayResolution.key) {
+    console.warn('[api/players] Missing away roster entry', {
+      input: awayParams,
+      attempts: awayResolution?.attempts ?? [],
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'missing-team',
+        missing: {
+          team: 'away',
+          input: awayParams,
+          attempts: awayResolution?.attempts ?? [],
+        },
+      },
+      { status: 404 },
+    );
+  }
+
+  const homeRoster = rosters[homeResolution.key] ?? [];
+  const awayRoster = rosters[awayResolution.key] ?? [];
+
+  const payload = {
+    ok: true as const,
+    source: 'local-rosters' as const,
+    home: homeRoster.map((player) => mapPlayer(player, homeResolution.key)),
+    away: awayRoster.map((player) => mapPlayer(player, awayResolution.key)),
+  };
+
+  return NextResponse.json(payload, { status: 200, headers });
 }
