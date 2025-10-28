@@ -1,107 +1,81 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import useSWR from 'swr';
 
-import { getPlayersByTeam, type Player } from '@/lib/rosters';
+type TeamPlayersParams = {
+  homeId: string | number;
+  awayId: string | number;
+  season?: string | number;
+};
 
-interface HookInput {
-  teamName?: string;
-  triCode?: string | null;
-  teamId?: string | number;
-}
+export type PlayerLite = {
+  id: string;
+  full_name: string;
+  number: string | number | null;
+  position: string;
+  team_id: string;
+  active: boolean;
+};
 
-interface PlayerOption {
-  label: string;
-  value: string;
-  meta: Player;
-  teamId: string;
-}
-
-export function useTeamPlayers(input: HookInput) {
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [options, setOptions] = useState<PlayerOption[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const numericId = useMemo(() => {
-    if (typeof input.teamId === 'number') {
-      return Number.isFinite(input.teamId) ? input.teamId : undefined;
+type PlayersResponse =
+  | {
+      ok: true;
+      players: PlayerLite[];
     }
-    if (typeof input.teamId === 'string') {
-      const parsed = Number.parseInt(input.teamId, 10);
-      return Number.isFinite(parsed) ? parsed : undefined;
-    }
-    return undefined;
-  }, [input.teamId]);
-
-  const hasIdentifier = Boolean(input.teamName || input.triCode || numericId);
-
-  const enqueueStateUpdate = (cb: () => void) => {
-    if (typeof queueMicrotask === 'function') {
-      queueMicrotask(cb);
-    } else {
-      Promise.resolve().then(cb);
-    }
-  };
-
-  useEffect(() => {
-    if (hasIdentifier) {
-      return;
-    }
-    enqueueStateUpdate(() => {
-      setPlayers([]);
-      setOptions([]);
-      setLoading(false);
-      setError(null);
-    });
-  }, [hasIdentifier]);
-
-  useEffect(() => {
-    if (!hasIdentifier) {
-      return;
-    }
-
-    let active = true;
-    enqueueStateUpdate(() => {
-      setLoading(true);
-      setError(null);
-    });
-
-    getPlayersByTeam({
-      teamName: input.teamName,
-      triCode: input.triCode ?? undefined,
-      teamId: numericId,
-    })
-      .then((list) => {
-        if (!active) return;
-        setPlayers(list);
-        const mapped = list.map((player, index) => {
-          const value = `${numericId ?? input.triCode ?? input.teamName ?? 'team'}-${index}-${player.name}`;
-          return {
-            label: player.name,
-            value,
-            meta: player,
-            teamId: String(input.teamId ?? input.teamName ?? input.triCode ?? ''),
-          } satisfies PlayerOption;
-        });
-        setOptions(mapped);
-      })
-      .catch((err) => {
-        if (!active) return;
-        setPlayers([]);
-        setOptions([]);
-        setError(err instanceof Error ? err.message : 'Failed to load players');
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      active = false;
+  | {
+      ok: false;
+      error: string;
     };
-  }, [hasIdentifier, input.teamName, input.triCode, input.teamId, numericId]);
 
-  return { players, options, loading, error };
+const fetcher = async (url: string): Promise<PlayersResponse> => {
+  const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+  if (!response.ok) {
+    const text = await response.text().catch(() => 'Request failed');
+    throw new Error(text || 'Failed to load players');
+  }
+  return response.json();
+};
+
+export function useTeamPlayers({ homeId, awayId, season }: TeamPlayersParams) {
+  const key =
+    homeId && awayId
+      ? `/api/players?home_id=${homeId}&away_id=${awayId}${
+          season ? `&season=${season}` : ''
+        }`
+      : null;
+
+  const { data, error, isLoading, mutate } = useSWR<PlayersResponse>(key, fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 30_000,
+  });
+
+  const players: PlayerLite[] = useMemo(() => {
+    if (!data || !('players' in data) || !data.players) {
+      return [];
+    }
+    return [...data.players]
+      .filter((player) => player && player.id && player.active !== false)
+      .map((player) => ({
+        ...player,
+        id: String(player.id),
+        team_id: String(player.team_id),
+        position: player.position ?? '',
+      }))
+      .sort((a, b) =>
+        a.full_name.localeCompare(b.full_name, 'en', { sensitivity: 'base' }),
+      );
+  }, [data]);
+
+  return {
+    players,
+    isLoading,
+    isError: Boolean(error) || data?.ok === false,
+    error: error
+      ? String(error)
+      : data?.ok === false
+        ? String(data.error || 'Failed to load players')
+        : null,
+    reload: mutate,
+  };
 }

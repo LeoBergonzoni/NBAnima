@@ -239,57 +239,38 @@ const GamePlayersCard = ({
   onChange: (category: string, playerId: string) => void;
   onPlayersLoaded: (gameId: string, players: PlayerSummary[]) => void;
 }) => {
-  const homeRoster = useTeamPlayers({
-    teamId: game.homeTeam.id,
-    teamName: game.homeTeam.name,
-    triCode: game.homeTeam.abbreviation,
+  const homeTeamId = String(game.homeTeam.id);
+  const awayTeamId = String(game.awayTeam.id);
+
+  const {
+    players: apiPlayers,
+    isLoading: playersLoading,
+    isError: playersError,
+    error: playersErrorMessage,
+  } = useTeamPlayers({
+    homeId: homeTeamId,
+    awayId: awayTeamId,
   });
-  const awayRoster = useTeamPlayers({
-    teamId: game.awayTeam.id,
-    teamName: game.awayTeam.name,
-    triCode: game.awayTeam.abbreviation,
-  });
-
-  const homeOptions = useMemo(
-    () =>
-      homeRoster.options.map((option, index) => ({
-        label: option.label,
-        value: `${game.homeTeam.id}-${index}-${option.label}`,
-        meta: option.meta,
-        teamId: game.homeTeam.id,
-      })),
-    [game.homeTeam.id, homeRoster.options],
-  );
-
-  const awayOptions = useMemo(
-    () =>
-      awayRoster.options.map((option, index) => ({
-        label: option.label,
-        value: `${game.awayTeam.id}-${index}-${option.label}`,
-        meta: option.meta,
-        teamId: game.awayTeam.id,
-      })),
-    [game.awayTeam.id, awayRoster.options],
-  );
-
-  const combinedOptions = useMemo(
-    () => [...homeOptions, ...awayOptions],
-    [homeOptions, awayOptions],
-  );
 
   const combinedPlayers = useMemo(() => {
-    return combinedOptions.map((option) => {
-      const [first, ...rest] = option.label.trim().split(/\s+/);
-      return {
-        id: option.value,
-        fullName: option.label,
-        firstName: first ?? option.label,
-        lastName: rest.join(' '),
-        position: option.meta.position || null,
-        teamId: option.teamId,
-      } satisfies PlayerSummary;
+    const map = new Map<string, PlayerSummary>();
+    apiPlayers.forEach((player) => {
+      const rawName = (player.full_name || '').trim();
+      const fallbackName = rawName || `Player ${player.id}`;
+      const parts = fallbackName.split(/\s+/);
+      const firstName = parts[0] ?? fallbackName;
+      const lastName = parts.slice(1).join(' ');
+      map.set(player.id, {
+        id: player.id,
+        fullName: fallbackName,
+        firstName,
+        lastName,
+        position: player.position || null,
+        teamId: player.team_id,
+      });
     });
-  }, [combinedOptions]);
+    return Array.from(map.values());
+  }, [apiPlayers]);
 
   const searchPlaceholder = getSearchPlaceholder(locale);
   const emptySearchLabel = getEmptySearchLabel(locale);
@@ -315,13 +296,21 @@ const GamePlayersCard = ({
   );
   const clearLabel = locale === 'it' ? '↺ Pulisci selezione' : '↺ Clear selection';
 
-  const isLoading = homeRoster.loading || awayRoster.loading;
-  const loadError = homeRoster.error ?? awayRoster.error ?? null;
+  const isLoading = playersLoading;
+  const loadError = playersError ? playersErrorMessage ?? 'Players unavailable' : null;
+  const hasNoPlayers = !isLoading && !loadError && combinedPlayers.length === 0;
+
+  const homeCount = useMemo(
+    () => apiPlayers.filter((player) => player.team_id === homeTeamId).length,
+    [apiPlayers, homeTeamId],
+  );
+  const awayCount = useMemo(
+    () => apiPlayers.filter((player) => player.team_id === awayTeamId).length,
+    [apiPlayers, awayTeamId],
+  );
 
   useEffect(() => {
-    if (combinedPlayers.length) {
-      onPlayersLoaded(game.id, combinedPlayers);
-    }
+    onPlayersLoaded(game.id, combinedPlayers);
   }, [combinedPlayers, game.id, onPlayersLoaded]);
 
   return (
@@ -338,7 +327,11 @@ const GamePlayersCard = ({
           <span>{dictionary.common.loading}</span>
         </div>
       ) : loadError ? (
-        <p className="text-sm text-red-400">Failed to load players: {loadError}</p>
+        <p className="text-sm text-red-400">
+          Players unavailable{loadError ? `: ${loadError}` : ''}
+        </p>
+      ) : hasNoPlayers ? (
+        <p className="text-sm text-red-400">No players loaded.</p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {PLAYER_CATEGORIES.map((category) => {
@@ -374,11 +367,11 @@ const GamePlayersCard = ({
         <div className="text-[11px] text-slate-400">
           <div>
             HOME {game.homeTeam.name} / {game.homeTeam.abbreviation ?? '—'} — players:{' '}
-            {homeOptions.length}
+            {homeCount}
           </div>
           <div>
             AWAY {game.awayTeam.name} / {game.awayTeam.abbreviation ?? '—'} — players:{' '}
-            {awayOptions.length}
+            {awayCount}
           </div>
           {loadError ? <div className="text-red-400">Error: {loadError}</div> : null}
         </div>
