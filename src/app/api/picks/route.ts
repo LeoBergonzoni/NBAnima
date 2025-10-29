@@ -54,18 +54,21 @@ type GameMetaTeam = {
   abbreviation?: string | null;
   code?: string | null;
   slug?: string | null;
+  abbr?: string | null;
 };
 
 export type GameMeta = {
-  id?: string | null;
-  gameId?: string | null;
-  provider?: string | null;
-  providerGameId?: string | null;
-  startsAt?: string | null;
-  status?: string | null;
-  season?: string | null;
+  id?: string;
+  gameId?: string;
+  provider?: string;
+  providerGameId?: string;
+  startsAt?: string;
+  status?: string;
+  season?: string;
   homeTeam?: GameMetaTeam | null;
   awayTeam?: GameMetaTeam | null;
+  home?: GameMetaTeam | null;
+  away?: GameMetaTeam | null;
 };
 
 type GameContext = GameRow & {
@@ -451,12 +454,12 @@ export async function POST(request: NextRequest) {
     const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
     const rawBody = await request.json();
     const validated = validatePicksPayload(rawBody);
-    const payload: typeof validated & { gamesMeta?: GameMeta[] } = {
+    const payload = {
       ...validated,
       gamesMeta: Array.isArray(rawBody?.gamesMeta)
         ? (rawBody.gamesMeta as GameMeta[])
         : undefined,
-    };
+    } satisfies typeof validated & { gamesMeta?: GameMeta[] };
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
@@ -695,12 +698,12 @@ export async function PUT(request: NextRequest) {
     const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
     const rawBody = await request.json();
     const validated = validatePicksPayload(rawBody);
-    const payload: typeof validated & { gamesMeta?: GameMeta[] } = {
+    const payload = {
       ...validated,
       gamesMeta: Array.isArray(rawBody?.gamesMeta)
         ? (rawBody.gamesMeta as GameMeta[])
         : undefined,
-    };
+    } satisfies typeof validated & { gamesMeta?: GameMeta[] };
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
