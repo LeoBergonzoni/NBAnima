@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-
 import { getRosters, resolveTeamKey, slugTeam, type RosterPlayer } from '@/lib/rosters';
 
+// 🔒 niente cache/ISR/CDN: evita che Netlify serva la risposta della prima partita alle successive
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type PlayerLite = {
   id: string;
@@ -25,8 +27,10 @@ type Resolution = {
   attempts: Array<{ raw: string; normalized: string }>;
 };
 
+// ⛔️ disabilita cache; dichiara che la risposta varia per parametri di query
 const headers = new Headers({
-  'Cache-Control': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=600',
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
+  'Vary': 'homeId, homeAbbr, homeName, awayId, awayAbbr, awayName',
 });
 
 const mapPlayer = (player: RosterPlayer, teamId: string): PlayerLite => {
@@ -56,16 +60,12 @@ const resolveFromCandidates = async (
 ): Promise<Resolution | null> => {
   const attempts: Array<{ raw: string; normalized: string }> = [];
   for (const candidate of candidates) {
-    if (!candidate || !candidate.trim()) {
-      continue;
-    }
+    if (!candidate || !candidate.trim()) continue;
     const raw = candidate.trim();
     const normalized = slugTeam(raw);
     attempts.push({ raw, normalized });
     const resolved = await resolveTeamKey(raw);
-    if (resolved) {
-      return { key: resolved, attempts };
-    }
+    if (resolved) return { key: resolved, attempts };
   }
   return attempts.length ? { key: '', attempts } : null;
 };
@@ -78,14 +78,14 @@ export async function GET(req: Request) {
   if (!homeParams.id && !homeParams.abbr && !homeParams.name) {
     return NextResponse.json(
       { ok: false, error: 'missing-team', missing: { team: 'home', tried: [] } },
-      { status: 404 },
+      { status: 404, headers },
     );
   }
 
   if (!awayParams.id && !awayParams.abbr && !awayParams.name) {
     return NextResponse.json(
       { ok: false, error: 'missing-team', missing: { team: 'away', tried: [] } },
-      { status: 404 },
+      { status: 404, headers },
     );
   }
 
@@ -106,13 +106,9 @@ export async function GET(req: Request) {
       {
         ok: false,
         error: 'missing-team',
-        missing: {
-          team: 'home',
-          input: homeParams,
-          attempts: homeResolution?.attempts ?? [],
-        },
+        missing: { team: 'home', input: homeParams, attempts: homeResolution?.attempts ?? [] },
       },
-      { status: 404 },
+      { status: 404, headers },
     );
   }
 
@@ -131,13 +127,9 @@ export async function GET(req: Request) {
       {
         ok: false,
         error: 'missing-team',
-        missing: {
-          team: 'away',
-          input: awayParams,
-          attempts: awayResolution?.attempts ?? [],
-        },
+        missing: { team: 'away', input: awayParams, attempts: awayResolution?.attempts ?? [] },
       },
-      { status: 404 },
+      { status: 404, headers },
     );
   }
 
@@ -147,8 +139,8 @@ export async function GET(req: Request) {
   const payload = {
     ok: true as const,
     source: 'local-rosters' as const,
-    home: homeRoster.map((player) => mapPlayer(player, homeResolution.key)),
-    away: awayRoster.map((player) => mapPlayer(player, awayResolution.key)),
+    home: homeRoster.map((p) => mapPlayer(p, homeResolution.key)),
+    away: awayRoster.map((p) => mapPlayer(p, awayResolution.key)),
   };
 
   return NextResponse.json(payload, { status: 200, headers });

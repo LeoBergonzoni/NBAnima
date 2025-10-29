@@ -18,6 +18,8 @@ type ApiSuccess = {
   source: string;
   home: PlayerLite[];
   away: PlayerLite[];
+  // opzionale: missing per debug
+  missing?: unknown;
 };
 
 type ApiError = {
@@ -37,95 +39,83 @@ type TeamPlayersParams = {
   awayName?: string | null;
 };
 
-const fetcher = async (url: string): Promise<ApiResponse> => {
-  const response = await fetch(url, {
-    cache: 'no-store',
-    credentials: 'same-origin',
-  });
-  if (!response.ok) {
-    const text = await response.text().catch(() => 'Failed to load players');
-    throw new Error(text || 'Failed to load players');
-  }
-  return response.json();
-};
-
-const buildQuery = (params: TeamPlayersParams): string | null => {
-  const search = new URLSearchParams();
-  if (params.homeId !== undefined && params.homeId !== null) {
-    search.set('homeId', String(params.homeId));
-  }
-  if (params.homeAbbr) {
-    search.set('homeAbbr', params.homeAbbr);
-  }
-  if (params.homeName) {
-    search.set('homeName', params.homeName);
-  }
-  if (params.awayId !== undefined && params.awayId !== null) {
-    search.set('awayId', String(params.awayId));
-  }
-  if (params.awayAbbr) {
-    search.set('awayAbbr', params.awayAbbr);
-  }
-  if (params.awayName) {
-    search.set('awayName', params.awayName);
-  }
-  const query = search.toString();
-  return query ? `/api/players?${query}` : null;
-};
+// normalizza in stringa stabile
+const s = (v?: string | number | null) => (v == null ? '' : String(v).trim());
 
 export function useTeamPlayers(params: TeamPlayersParams) {
-  const key = useMemo(() => buildQuery(params), [params]);
+  // 🔑 chiave SWR deterministica e univoca per ogni matchup
+  const homeKey = `${s(params.homeId)}|${s(params.homeAbbr)}|${s(params.homeName)}`;
+  const awayKey = `${s(params.awayId)}|${s(params.awayAbbr)}|${s(params.awayName)}`;
+  const swrKey = homeKey && awayKey ? (['team-players', homeKey, awayKey] as const) : null;
+
+  const fetcher = async () => {
+    const search = new URLSearchParams({
+      homeId: s(params.homeId),
+      homeAbbr: s(params.homeAbbr),
+      homeName: s(params.homeName),
+      awayId: s(params.awayId),
+      awayAbbr: s(params.awayAbbr),
+      awayName: s(params.awayName),
+    });
+
+    const res = await fetch(`/api/players?${search.toString()}`, {
+      cache: 'no-store',
+      credentials: 'same-origin',
+      next: { revalidate: 0 },
+    });
+
+    if (!res.ok) {
+      // prova a estrarre un json d’errore per messaggi più utili
+      let msg = 'Failed to load players';
+      try {
+        const body = (await res.json()) as ApiError;
+        if ('error' in body && body.error) msg = body.error;
+      } catch {
+        // ignore
+      }
+      throw new Error(msg);
+    }
+    return (await res.json()) as ApiResponse;
+  };
 
   const lastSuccessRef = useRef<ApiSuccess | null>(null);
-  const { data, error, isLoading, mutate } = useSWR<ApiResponse>(key, fetcher, {
+
+  const { data, error, isLoading, mutate } = useSWR<ApiResponse>(swrKey, fetcher, {
     revalidateOnFocus: false,
-    dedupingInterval: 30_000,
-    keepPreviousData: true,
+    dedupingInterval: 0,     // 👈 evita unione “aggressiva” tra key simili
+    keepPreviousData: true,  // 👈 UI più fluida mentre ricarica
   });
 
-  const success = data && 'ok' in data && data.ok;
+  const success = !!data && 'ok' in data && data.ok;
   if (success) {
-    lastSuccessRef.current = data;
+    lastSuccessRef.current = data as ApiSuccess;
   }
 
   const latestSuccess = lastSuccessRef.current;
 
   const homePlayers = useMemo(() => {
-    if (success && data.ok) {
-      return data.home;
-    }
+    if (success) return (data as ApiSuccess).home;
     return latestSuccess?.home ?? [];
   }, [success, data, latestSuccess]);
 
   const awayPlayers = useMemo(() => {
-    if (success && data.ok) {
-      return data.away;
-    }
+    if (success) return (data as ApiSuccess).away;
     return latestSuccess?.away ?? [];
   }, [success, data, latestSuccess]);
 
-  const players = useMemo(
-    () => [...homePlayers, ...awayPlayers],
-    [homePlayers, awayPlayers],
-  );
+  const players = useMemo(() => [...homePlayers, ...awayPlayers], [homePlayers, awayPlayers]);
 
   const errorMessage = useMemo(() => {
-    if (error) {
-      return String(error);
-    }
-    if (data && 'ok' in data && !data.ok) {
-      return data.error || 'unresolved teams';
-    }
+    if (error) return String(error.message ?? error);
+    if (data && 'ok' in data && !data.ok) return (data as ApiError).error || 'unresolved teams';
     return null;
   }, [data, error]);
 
   const missing = useMemo(() => {
-    if (success) {
-      return [] as string[];
-    }
-    if (data && 'ok' in data && !data.ok && data.missing) {
+    if (success) return [] as string[];
+    if (data && 'ok' in data && !data.ok && (data as ApiError).missing) {
       try {
-        return [JSON.stringify(data.missing)];
+        return [JSON.stringify((data as ApiError).missing)];
       } catch {
         return ['unresolved teams'];
       }
