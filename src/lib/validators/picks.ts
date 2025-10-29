@@ -4,8 +4,6 @@ const playerCategories = [
   'top_scorer',
   'top_assist',
   'top_rebound',
-  'top_dunk',
-  'top_threes',
 ] as const;
 
 export const playerCategorySchema = z.enum(playerCategories);
@@ -33,9 +31,10 @@ export const picksPayloadSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'pickDate must be in YYYY-MM-DD format'),
   teams: z.array(teamPickSchema),
   players: z.array(playerPickSchema),
+  // prima era .length(5); ora permettiamo 0..5
   highlights: z
     .array(highlightPickSchema)
-    .length(5, 'Exactly 5 highlight picks are required'),
+    .max(5, 'Up to 5 highlight picks are allowed'),
 });
 
 export type PicksPayload = z.infer<typeof picksPayloadSchema>;

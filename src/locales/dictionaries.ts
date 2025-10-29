@@ -112,17 +112,17 @@ export interface Dictionary {
     players: {
       title: string;
       description: string;
+      endPicks: string;
       categories: {
         top_scorer: string;
         top_assist: string;
         top_rebound: string;
-        top_dunk: string;
-        top_threes: string;
       };
     };
     highlights: {
       title: string;
       description: string;
+      endPicks: string;
     };
     submit: string;
     update: string;
@@ -255,8 +255,6 @@ const it: Dictionary = {
             'Top Scorer (chi farà più punti nel match)',
             'Top Assist (chi farà più assist nel match)',
             'Top Rebound (chi prenderà più rimbalzi nel match)',
-            'Top Dunk (chi farà più schiacciate nel match)',
-            'Top Threes (chi metterà più triple nel match)',
           ],
           reward: 'Ogni previsione corretta vale 50 Anima Points.',
           imageAlt: 'Esempio giocatore NBA',
@@ -338,18 +336,18 @@ const it: Dictionary = {
     players: {
       title: 'Players',
       description:
-        'Seleziona i protagonisti per punti, assist, rimbalzi, schiacciate e triple. 50 Anima Points ogni scelta azzeccata.',
+        'Seleziona i protagonisti per punti, assist e rimbalzi. 50 Anima Points ogni scelta azzeccata.',
+      endPicks: 'Termina scelte',
       categories: {
         top_scorer: 'Top Scorer',
         top_assist: 'Top Assist',
         top_rebound: 'Top Rebound',
-        top_dunk: 'Top Dunk',
-        top_threes: 'Top Triple',
       },
     },
     highlights: {
       title: 'Highlights',
-      description: 'Scegli i 5 giocatori che finiranno nella Top 10 della notte.',
+      description: 'Scegli fino a 5 giocatori che finiranno nella Top 10 della notte.',
+      endPicks: 'Termina scelte',
     },
     submit: 'Salva picks',
     update: 'Aggiorna picks',
@@ -473,7 +471,7 @@ const en: Dictionary = {
             'Look at the nightly schedule and pick which team will win each head-to-head matchup.',
           reward: 'Each correctly predicted winner is worth 30 Anima Points.',
           imageAlt: 'Example of team logos',
-          imageSrc: '/loghi-squadre/LALAkers.png',
+          imageSrc: '/loghi-squadre/LAL.png',
         },
         players: {
           title: '“Players” category',
@@ -482,8 +480,6 @@ const en: Dictionary = {
             'Top Scorer (most points in the matchup)',
             'Top Assist (most assists in the matchup)',
             'Top Rebound (most rebounds in the matchup)',
-            'Top Dunk (most dunks in the matchup)',
-            'Top Threes (most three-pointers in the matchup)',
           ],
           reward: 'Each correct pick is worth 50 Anima Points.',
           imageAlt: 'Example NBA player',
@@ -565,18 +561,18 @@ const en: Dictionary = {
     players: {
       title: 'Players',
       description:
-        'Select the standout performers for points, assists, rebounds, dunks, and threes. 50 Anima Points for each correct choice.',
+        'Select the standout performers for points, assists, and rebounds. 50 Anima Points for each correct choice.',
+      endPicks: 'End picks',
       categories: {
         top_scorer: 'Top Scorer',
         top_assist: 'Top Assists',
         top_rebound: 'Top Rebounds',
-        top_dunk: 'Top Dunks',
-        top_threes: 'Top Threes',
       },
     },
     highlights: {
       title: 'Highlights',
-      description: 'Lock in the 5 players you expect to shine in the nightly Top 10.',
+      description: 'Lock in up to 5 players you expect to shine in the nightly Top 10.',
+      endPicks: 'End picks',
     },
     submit: 'Save picks',
     update: 'Update picks',

@@ -32,13 +32,7 @@ import { useTeamPlayers } from '@/hooks/useTeamPlayers';
 import { buyCardAction } from '@/app/[locale]/dashboard/(shop)/actions';
 import { WinnersClient } from './winners-client';
 
-const PLAYER_CATEGORIES = [
-  'top_scorer',
-  'top_assist',
-  'top_rebound',
-  'top_dunk',
-  'top_threes',
-] as const;
+const PLAYER_CATEGORIES = ['top_scorer', 'top_assist', 'top_rebound'] as const;
 
 interface ShopCard {
   id: string;
@@ -86,6 +80,39 @@ interface PlayerSummary {
 }
 
 type PlayerSelections = Record<string, Record<string, string>>;
+
+type RemotePlayer = {
+  id?: string | number | null;
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  name?: string | null;
+  position?: string | null;
+  pos?: string | null;
+  team_id?: string | number | null;
+  teamId?: string | number | null;
+  jersey?: string | null;
+};
+
+type TeamInput =
+  | (Partial<GameTeam> & {
+      full_name?: string | null;
+      fullName?: string | null;
+    })
+  | null
+  | undefined;
+
+const normalizeTeamInput = (team: TeamInput) => {
+  const firstNonEmpty =
+    team?.name ??
+    team?.abbreviation ??
+    (team?.id != null ? String(team.id) : '') ??
+    team?.full_name ?? // se mai presente
+    team?.fullName ?? // se mai presente
+    team?.city ?? ''; // fallback morbido
+
+  return String(firstNonEmpty).replace(/\s+/g, ' ').trim();
+};
 
 const formatGameTime = (locale: Locale, date: string) => {
   const value = new Date(date);
@@ -208,39 +235,17 @@ const GamePlayersCard = ({
   const homeTeamId = String(game.homeTeam.id);
   const awayTeamId = String(game.awayTeam.id);
 
-// Normalizza un input team in una chiave stringa “stabile” e priva di doppi spazi
-const normalizeTeamInput = (team: any) => {
-  const firstNonEmpty =
-    team?.name ??
-    team?.abbreviation ??
-    (team?.id != null ? String(team.id) : '') ??
-    team?.full_name ??      // se mai presente
-    team?.fullName ??       // se mai presente
-    team?.city ?? '';       // fallback morbido
-
-  return String(firstNonEmpty).replace(/\s+/g, ' ').trim();
-};
-
 // Chiavi memoizzate e con dipendenze che NON cambiano di lunghezza
 const homeKey = useMemo(
   () => normalizeTeamInput(game.homeTeam),
-  [game.homeTeam?.name, game.homeTeam?.abbreviation, game.homeTeam?.id],
+  [game.homeTeam],
 );
 
 const awayKey = useMemo(
   () => normalizeTeamInput(game.awayTeam),
-  [game.awayTeam?.name, game.awayTeam?.abbreviation, game.awayTeam?.id],
+  [game.awayTeam],
 );
 
-const url =
-  `/api/players?` +
-  `homeId=${encodeURIComponent(String(game.homeTeam.id))}` +
-  `&homeAbbr=${encodeURIComponent(game.homeTeam.abbreviation ?? '')}` +
-  `&homeName=${encodeURIComponent(homeKey)}` +
-  `&awayId=${encodeURIComponent(String(game.awayTeam.id))}` +
-  `&awayAbbr=${encodeURIComponent(game.awayTeam.abbreviation ?? '')}` +
-  `&awayName=${encodeURIComponent(awayKey)}`;
-  
   const {
     players: apiPlayers,
     homePlayers: homeRosterPlayers,
@@ -337,44 +342,57 @@ const url =
           return;
         }
   
-        const data = await res.json();
-  
+        const payload = (await res.json()) as Partial<{
+          home: RemotePlayer[];
+          away: RemotePlayer[];
+        }>;
+
         // === costruiamo PlayerSummary completo ===
-        const toSummary = (p: any): PlayerSummary => {
-          const full =
-            (p.full_name ??
-              `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() ??
-              p.name ??
-              '').replace(/\s+/g, ' ').trim();
-  
+        const toSummary = (player: RemotePlayer): PlayerSummary => {
+          const fallbackName = player.id != null ? `Player ${player.id}` : 'Unknown Player';
+          const full = (
+            player.full_name ??
+            `${player.first_name ?? ''} ${player.last_name ?? ''}`.trim() ??
+            player.name ??
+            fallbackName
+          )
+            .replace(/\s+/g, ' ')
+            .trim();
+
           const [first, ...rest] = full.split(' ');
           const firstName = first || full;
           const lastName = rest.join(' ');
-  
+
           return {
-            id: String(p.id),
+            id: String(player.id),
             fullName: full,
             firstName,
             lastName,
-            position: (p.position ?? p.pos ?? null) as string | null,
-            teamId: String(p.team_id ?? p.teamId ?? ''),
-            jersey: p.jersey ?? null,
+            position: (player.position ?? player.pos ?? null) ?? null,
+            teamId: String(player.team_id ?? player.teamId ?? ''),
+            jersey: player.jersey ?? null,
           };
         };
-  
+
         const byId = new Map<string, PlayerSummary>();
-        (data?.home ?? []).forEach((p: any) => p?.id && byId.set(String(p.id), toSummary(p)));
-        (data?.away ?? []).forEach((p: any) => p?.id && byId.set(String(p.id), toSummary(p)));
-  
+        payload.home?.forEach((player) => {
+          if (player?.id == null) return;
+          byId.set(String(player.id), toSummary(player));
+        });
+        payload.away?.forEach((player) => {
+          if (player?.id == null) return;
+          byId.set(String(player.id), toSummary(player));
+        });
+
         const merged: PlayerSummary[] = Array.from(byId.values()).sort((a, b) =>
           a.fullName.localeCompare(b.fullName),
         );
-  
+
         if (!cancelled) {
           onPlayersLoaded?.(game.id, merged);
         }
-      } catch (err: any) {
-        if (err?.name !== 'AbortError') {
+      } catch (err: unknown) {
+        if (!(err instanceof DOMException && err.name === 'AbortError')) {
           console.error('[players] fetch error', { gameId: game.id, err });
         }
       }
@@ -391,7 +409,7 @@ const url =
         missing: missingRosterKeys,
       });
     }
-  }, [game.id, missingRosterKeys]);
+  }, [awayKey, game.id, homeKey, missingRosterKeys, onPlayersLoaded]);
 
   return (
     <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-900/60 p-4 shadow-card">
@@ -457,13 +475,11 @@ const url =
 };
 
 const HighlightsSelector = ({
-  locale,
   dictionary,
   highlightSelections,
   onChange,
   players,
 }: {
-  locale: Locale;
   dictionary: Dictionary;
   highlightSelections: HighlightPick[];
   onChange: (rank: number, playerId: string) => void;
@@ -889,6 +905,8 @@ export const DashboardClient = ({
   const [teamSelections, setTeamSelections] = useState<Record<string, string>>({});
   const [playerSelections, setPlayerSelections] = useState<PlayerSelections>({});
   const [highlightSelections, setHighlightSelections] = useState<HighlightPick[]>([]);
+  const [playersManuallyCompleted, setPlayersManuallyCompleted] = useState(false);
+  const [highlightsManuallyCompleted, setHighlightsManuallyCompleted] = useState(false);
   const [playersByGame, setPlayersByGame] = useState<Record<string, PlayerSummary[]>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -935,6 +953,8 @@ export const DashboardClient = ({
         }))
         .sort((a, b) => a.rank - b.rank),
     );
+    setPlayersManuallyCompleted(false);
+    setHighlightsManuallyCompleted(false);
   }, [picks]);
 
   const onPlayersLoaded = useCallback((gameId: string, players: PlayerSummary[]) => {
@@ -962,18 +982,19 @@ export const DashboardClient = ({
 
   const playersComplete = useMemo(
     () =>
-      games.length > 0 &&
-      games.every((game) =>
-        PLAYER_CATEGORIES.every((category) =>
-          Boolean(playerSelections[game.id]?.[category]),
-        ),
-      ),
-    [games, playerSelections],
+      playersManuallyCompleted ||
+      (games.length > 0 &&
+        games.every((game) =>
+          PLAYER_CATEGORIES.every((category) =>
+            Boolean(playerSelections[game.id]?.[category]),
+          ),
+        )),
+    [games, playerSelections, playersManuallyCompleted],
   );
 
   const highlightsComplete = useMemo(
-    () => highlightSelections.length === 5,
-    [highlightSelections.length],
+    () => highlightsManuallyCompleted || highlightSelections.length === 5,
+    [highlightsManuallyCompleted, highlightSelections.length],
   );
 
   const handleTeamsSelect = (gameId: string, teamId: string) => {
@@ -1243,6 +1264,15 @@ export const DashboardClient = ({
                     onPlayersLoaded={onPlayersLoaded}
                   />
                 ))}
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setPlayersManuallyCompleted(true)}
+                    className="rounded-lg border border-accent-gold bg-gradient-to-r from-accent-gold/90 to-accent-coral/90 px-4 py-2 text-sm font-semibold text-navy-900 shadow-card hover:brightness-105"
+                  >
+                    {dictionary?.play?.players?.endPicks ?? 'Termina scelte'}
+                  </button>
+                </div>
               </section>
 
               <section className="space-y-4">
@@ -1258,12 +1288,20 @@ export const DashboardClient = ({
                   </div>
                 </div>
                 <HighlightsSelector
-                  locale={locale}
                   dictionary={dictionary}
                   highlightSelections={highlightSelections}
                   onChange={handleHighlightSelect}
                   players={highlightPlayerPool}
                 />
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setHighlightsManuallyCompleted(true)}
+                    className="rounded-lg border border-accent-gold bg-gradient-to-r from-accent-gold/90 to-accent-coral/90 px-4 py-2 text-sm font-semibold text-navy-900 shadow-card hover:brightness-105"
+                  >
+                    {dictionary?.play?.highlights?.endPicks ?? 'Termina scelte'}
+                  </button>
+                </div>
               </section>
 
               <footer className="space-y-4">

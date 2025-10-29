@@ -109,7 +109,7 @@ export const validatePicksPayload = (payload: unknown): PicksPayload => {
             rank: z.number().int().min(1).max(10),
           }),
         )
-        .length(5),
+        .max(5),
     })
     .superRefine((val, ctx) => {
       const categories = new Set<string>();

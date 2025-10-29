@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import useSWR from 'swr';
 
 type PlayerLite = {
@@ -78,8 +78,6 @@ export function useTeamPlayers(params: TeamPlayersParams) {
     return (await res.json()) as ApiResponse;
   };
 
-  const lastSuccessRef = useRef<ApiSuccess | null>(null);
-
   const { data, error, isLoading, mutate } = useSWR<ApiResponse>(swrKey, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 0,     // 👈 evita unione “aggressiva” tra key simili
@@ -87,21 +85,17 @@ export function useTeamPlayers(params: TeamPlayersParams) {
   });
 
   const success = !!data && 'ok' in data && data.ok;
-  if (success) {
-    lastSuccessRef.current = data as ApiSuccess;
-  }
+  const successData = success ? (data as ApiSuccess) : null;
 
-  const latestSuccess = lastSuccessRef.current;
+  const homePlayers = useMemo(
+    () => successData?.home ?? [],
+    [successData],
+  );
 
-  const homePlayers = useMemo(() => {
-    if (success) return (data as ApiSuccess).home;
-    return latestSuccess?.home ?? [];
-  }, [success, data, latestSuccess]);
-
-  const awayPlayers = useMemo(() => {
-    if (success) return (data as ApiSuccess).away;
-    return latestSuccess?.away ?? [];
-  }, [success, data, latestSuccess]);
+  const awayPlayers = useMemo(
+    () => successData?.away ?? [],
+    [successData],
+  );
 
   const players = useMemo(() => [...homePlayers, ...awayPlayers], [homePlayers, awayPlayers]);
 

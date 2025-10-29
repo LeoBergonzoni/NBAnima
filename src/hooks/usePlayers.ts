@@ -79,28 +79,39 @@ export const usePlayers = ({ teamId, teamName, triCode }: UsePlayersParams) => {
     if (!data) {
       return [] as PlayerSummary[];
     }
+
+    let roster: Rosters[string] | undefined;
+    let rosterKey: string | undefined;
     for (const key of keys) {
-      const roster = data[key];
-      if (roster && roster.length) {
-        const mapped: PlayerLite[] = roster.map((player) => {
-          const fullName = player.name ? player.name.replace(/\s+/g, ' ').trim() : `Player ${player.id}`;
-          const parts = fullName.split(' ');
-          const firstName = parts[0] ?? fullName;
-          const lastName = parts.slice(1).join(' ');
-          return {
-            id: player.id,
-            full_name: fullName,
-            first_name: firstName,
-            last_name: lastName,
-            position: player.pos ?? '',
-            team_id: key,
-            jersey: player.jersey,
-          } satisfies PlayerLite;
-        });
-        return mapped.map(mapPlayer);
+      const candidate = data[key];
+      if (candidate && candidate.length) {
+        roster = candidate;
+        rosterKey = key;
+        break;
       }
     }
-    return [] as PlayerSummary[];
+
+    if (!roster || !rosterKey) {
+      return [] as PlayerSummary[];
+    }
+
+    const mapped: PlayerLite[] = roster.map((player) => {
+      const fullName = player.name ? player.name.replace(/\s+/g, ' ').trim() : `Player ${player.id}`;
+      const parts = fullName.split(' ');
+      const firstName = parts[0] ?? fullName;
+      const lastName = parts.slice(1).join(' ');
+      return {
+        id: player.id,
+        full_name: fullName,
+        first_name: firstName,
+        last_name: lastName,
+        position: player.pos ?? '',
+        team_id: rosterKey,
+        jersey: player.jersey,
+      } satisfies PlayerLite;
+    });
+
+    return mapped.map(mapPlayer);
   }, [data, keys]);
 
   return { players, isLoading, error };
