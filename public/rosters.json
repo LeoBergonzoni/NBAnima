@@ -792,7 +792,7 @@
       "pos": "F"
     }
   ],
-  "Golden StateWarriors": [
+  "GoldenStateWarriors": [
     {
       "id": "al-horford-20-c",
       "name": "Al Horford 20",
@@ -1145,7 +1145,7 @@
       "pos": "C"
     }
   ],
-  "Los AngelesLakers": [
+  "LosAngelesLakers": [
     {
       "id": "adou-thiero-1-f",
       "name": "Adou Thiero 1",
@@ -1590,7 +1590,7 @@
       "pos": "G"
     }
   ],
-  "New OrleansPelicans": [
+  "NewOrleansPelicans": [
     {
       "id": "bryce-mcgowens-11-g",
       "name": "Bryce McGowens 11",
@@ -1682,7 +1682,7 @@
       "pos": "F"
     }
   ],
-  "New YorkKnicks": [
+  "NewYorkKnicks": [
     {
       "id": "ariel-hukporti-55-c",
       "name": "Ariel Hukporti 55",
@@ -1769,7 +1769,7 @@
       "pos": "G"
     }
   ],
-  "Oklahoma CityThunder": [
+  "OklahomaCityThunder": [
     {
       "id": "aaron-wiggins-21-g",
       "name": "Aaron Wiggins 21",
@@ -2122,7 +2122,7 @@
       "pos": "F"
     }
   ],
-  "PortlandTrail Blazers": [
+  "PortlandTrailBlazers": [
     {
       "id": "blake-wesley-1-g",
       "name": "Blake Wesley 1",
@@ -2306,7 +2306,7 @@
       "pos": "G"
     }
   ],
-  "San AntonioSpurs": [
+  "SanAntonioSpurs": [
     {
       "id": "bismack-biyombo-18-c",
       "name": "Bismack Biyombo 18",
