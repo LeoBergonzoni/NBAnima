@@ -99,6 +99,7 @@ const collectTeamTokens = (team?: GameMetaTeam | null) => {
   push(team.id);
   push(team.providerId);
   push(team.abbreviation);
+  push(team.abbr);
   push(team.name);
   push(team.code);
   push(team.slug);
@@ -162,15 +163,27 @@ const ensureGamesExist = async (
 
     const homeSeed =
       meta.homeTeam?.id ??
+      meta.home?.id ??
       meta.homeTeam?.providerId ??
+      meta.home?.providerId ??
       meta.homeTeam?.abbreviation ??
+      meta.home?.abbreviation ??
+      meta.homeTeam?.abbr ??
+      meta.home?.abbr ??
       meta.homeTeam?.name ??
+      meta.home?.name ??
       'home';
     const awaySeed =
       meta.awayTeam?.id ??
+      meta.away?.id ??
       meta.awayTeam?.providerId ??
+      meta.away?.providerId ??
       meta.awayTeam?.abbreviation ??
+      meta.away?.abbreviation ??
+      meta.awayTeam?.abbr ??
+      meta.away?.abbr ??
       meta.awayTeam?.name ??
+      meta.away?.name ??
       'away';
 
     const homeTeamUuid = stableUuidFromString(`${provider}:team:${homeSeed}`);
@@ -455,22 +468,72 @@ export async function POST(request: NextRequest) {
       payload.pickDate,
     );
 
+    const findMetaForGame = (gameId: string) =>
+      (payload.gamesMeta ?? []).find(
+        (meta) => resolveMetaGameId(meta) === gameId,
+      ) ?? null;
+
     const ensureGameContext = async (gameId: string): Promise<GameContext> => {
+      const existingMeta = findMetaForGame(gameId);
       const cached = gamesMap.get(gameId);
       if (cached) {
+        if (!cached.meta && existingMeta) {
+          cached.meta = existingMeta;
+        }
         return cached;
       }
+
       const { data, error } = await supabaseAdmin
         .from('games')
         .select('id,provider,provider_game_id,home_team_id,away_team_id')
         .eq('provider_game_id', gameId)
         .maybeSingle();
-      if (error || !data) {
-        throw new Error(`Cannot resolve game metadata for ${gameId}`);
+
+      if (!error && data) {
+        const context: GameContext = {
+          ...(data as GameRow),
+          meta: existingMeta,
+        };
+        gamesMap.set(gameId, context);
+        return context;
       }
+
+      const baseDate = new Date(`${payload.pickDate}T00:00:00Z`);
+      const normalizedDate = Number.isNaN(baseDate.getTime())
+        ? new Date()
+        : baseDate;
+      const gameUuid = stableUuidFromString(`stub:game:${gameId}`);
+      const homeUuid = stableUuidFromString(`stub:home:${gameId}`);
+      const awayUuid = stableUuidFromString(`stub:away:${gameId}`);
+
+      const stubRow: Database['public']['Tables']['games']['Insert'] = {
+        id: gameUuid,
+        provider: existingMeta?.provider ?? 'stub',
+        provider_game_id: gameId,
+        season: existingMeta?.season ?? computeSeasonLabel(normalizedDate),
+        status: existingMeta?.status ?? 'scheduled',
+        game_date: normalizedDate.toISOString(),
+        locked_at: null,
+        home_team_id: homeUuid,
+        away_team_id: awayUuid,
+        created_at: new Date().toISOString(),
+      };
+
+      const { error: stubError } = await supabaseAdmin
+        .from('games')
+        .upsert(stubRow, { onConflict: 'provider_game_id' });
+
+      if (stubError) {
+        throw stubError;
+      }
+
       const context: GameContext = {
-        ...(data as GameRow),
-        meta: null,
+        id: stubRow.id!,
+        provider: stubRow.provider,
+        provider_game_id: stubRow.provider_game_id,
+        home_team_id: stubRow.home_team_id,
+        away_team_id: stubRow.away_team_id,
+        meta: existingMeta,
       };
       gamesMap.set(gameId, context);
       return context;
@@ -649,9 +712,18 @@ export async function PUT(request: NextRequest) {
       payload.pickDate,
     );
 
+    const findMetaForGame = (gameId: string) =>
+      (payload.gamesMeta ?? []).find(
+        (meta) => resolveMetaGameId(meta) === gameId,
+      ) ?? null;
+
     const ensureGameContext = async (gameId: string): Promise<GameContext> => {
+      const existingMeta = findMetaForGame(gameId);
       const cached = gamesMap.get(gameId);
       if (cached) {
+        if (!cached.meta && existingMeta) {
+          cached.meta = existingMeta;
+        }
         return cached;
       }
       const { data, error } = await supabaseAdmin
@@ -659,12 +731,51 @@ export async function PUT(request: NextRequest) {
         .select('id,provider,provider_game_id,home_team_id,away_team_id')
         .eq('provider_game_id', gameId)
         .maybeSingle();
-      if (error || !data) {
-        throw new Error(`Cannot resolve game metadata for ${gameId}`);
+      if (!error && data) {
+        const context: GameContext = {
+          ...(data as GameRow),
+          meta: existingMeta,
+        };
+        gamesMap.set(gameId, context);
+        return context;
       }
+
+      const baseDate = new Date(`${payload.pickDate}T00:00:00Z`);
+      const normalizedDate = Number.isNaN(baseDate.getTime())
+        ? new Date()
+        : baseDate;
+      const gameUuid = stableUuidFromString(`stub:game:${gameId}`);
+      const homeUuid = stableUuidFromString(`stub:home:${gameId}`);
+      const awayUuid = stableUuidFromString(`stub:away:${gameId}`);
+
+      const stubRow: Database['public']['Tables']['games']['Insert'] = {
+        id: gameUuid,
+        provider: existingMeta?.provider ?? 'stub',
+        provider_game_id: gameId,
+        season: existingMeta?.season ?? computeSeasonLabel(normalizedDate),
+        status: existingMeta?.status ?? 'scheduled',
+        game_date: normalizedDate.toISOString(),
+        locked_at: null,
+        home_team_id: homeUuid,
+        away_team_id: awayUuid,
+        created_at: new Date().toISOString(),
+      };
+
+      const { error: stubError } = await supabaseAdmin
+        .from('games')
+        .upsert(stubRow, { onConflict: 'provider_game_id' });
+
+      if (stubError) {
+        throw stubError;
+      }
+
       const context: GameContext = {
-        ...(data as GameRow),
-        meta: null,
+        id: stubRow.id!,
+        provider: stubRow.provider,
+        provider_game_id: stubRow.provider_game_id,
+        home_team_id: stubRow.home_team_id,
+        away_team_id: stubRow.away_team_id,
+        meta: existingMeta,
       };
       gamesMap.set(gameId, context);
       return context;

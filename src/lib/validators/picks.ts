@@ -25,6 +25,34 @@ export const highlightPickSchema = z.object({
   rank: z.number().int().min(1).max(10),
 });
 
+const gameMetaTeamSchema = z
+  .object({
+    id: z.string().min(1).nullable().optional(),
+    providerId: z.string().min(1).nullable().optional(),
+    abbreviation: z.string().min(1).nullable().optional(),
+    abbr: z.string().min(1).nullable().optional(),
+    name: z.string().min(1).nullable().optional(),
+    code: z.string().min(1).nullable().optional(),
+    slug: z.string().min(1).nullable().optional(),
+  })
+  .passthrough();
+
+export const gameMetaSchema = z
+  .object({
+    gameId: z.string().min(1).optional(),
+    id: z.string().min(1).optional(),
+    provider: z.string().min(1).optional(),
+    providerGameId: z.string().min(1).optional(),
+    startsAt: z.string().min(1).optional(),
+    status: z.string().min(1).optional(),
+    season: z.string().min(1).optional(),
+    homeTeam: gameMetaTeamSchema.nullish(),
+    awayTeam: gameMetaTeamSchema.nullish(),
+    home: gameMetaTeamSchema.nullish(),
+    away: gameMetaTeamSchema.nullish(),
+  })
+  .passthrough();
+
 export const picksPayloadSchema = z.object({
   pickDate: z
     .string()
@@ -35,6 +63,7 @@ export const picksPayloadSchema = z.object({
   highlights: z
     .array(highlightPickSchema)
     .max(5, 'Up to 5 highlight picks are allowed'),
+  gamesMeta: z.array(gameMetaSchema).optional(),
 });
 
 export type PicksPayload = z.infer<typeof picksPayloadSchema>;

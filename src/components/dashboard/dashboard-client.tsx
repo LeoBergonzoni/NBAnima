@@ -1040,6 +1040,28 @@ export const DashboardClient = ({
       return;
     }
 
+    const gamesMeta = games.map((game) => {
+      const home = {
+        id: String(game.homeTeam.id),
+        abbr: game.homeTeam.abbreviation ?? null,
+        name: game.homeTeam.name ?? null,
+      };
+      const away = {
+        id: String(game.awayTeam.id),
+        abbr: game.awayTeam.abbreviation ?? null,
+        name: game.awayTeam.name ?? null,
+      };
+
+      return {
+        gameId: String(game.id),
+        startsAt: game.startsAt,
+        home,
+        away,
+        homeTeam: home,
+        awayTeam: away,
+      };
+    });
+
     const payload = {
       pickDate,
       teams: Object.entries(teamSelections).map<TeamPick>(([gameId, teamId]) => ({
@@ -1059,6 +1081,7 @@ export const DashboardClient = ({
         playerId: entry.playerId,
         rank: entry.rank,
       })),
+      gamesMeta,
     };
 
     setIsSaving(true);

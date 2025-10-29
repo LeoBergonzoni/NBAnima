@@ -18,6 +18,21 @@ export interface HighlightPick {
   rank: number;
 }
 
+export interface GameMetaTeam {
+  id: string;
+  abbr: string | null;
+  name: string | null;
+}
+
+export interface GameMeta {
+  gameId: string;
+  startsAt?: string | null;
+  home?: GameMetaTeam | null;
+  away?: GameMetaTeam | null;
+  homeTeam?: GameMetaTeam | null;
+  awayTeam?: GameMetaTeam | null;
+}
+
 export interface PicksResponse {
   pickDate: string;
   teams: Array<{
@@ -47,6 +62,7 @@ export interface SavePicksPayload {
   teams: TeamPick[];
   players: PlayerPick[];
   highlights: HighlightPick[];
+  gamesMeta?: GameMeta[];
 }
 
 const fetcher = async (url: string) => {
