@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -19,6 +20,25 @@ export const revalidate = 0;
 // Identificatore del “sorgente” per i tuoi ID esterni
 const PLAYER_PROVIDER = 'local-rosters'; // o 'balldontlie' se preferisci unificare
 
+const slugTeamName = (value: string) =>
+  value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+
+const stableUuidFromString = (input: string) => {
+  const hash = crypto.createHash('sha1').update(input).digest('hex');
+  return [
+    hash.slice(0, 8),
+    hash.slice(8, 12),
+    hash.slice(12, 16),
+    hash.slice(16, 20),
+    hash.slice(20, 32),
+  ].join('-');
+};
+
 type GameRow = {
   id: string; // uuid
   provider: string;
@@ -27,25 +47,231 @@ type GameRow = {
   away_team_id: string;     // uuid
 };
 
-// Mappa i provider_game_id ai row di games
-async function loadGamesMap(
-  supabase: SupabaseClient<Database>,
-  providerGameIds: string[],
-) {
-  const unique = Array.from(new Set(providerGameIds)).filter(Boolean);
-  if (unique.length === 0) return new Map<string, GameRow>();
+type GameMetaTeam = {
+  id?: string | null;
+  providerId?: string | null;
+  name?: string | null;
+  abbreviation?: string | null;
+  code?: string | null;
+  slug?: string | null;
+};
 
-  const { data, error } = await supabase
+export type GameMeta = {
+  id?: string | null;
+  gameId?: string | null;
+  provider?: string | null;
+  providerGameId?: string | null;
+  startsAt?: string | null;
+  status?: string | null;
+  season?: string | null;
+  homeTeam?: GameMetaTeam | null;
+  awayTeam?: GameMetaTeam | null;
+};
+
+type GameContext = GameRow & {
+  meta?: GameMeta | null;
+};
+
+const resolveMetaGameId = (meta: GameMeta): string | null => {
+  if (meta.providerGameId) return String(meta.providerGameId);
+  if (meta.id) return String(meta.id);
+  if (meta.gameId) return String(meta.gameId);
+  return null;
+};
+
+const computeSeasonLabel = (date: Date) => {
+  const year = date.getUTCFullYear();
+  return `${year}-${year + 1}`;
+};
+
+const collectTeamTokens = (team?: GameMetaTeam | null) => {
+  const tokens = new Set<string>();
+  if (!team) {
+    return tokens;
+  }
+  const push = (raw?: string | null) => {
+    if (!raw) return;
+    const value = String(raw).trim();
+    if (!value) return;
+    tokens.add(value.toLowerCase());
+    tokens.add(slugTeamName(value));
+  };
+  push(team.id);
+  push(team.providerId);
+  push(team.abbreviation);
+  push(team.name);
+  push(team.code);
+  push(team.slug);
+  return tokens;
+};
+
+const ensureGamesExist = async (
+  supabase: SupabaseClient<Database>,
+  gamesMeta: GameMeta[],
+  pickDate: string,
+) => {
+  const metaList = Array.isArray(gamesMeta) ? gamesMeta.filter(Boolean) : [];
+  const ids = metaList
+    .map((meta) => resolveMetaGameId(meta))
+    .filter((value): value is string => Boolean(value));
+
+  if (ids.length === 0) {
+    return new Map<string, GameContext>();
+  }
+
+  const uniqueIds = Array.from(new Set(ids));
+  const metaById = new Map<string, GameMeta>();
+  metaList.forEach((meta) => {
+    const key = resolveMetaGameId(meta);
+    if (key) {
+      metaById.set(key, meta);
+    }
+  });
+
+  const { data: existing, error: existingError } = await supabase
     .from('games')
     .select('id,provider,provider_game_id,home_team_id,away_team_id')
-    .in('provider_game_id', unique);
+    .in('provider_game_id', uniqueIds);
 
-  if (error) throw error;
+  if (existingError) {
+    throw existingError;
+  }
 
-  const map = new Map<string, GameRow>();
-  (data ?? []).forEach((g) => map.set(g.provider_game_id, g as GameRow));
+  const map = new Map<string, GameContext>();
+  (existing ?? []).forEach((row) => {
+    map.set(row.provider_game_id, {
+      ...(row as GameRow),
+      meta: metaById.get(row.provider_game_id) ?? null,
+    });
+  });
+
+  const inserts: Database['public']['Tables']['games']['Insert'][] = [];
+
+  metaList.forEach((meta) => {
+    const providerGameId = resolveMetaGameId(meta);
+    if (!providerGameId || map.has(providerGameId)) {
+      return;
+    }
+
+    const provider = meta.provider ?? 'balldontlie';
+    const startsAtIso = meta.startsAt ?? `${pickDate}T00:00:00Z`;
+    const parsedDate = new Date(startsAtIso);
+    const gameDate = Number.isNaN(parsedDate.getTime())
+      ? new Date(`${pickDate}T00:00:00Z`)
+      : parsedDate;
+
+    const homeSeed =
+      meta.homeTeam?.id ??
+      meta.homeTeam?.providerId ??
+      meta.homeTeam?.abbreviation ??
+      meta.homeTeam?.name ??
+      'home';
+    const awaySeed =
+      meta.awayTeam?.id ??
+      meta.awayTeam?.providerId ??
+      meta.awayTeam?.abbreviation ??
+      meta.awayTeam?.name ??
+      'away';
+
+    const homeTeamUuid = stableUuidFromString(`${provider}:team:${homeSeed}`);
+    const awayTeamUuid = stableUuidFromString(`${provider}:team:${awaySeed}`);
+    const gameUuid = stableUuidFromString(`${provider}:game:${providerGameId}`);
+
+    inserts.push({
+      id: gameUuid,
+      provider,
+      provider_game_id: providerGameId,
+      season: meta.season ?? computeSeasonLabel(gameDate),
+      status: meta.status ?? 'scheduled',
+      game_date: gameDate.toISOString(),
+      locked_at: null,
+      home_team_id: homeTeamUuid,
+      away_team_id: awayTeamUuid,
+      created_at: new Date().toISOString(),
+    });
+
+    map.set(providerGameId, {
+      id: gameUuid,
+      provider,
+      provider_game_id: providerGameId,
+      home_team_id: homeTeamUuid,
+      away_team_id: awayTeamUuid,
+      meta,
+    });
+  });
+
+  if (inserts.length > 0) {
+    const { data: inserted, error: insertError } = await supabase
+      .from('games')
+      .upsert(inserts, { onConflict: 'provider_game_id' })
+      .select('id,provider,provider_game_id,home_team_id,away_team_id');
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    (inserted ?? []).forEach((row) => {
+      const entry = map.get(row.provider_game_id);
+      map.set(row.provider_game_id, {
+        ...(row as GameRow),
+        meta: entry?.meta ?? metaById.get(row.provider_game_id) ?? null,
+      });
+    });
+  }
+
   return map;
-}
+};
+
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+const resolveSelectedTeamUuid = (inputTeamId: string, game: GameContext): string => {
+  const raw = (inputTeamId ?? '').trim();
+  if (!raw) {
+    throw new Error('Missing team identifier');
+  }
+
+  if (isUuid(raw)) {
+    return raw;
+  }
+
+  const normalized = raw.toLowerCase();
+  const slugged = slugTeamName(raw);
+
+  const homeTokens = new Set<string>([
+    game.home_team_id.toLowerCase(),
+    'home',
+    'h',
+    'host',
+    'home-team',
+  ]);
+  const awayTokens = new Set<string>([
+    game.away_team_id.toLowerCase(),
+    'away',
+    'a',
+    'guest',
+    'visitor',
+    'away-team',
+  ]);
+
+  collectTeamTokens(game.meta?.homeTeam).forEach((token) => {
+    homeTokens.add(token);
+  });
+  collectTeamTokens(game.meta?.awayTeam).forEach((token) => {
+    awayTokens.add(token);
+  });
+
+  if (homeTokens.has(normalized) || homeTokens.has(slugged)) {
+    return game.home_team_id;
+  }
+  if (awayTokens.has(normalized) || awayTokens.has(slugged)) {
+    return game.away_team_id;
+  }
+
+  throw new Error(
+    `Cannot resolve team uuid for value "${inputTeamId}" on game ${game.provider_game_id}`,
+  );
+};
 
 // Ritorna (o crea) un player interno e restituisce il suo UUID
 async function getOrCreatePlayerUuid(opts: {
@@ -210,77 +436,63 @@ export async function POST(request: NextRequest) {
   const supabaseAdmin = createAdminSupabaseClient();
   try {
     const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
-    const payload = validatePicksPayload(await request.json());
+    const rawBody = await request.json();
+    const validated = validatePicksPayload(rawBody);
+    const payload: typeof validated & { gamesMeta?: GameMeta[] } = {
+      ...validated,
+      gamesMeta: Array.isArray(rawBody?.gamesMeta)
+        ? (rawBody.gamesMeta as GameMeta[])
+        : undefined,
+    };
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
     await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
 
-// 1) Carico la mappa provider_game_id -> games row (UUID + team UUID)
-const providerGameIds = [
-  ...payload.teams.map(t => t.gameId),
-  ...payload.players.map(p => p.gameId),
-];
-const gamesMap = await loadGamesMap(supabaseAdmin, providerGameIds);
+    const gamesMap = await ensureGamesExist(
+      supabaseAdmin,
+      payload.gamesMeta ?? [],
+      payload.pickDate,
+    );
 
-// Fail-fast se non trovo alcune partite
-const missingGames = providerGameIds
-  .filter(Boolean)
-  .filter(id => !gamesMap.has(id));
-if (missingGames.length) {
-  throw new Error(`Unknown games (provider_game_id): ${missingGames.join(', ')}`);
-}
+    const ensureGameContext = async (gameId: string): Promise<GameContext> => {
+      const cached = gamesMap.get(gameId);
+      if (cached) {
+        return cached;
+      }
+      const { data, error } = await supabaseAdmin
+        .from('games')
+        .select('id,provider,provider_game_id,home_team_id,away_team_id')
+        .eq('provider_game_id', gameId)
+        .maybeSingle();
+      if (error || !data) {
+        throw new Error(`Cannot resolve game metadata for ${gameId}`);
+      }
+      const context: GameContext = {
+        ...(data as GameRow),
+        meta: null,
+      };
+      gamesMap.set(gameId, context);
+      return context;
+    };
 
-// 2) Preparo un resolver per TEAM UUID in picks_teams
-function resolveSelectedTeamUuid(inputTeamId: string, game: GameRow): string {
-  // Se già UUID valido, tienilo
-  if (/^[0-9a-fA-F-]{36}$/.test(inputTeamId)) return inputTeamId;
+    const resolvePlayerUuidForPick = async (pick: { gameId: string; playerId: string }) => {
+      const game = await ensureGameContext(pick.gameId);
+      const guessedTeamUuid = game.home_team_id;
+      const { first, last } = splitName(pick.playerId);
 
-  // Altrimenti prova con abbreviazioni/alias “home/away”
-  const val = (inputTeamId || '').toLowerCase().trim();
-  if (val === 'home' || val === 'h' || val === 'host' || val === game.home_team_id) {
-    return game.home_team_id;
-  }
-  if (val === 'away' || val === 'a' || val === 'guest' || val === game.away_team_id) {
-    return game.away_team_id;
-  }
+      const uuid = await getOrCreatePlayerUuid({
+        supabase: supabaseAdmin,
+        provider: PLAYER_PROVIDER,
+        providerPlayerId: pick.playerId,
+        teamUuid: guessedTeamUuid,
+        firstName: first,
+        lastName: last,
+        position: null,
+      });
 
-  // Se passavi le abbreviazioni (es. PHI/GSW), prova un match euristico:
-  // NB: solo se ti salvi anche le abbreviazioni delle squadre su 'games' o altrove.
-  // In assenza, fallback sicuro: lancia un errore chiaro.
-  throw new Error(`Cannot resolve team uuid for value "${inputTeamId}" on game ${game.provider_game_id}`);
-}
-
-// 3) Preparo un resolver per PLAYER UUID in picks_players / highlights
-async function resolvePlayerUuidForPick(pick: { gameId: string; playerId: string }) {
-  const game = gamesMap.get(pick.gameId)!;
-
-  // Dato che il tuo valore playerId proviene dal roster locale (non UUID),
-  // uso provider=local-rosters e come team associo quello della partita:
-  // Qui **devi** sapere se quel player appartiene all'home o all'away.
-  // Nella tua UI i select di “Players” nascono dal roster della singola partita:
-  // quando salvi, puoi includere anche “teamSide” ('home'/'away') nel payload.
-  //
-  // Se non l’hai ancora fatto, approssimo: provo prima "home", poi "away".
-  // (Meglio: passa teamSide dal client).
-  const guessedTeamUuid = game.home_team_id;
-
-  // Per i nomi, in questo endpoint non li hai: recuperali ad hoc se li hai nel client,
-  // altrimenti salva degli placeholder. Idealmente passa anche first/last nel payload.
-  const { first, last } = splitName(pick.playerId); // fallback brutale se hai messo il nome dentro playerId
-
-  const uuid = await getOrCreatePlayerUuid({
-    supabase: supabaseAdmin,
-    provider: PLAYER_PROVIDER,
-    providerPlayerId: pick.playerId,  // <-- l’ID esterno del roster
-    teamUuid: guessedTeamUuid,        // <-- meglio se passi quello reale dal client
-    firstName: first,
-    lastName: last,
-    position: null,
-  });
-
-  return uuid;
-}
+      return uuid;
+    };
 
     const currentChanges = await getDailyChangeCount(
       supabaseAdmin,
@@ -312,7 +524,7 @@ async function resolvePlayerUuidForPick(pick: { gameId: string; playerId: string
     // TEAM INSERT (UUID già risolti)
     const teamInsert: PicksTeamsInsert[] = await Promise.all(
       payload.teams.map(async (pick) => {
-        const game = gamesMap.get(pick.gameId)!;
+        const game = await ensureGameContext(pick.gameId);
         return {
           user_id: userId,
           game_id: game.id,                                   // UUID
@@ -328,9 +540,9 @@ async function resolvePlayerUuidForPick(pick: { gameId: string; playerId: string
     // PLAYERS INSERT (UUID già risolti)
     const playerInsert: PicksPlayersInsert[] = await Promise.all(
       payload.players.map(async (pick) => {
-        const game = gamesMap.get(pick.gameId)!;
+        const game = await ensureGameContext(pick.gameId);
         const playerUuid = await resolvePlayerUuidForPick(pick);
-    
+
         return {
           user_id: userId,
           game_id: game.id,            // UUID
@@ -345,7 +557,12 @@ async function resolvePlayerUuidForPick(pick: { gameId: string; playerId: string
     );
     
     // HIGHLIGHTS INSERT (UUID già risolti)
-    const fallbackGameId = payload.players[0]?.gameId ?? providerGameIds[0];
+    const fallbackGameId =
+      payload.players[0]?.gameId ??
+      (payload.gamesMeta ?? [])
+        .map((meta) => resolveMetaGameId(meta))
+        .find((id): id is string => Boolean(id)) ??
+      Array.from(gamesMap.keys())[0];
     if (!fallbackGameId) {
       // opzionale: se non ci sono player picks, scegli un game esistente del giorno
       // o lancia un errore esplicito. Qui facciamo un fail-fast chiaro.
@@ -413,77 +630,63 @@ export async function PUT(request: NextRequest) {
   const supabaseAdmin = createAdminSupabaseClient();
   try {
     const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
-    const payload = validatePicksPayload(await request.json());
+    const rawBody = await request.json();
+    const validated = validatePicksPayload(rawBody);
+    const payload: typeof validated & { gamesMeta?: GameMeta[] } = {
+      ...validated,
+      gamesMeta: Array.isArray(rawBody?.gamesMeta)
+        ? (rawBody.gamesMeta as GameMeta[])
+        : undefined,
+    };
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
     await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
 
-// 1) Carico la mappa provider_game_id -> games row (UUID + team UUID)
-const providerGameIds = [
-  ...payload.teams.map(t => t.gameId),
-  ...payload.players.map(p => p.gameId),
-];
-const gamesMap = await loadGamesMap(supabaseAdmin, providerGameIds);
+    const gamesMap = await ensureGamesExist(
+      supabaseAdmin,
+      payload.gamesMeta ?? [],
+      payload.pickDate,
+    );
 
-// Fail-fast se non trovo alcune partite
-const missingGames = providerGameIds
-  .filter(Boolean)
-  .filter(id => !gamesMap.has(id));
-if (missingGames.length) {
-  throw new Error(`Unknown games (provider_game_id): ${missingGames.join(', ')}`);
-}
+    const ensureGameContext = async (gameId: string): Promise<GameContext> => {
+      const cached = gamesMap.get(gameId);
+      if (cached) {
+        return cached;
+      }
+      const { data, error } = await supabaseAdmin
+        .from('games')
+        .select('id,provider,provider_game_id,home_team_id,away_team_id')
+        .eq('provider_game_id', gameId)
+        .maybeSingle();
+      if (error || !data) {
+        throw new Error(`Cannot resolve game metadata for ${gameId}`);
+      }
+      const context: GameContext = {
+        ...(data as GameRow),
+        meta: null,
+      };
+      gamesMap.set(gameId, context);
+      return context;
+    };
 
-// 2) Preparo un resolver per TEAM UUID in picks_teams
-function resolveSelectedTeamUuid(inputTeamId: string, game: GameRow): string {
-  // Se già UUID valido, tienilo
-  if (/^[0-9a-fA-F-]{36}$/.test(inputTeamId)) return inputTeamId;
+    const resolvePlayerUuidForPick = async (pick: { gameId: string; playerId: string }) => {
+      const game = await ensureGameContext(pick.gameId);
+      const guessedTeamUuid = game.home_team_id;
+      const { first, last } = splitName(pick.playerId);
 
-  // Altrimenti prova con abbreviazioni/alias “home/away”
-  const val = (inputTeamId || '').toLowerCase().trim();
-  if (val === 'home' || val === 'h' || val === 'host' || val === game.home_team_id) {
-    return game.home_team_id;
-  }
-  if (val === 'away' || val === 'a' || val === 'guest' || val === game.away_team_id) {
-    return game.away_team_id;
-  }
+      const uuid = await getOrCreatePlayerUuid({
+        supabase: supabaseAdmin,
+        provider: PLAYER_PROVIDER,
+        providerPlayerId: pick.playerId,
+        teamUuid: guessedTeamUuid,
+        firstName: first,
+        lastName: last,
+        position: null,
+      });
 
-  // Se passavi le abbreviazioni (es. PHI/GSW), prova un match euristico:
-  // NB: solo se ti salvi anche le abbreviazioni delle squadre su 'games' o altrove.
-  // In assenza, fallback sicuro: lancia un errore chiaro.
-  throw new Error(`Cannot resolve team uuid for value "${inputTeamId}" on game ${game.provider_game_id}`);
-}
-
-// 3) Preparo un resolver per PLAYER UUID in picks_players / highlights
-async function resolvePlayerUuidForPick(pick: { gameId: string; playerId: string }) {
-  const game = gamesMap.get(pick.gameId)!;
-
-  // Dato che il tuo valore playerId proviene dal roster locale (non UUID),
-  // uso provider=local-rosters e come team associo quello della partita:
-  // Qui **devi** sapere se quel player appartiene all'home o all'away.
-  // Nella tua UI i select di “Players” nascono dal roster della singola partita:
-  // quando salvi, puoi includere anche “teamSide” ('home'/'away') nel payload.
-  //
-  // Se non l’hai ancora fatto, approssimo: provo prima "home", poi "away".
-  // (Meglio: passa teamSide dal client).
-  const guessedTeamUuid = game.home_team_id;
-
-  // Per i nomi, in questo endpoint non li hai: recuperali ad hoc se li hai nel client,
-  // altrimenti salva degli placeholder. Idealmente passa anche first/last nel payload.
-  const { first, last } = splitName(pick.playerId); // fallback brutale se hai messo il nome dentro playerId
-
-  const uuid = await getOrCreatePlayerUuid({
-    supabase: supabaseAdmin,
-    provider: PLAYER_PROVIDER,
-    providerPlayerId: pick.playerId,  // <-- l’ID esterno del roster
-    teamUuid: guessedTeamUuid,        // <-- meglio se passi quello reale dal client
-    firstName: first,
-    lastName: last,
-    position: null,
-  });
-
-  return uuid;
-}
+      return uuid;
+    };
 
     const currentChanges = await getDailyChangeCount(
       supabaseAdmin,
@@ -516,7 +719,7 @@ await supabaseAdmin.from('picks_highlights').delete().match({
 // TEAM UPSERT (UUID risolti)
 const teamUpsert: PicksTeamsInsert[] = await Promise.all(
   payload.teams.map(async (pick) => {
-    const game = gamesMap.get(pick.gameId)!;
+    const game = await ensureGameContext(pick.gameId);
     return {
       user_id: userId,
       game_id: game.id,                                   // UUID
@@ -532,7 +735,7 @@ const teamUpsert: PicksTeamsInsert[] = await Promise.all(
 // PLAYERS UPSERT (UUID risolti)
 const playerUpsert: PicksPlayersInsert[] = await Promise.all(
   payload.players.map(async (pick) => {
-    const game = gamesMap.get(pick.gameId)!;
+    const game = await ensureGameContext(pick.gameId);
     const playerUuid = await resolvePlayerUuidForPick(pick);
 
     return {
@@ -549,7 +752,12 @@ const playerUpsert: PicksPlayersInsert[] = await Promise.all(
 );
 
 // HIGHLIGHTS UPSERT (UUID risolti)
-const fallbackGameId = payload.players[0]?.gameId ?? providerGameIds[0];
+const fallbackGameId =
+  payload.players[0]?.gameId ??
+  (payload.gamesMeta ?? [])
+    .map((meta) => resolveMetaGameId(meta))
+    .find((id): id is string => Boolean(id)) ??
+  Array.from(gamesMap.keys())[0];
 if (!fallbackGameId) {
   throw new Error('Cannot resolve a game for highlights');
 }
