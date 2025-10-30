@@ -1,42 +1,25 @@
 import { createHash } from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
-
-import {
-  createAdminSupabaseClient,
-  createServerSupabase,
-} from '@/lib/supabase';
+import { createAdminSupabaseClient, createServerSupabase } from '@/lib/supabase';
 import type { Database } from '@/lib/supabase.types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// UUID stabile da stringa (per team_id derivati da abbr/id di balldontlie)
 const stableUuidFromString = (value: string) => {
   const hash = createHash('sha1').update(value).digest('hex');
-  return [
-    hash.slice(0, 8),
-    hash.slice(8, 12),
-    hash.slice(12, 16),
-    hash.slice(16, 20),
-    hash.slice(20, 32),
-  ].join('-');
+  return `${hash.slice(0,8)}-${hash.slice(8,12)}-${hash.slice(12,16)}-${hash.slice(16,20)}-${hash.slice(20,32)}`;
 };
 
 const ensureAdminUser = async () => {
   const supabaseAdmin = createAdminSupabaseClient();
   const supabase = await createServerSupabase();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) throw error;
 
-  if (error) {
-    throw error;
-  }
-
-  if (!user) {
-    return { supabaseAdmin, user: null, role: null };
-  }
+  if (!user) return { supabaseAdmin, user: null, role: null };
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('users')
@@ -44,69 +27,56 @@ const ensureAdminUser = async () => {
     .eq('id', user.id)
     .maybeSingle();
 
-  if (profileError) {
-    throw profileError;
-  }
+  if (profileError) throw profileError;
 
-  return {
-    supabaseAdmin,
-    user,
-    role: profile?.role ?? 'user',
-  };
+  return { supabaseAdmin, user, role: profile?.role ?? 'user' };
 };
 
-const fetchBalldontlieGames = async (date: string) => {
-  const perPage = 100;
+// Fetch unico con fallback: prima dates[]=, se 404 passa a start_date/end_date
+async function fetchBalldontlieGamesForDate(date: string) {
+  const BL = 'https://www.balldontlie.io/api/v1/games';
+  const all: any[] = [];
   let page = 1;
-  let totalPages = 1;
-  const games: any[] = [];
 
-  while (page <= totalPages) {
-    const response = await fetch(
-      `https://www.balldontlie.io/api/v1/games?start_date=${date}&end_date=${date}&per_page=${perPage}&page=${page}`,
-      {
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-      },
-    );
+  while (true) {
+    const primary = `${BL}?per_page=100&page=${page}&dates[]=${encodeURIComponent(date)}`;
+    let r = await fetch(primary, { headers: { accept: 'application/json' }, cache: 'no-store' });
 
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(
-        body?.message ?? `Failed to fetch games from balldontlie (status ${response.status})`,
-      );
+    if (r.status === 404) {
+      const alt = `${BL}?per_page=100&page=${page}&start_date=${date}&end_date=${date}`;
+      r = await fetch(alt, { headers: { accept: 'application/json' }, cache: 'no-store' });
     }
 
-    const payload = await response.json();
-    totalPages = Number(payload?.meta?.total_pages ?? 1);
-    games.push(...(payload?.data ?? []));
-    page += 1;
+    if (!r.ok) {
+      throw new Error(`Failed to fetch games from balldontlie (status ${r.status})`);
+    }
+
+    const j = await r.json();
+    all.push(...(j.data ?? []));
+    const next = j.meta?.next_page;
+    if (!next) break;
+    page = next;
   }
 
-  return games;
-};
+  return all;
+}
 
 const formatGameDate = (dateIso: string, fallbackDate: string) => {
   const parsed = new Date(dateIso);
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toISOString();
-  }
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
   const fallback = new Date(`${fallbackDate}T00:00:00Z`);
-  return Number.isNaN(fallback.getTime())
-    ? new Date().toISOString()
-    : fallback.toISOString();
+  return Number.isNaN(fallback.getTime()) ? new Date().toISOString() : fallback.toISOString();
 };
 
 const normalizeTeamId = (abbr?: string | null, fallbackId?: number | string | null) => {
   const key = (abbr ?? fallbackId ?? '').toString().trim().toLowerCase();
-  if (!key) {
-    throw new Error('Missing team identifier from balldontlie payload');
-  }
+  if (!key) throw new Error('Missing team identifier from balldontlie payload');
   return stableUuidFromString(`team:${key}`);
 };
 
 export async function GET(request: NextRequest) {
   try {
+    // ?date=YYYY-MM-DD
     const date = request.nextUrl.searchParams.get('date');
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json(
@@ -116,38 +86,32 @@ export async function GET(request: NextRequest) {
     }
 
     const { supabaseAdmin, user, role } = await ensureAdminUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    if (role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    const games = await fetchBalldontlieGames(date);
-    if (games.length === 0) {
-      return NextResponse.json({ synced: 0 });
-    }
+    // fetch con fallback
+    const games = await fetchBalldontlieGamesForDate(date);
+    if (games.length === 0) return NextResponse.json({ synced: 0 });
 
-    const upserts: Database['public']['Tables']['games']['Insert'][] = games.map((game) => {
-      const providerGameId = String(game?.id ?? '');
-      if (!providerGameId) {
-        throw new Error('Missing balldontlie game id');
-      }
+    // Prepara upsert verso la tabella public.games (assumi colonne extra già create)
+    const upserts: Database['public']['Tables']['games']['Insert'][] = games.map((g: any) => {
+      const providerGameId = String(g?.id ?? '');
+      if (!providerGameId) throw new Error('Missing balldontlie game id');
 
-      const homeAbbr = game?.home_team?.abbreviation ?? null;
-      const awayAbbr = game?.visitor_team?.abbreviation ?? null;
-      const homeName = game?.home_team?.full_name ?? game?.home_team?.name ?? null;
-      const awayName = game?.visitor_team?.full_name ?? game?.visitor_team?.name ?? null;
+      const homeAbbr = g?.home_team?.abbreviation ?? null;
+      const awayAbbr = g?.visitor_team?.abbreviation ?? null;
+      const homeName = g?.home_team?.full_name ?? g?.home_team?.name ?? null;
+      const awayName = g?.visitor_team?.full_name ?? g?.visitor_team?.name ?? null;
 
       return {
         provider: 'balldontlie',
         provider_game_id: providerGameId,
-        season: String(game?.season ?? ''),
-        status: String(game?.status ?? ''),
-        game_date: formatGameDate(String(game?.date ?? ''), date),
+        season: String(g?.season ?? ''),
+        status: String(g?.status ?? ''),
+        game_date: formatGameDate(String(g?.date ?? ''), date),
         locked_at: null,
-        home_team_id: normalizeTeamId(homeAbbr, game?.home_team?.id),
-        away_team_id: normalizeTeamId(awayAbbr, game?.visitor_team?.id),
+        home_team_id: normalizeTeamId(homeAbbr, g?.home_team?.id),
+        away_team_id: normalizeTeamId(awayAbbr, g?.visitor_team?.id),
         home_team_abbr: homeAbbr,
         away_team_abbr: awayAbbr,
         home_team_name: homeName,
@@ -155,13 +119,12 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // ATTENZIONE: deve esistere un vincolo UNIQUE su (provider, provider_game_id)
     const { error: upsertError } = await supabaseAdmin
       .from('games')
       .upsert(upserts, { onConflict: 'provider,provider_game_id' });
 
-    if (upsertError) {
-      throw upsertError;
-    }
+    if (upsertError) throw upsertError;
 
     return NextResponse.json({ synced: upserts.length });
   } catch (error) {
