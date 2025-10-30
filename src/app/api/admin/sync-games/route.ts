@@ -39,12 +39,14 @@ async function fetchBalldontlieGamesForDate(date: string) {
   let page = 1;
 
   while (true) {
-    const primary = `${BL}?per_page=100&page=${page}&dates[]=${encodeURIComponent(date)}`;
-    let r = await fetch(primary, { headers: { accept: 'application/json' }, cache: 'no-store' });
+    // 1) prefer dates[] (official)
+    let url = `${BL}?per_page=100&page=${page}&dates[]=${encodeURIComponent(date)}`;
+    let r = await fetch(url, { headers: { accept: 'application/json' }, cache: 'no-store' });
 
-    if (r.status === 404) {
-      const alt = `${BL}?per_page=100&page=${page}&start_date=${date}&end_date=${date}`;
-      r = await fetch(alt, { headers: { accept: 'application/json' }, cache: 'no-store' });
+    // 2) fallback to start/end if the API/proxy returns 404/422/etc
+    if (!r.ok) {
+      url = `${BL}?per_page=100&page=${page}&start_date=${date}&end_date=${date}`;
+      r = await fetch(url, { headers: { accept: 'application/json' }, cache: 'no-store' });
     }
 
     if (!r.ok) {
@@ -52,10 +54,11 @@ async function fetchBalldontlieGamesForDate(date: string) {
     }
 
     const j = await r.json();
-    all.push(...(j.data ?? []));
-    const next = j.meta?.next_page;
+    all.push(...(j?.data ?? []));
+
+    const next = j?.meta?.next_page;
     if (!next) break;
-    page = next;
+    page = Number(next);
   }
 
   return all;
@@ -77,11 +80,12 @@ const normalizeTeamId = (abbr?: string | null, fallbackId?: number | string | nu
 export async function GET(request: NextRequest) {
   try {
     // ?date=YYYY-MM-DD
-    const date = request.nextUrl.searchParams.get('date');
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return NextResponse.json(
-        { error: 'Missing or invalid date parameter (expected YYYY-MM-DD)' },
-        { status: 400 },
+    const sp = request.nextUrl.searchParams;
+const date = sp.get('date') ?? sp.get('dates') ?? sp.get('dates[]'); // accept all
+if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+  return NextResponse.json(
+    { error: 'Missing or invalid date parameter (expected YYYY-MM-DD)' },
+    { status: 400 },
       );
     }
 
