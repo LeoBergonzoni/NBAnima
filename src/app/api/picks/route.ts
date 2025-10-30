@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -12,6 +11,12 @@ import {
   createServerSupabase,
 } from '@/lib/supabase';
 import type { Database } from '@/lib/supabase.types';
+import {
+  getRosters,
+  resolveTeamKey,
+  type RosterPlayer,
+  type RostersMap,
+} from '@/lib/rosters';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,296 +25,201 @@ export const revalidate = 0;
 // Identificatore del “sorgente” per i tuoi ID esterni
 const PLAYER_PROVIDER = 'local-rosters'; // o 'balldontlie' se preferisci unificare
 
-const slugTeamName = (value: string) =>
-  value
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase();
-
-const stableUuidFromString = (input: string) => {
-  const hash = crypto.createHash('sha1').update(input).digest('hex');
-  return [
-    hash.slice(0, 8),
-    hash.slice(8, 12),
-    hash.slice(12, 16),
-    hash.slice(16, 20),
-    hash.slice(20, 32),
-  ].join('-');
-};
-
 type GameRow = {
   id: string; // uuid
   provider: string;
   provider_game_id: string; // es. "18446877"
   home_team_id: string;     // uuid
   away_team_id: string;     // uuid
-};
-
-type GameMetaTeam = {
-  id?: string | null;
-  providerId?: string | null;
-  name?: string | null;
-  abbreviation?: string | null;
-  code?: string | null;
-  slug?: string | null;
-  abbr?: string | null;
-};
-
-export type GameMeta = {
-  id?: string;
-  gameId?: string;
-  provider?: string;
-  providerGameId?: string;
-  startsAt?: string;
-  status?: string;
-  season?: string;
-  homeTeam?: GameMetaTeam | null;
-  awayTeam?: GameMetaTeam | null;
-  home?: GameMetaTeam | null;
-  away?: GameMetaTeam | null;
+  home_team_abbr: string | null;
+  away_team_abbr: string | null;
+  home_team_name: string | null;
+  away_team_name: string | null;
 };
 
 type GameContext = GameRow & {
-  meta?: GameMeta | null;
+  homeRosterKey: string | null;
+  awayRosterKey: string | null;
 };
 
-const resolveMetaGameId = (meta: GameMeta): string | null => {
-  if (meta.providerGameId) return String(meta.providerGameId);
-  if (meta.id) return String(meta.id);
-  if (meta.gameId) return String(meta.gameId);
-  return null;
-};
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
-const computeSeasonLabel = (date: Date) => {
-  const year = date.getUTCFullYear();
-  return `${year}-${year + 1}`;
-};
-
-const collectTeamTokens = (team?: GameMetaTeam | null) => {
-  const tokens = new Set<string>();
-  if (!team) {
-    return tokens;
+const resolveSelectedTeamUuid = (input: string, game: GameRow): string => {
+  const trimmed = (input ?? '').trim();
+  if (!trimmed) {
+    throw new Error('Missing team value');
   }
-  const push = (raw?: string | null) => {
-    if (!raw) return;
-    const value = String(raw).trim();
-    if (!value) return;
-    tokens.add(value.toLowerCase());
-    tokens.add(slugTeamName(value));
-  };
-  push(team.id);
-  push(team.providerId);
-  push(team.abbreviation);
-  push(team.abbr);
-  push(team.name);
-  push(team.code);
-  push(team.slug);
-  return tokens;
+
+  if (isUuid(trimmed)) {
+    if (trimmed === game.home_team_id || trimmed === game.away_team_id) {
+      return trimmed;
+    }
+    throw new Error(`Team UUID does not belong to this game: ${trimmed}`);
+  }
+
+  const value = trimmed.toLowerCase();
+  const homeTokens = new Set<string>([
+    'home',
+    'h',
+    (game.home_team_abbr ?? '').toLowerCase(),
+  ]);
+  const awayTokens = new Set<string>([
+    'away',
+    'a',
+    (game.away_team_abbr ?? '').toLowerCase(),
+  ]);
+
+  if (homeTokens.has(value)) {
+    return game.home_team_id;
+  }
+  if (awayTokens.has(value)) {
+    return game.away_team_id;
+  }
+
+  const allowed = [
+    `home (${game.home_team_abbr ?? 'N/A'})`,
+    `away (${game.away_team_abbr ?? 'N/A'})`,
+  ];
+  throw new Error(
+    `Cannot resolve team for value "${input}". Allowed: ${allowed.join(', ')}.`,
+  );
 };
 
-const ensureGamesExist = async (
+const collectRequestedGameIds = (payload: {
+  teams: Array<{ gameId: string }>;
+  players: Array<{ gameId: string }>;
+  gamesMeta?: unknown;
+}) => {
+  const ids = new Set<string>();
+  payload.teams.forEach((pick) => {
+    if (pick?.gameId) {
+      ids.add(String(pick.gameId));
+    }
+  });
+  payload.players.forEach((pick) => {
+    if (pick?.gameId) {
+      ids.add(String(pick.gameId));
+    }
+  });
+  if (Array.isArray(payload.gamesMeta)) {
+    for (const meta of payload.gamesMeta as Array<Record<string, unknown>>) {
+      const raw =
+        meta?.providerGameId ??
+        meta?.gameId ??
+        meta?.id ??
+        null;
+      if (raw) {
+        ids.add(String(raw));
+      }
+    }
+  }
+  return Array.from(ids).filter(Boolean);
+};
+
+const loadGameContexts = async (
   supabase: SupabaseClient<Database>,
-  gamesMeta: GameMeta[],
-  pickDate: string,
+  providerGameIds: string[],
 ) => {
-  const metaList = Array.isArray(gamesMeta) ? gamesMeta.filter(Boolean) : [];
-  const ids = metaList
-    .map((meta) => resolveMetaGameId(meta))
-    .filter((value): value is string => Boolean(value));
-
-  if (ids.length === 0) {
-    return new Map<string, GameContext>();
-  }
-
-  const uniqueIds = Array.from(new Set(ids));
-  const metaById = new Map<string, GameMeta>();
-  metaList.forEach((meta) => {
-    const key = resolveMetaGameId(meta);
-    if (key) {
-      metaById.set(key, meta);
-    }
-  });
-
-  const { data: existing, error: existingError } = await supabase
-    .from('games')
-    .select('id,provider,provider_game_id,home_team_id,away_team_id')
-    .in('provider_game_id', uniqueIds);
-
-  if (existingError) {
-    throw existingError;
-  }
-
   const map = new Map<string, GameContext>();
-  (existing ?? []).forEach((row) => {
-    map.set(row.provider_game_id, {
-      ...(row as GameRow),
-      meta: metaById.get(row.provider_game_id) ?? null,
-    });
-  });
-
-  const inserts: Database['public']['Tables']['games']['Insert'][] = [];
-
-  metaList.forEach((meta) => {
-    const providerGameId = resolveMetaGameId(meta);
-    if (!providerGameId || map.has(providerGameId)) {
-      return;
-    }
-
-    const provider = meta.provider ?? 'balldontlie';
-    const startsAtIso = meta.startsAt ?? `${pickDate}T00:00:00Z`;
-    const parsedDate = new Date(startsAtIso);
-    const gameDate = Number.isNaN(parsedDate.getTime())
-      ? new Date(`${pickDate}T00:00:00Z`)
-      : parsedDate;
-
-    const homeSeed =
-      meta.homeTeam?.id ??
-      meta.home?.id ??
-      meta.homeTeam?.providerId ??
-      meta.home?.providerId ??
-      meta.homeTeam?.abbreviation ??
-      meta.home?.abbreviation ??
-      meta.homeTeam?.abbr ??
-      meta.home?.abbr ??
-      meta.homeTeam?.name ??
-      meta.home?.name ??
-      'home';
-    const awaySeed =
-      meta.awayTeam?.id ??
-      meta.away?.id ??
-      meta.awayTeam?.providerId ??
-      meta.away?.providerId ??
-      meta.awayTeam?.abbreviation ??
-      meta.away?.abbreviation ??
-      meta.awayTeam?.abbr ??
-      meta.away?.abbr ??
-      meta.awayTeam?.name ??
-      meta.away?.name ??
-      'away';
-
-    const homeTeamUuid = stableUuidFromString(`${provider}:team:${homeSeed}`);
-    const awayTeamUuid = stableUuidFromString(`${provider}:team:${awaySeed}`);
-    const gameUuid = stableUuidFromString(`${provider}:game:${providerGameId}`);
-    const homeTeamAbbr =
-      meta.home?.abbr ??
-      meta.home?.abbreviation ??
-      meta.homeTeam?.abbr ??
-      meta.homeTeam?.abbreviation ??
-      null;
-    const awayTeamAbbr =
-      meta.away?.abbr ??
-      meta.away?.abbreviation ??
-      meta.awayTeam?.abbr ??
-      meta.awayTeam?.abbreviation ??
-      null;
-    const homeTeamName =
-      meta.home?.name ?? meta.homeTeam?.name ?? null;
-    const awayTeamName =
-      meta.away?.name ?? meta.awayTeam?.name ?? null;
-
-    inserts.push({
-      id: gameUuid,
-      provider,
-      provider_game_id: providerGameId,
-      season: meta.season ?? computeSeasonLabel(gameDate),
-      status: meta.status ?? 'scheduled',
-      game_date: gameDate.toISOString(),
-      locked_at: null,
-      home_team_id: homeTeamUuid,
-      away_team_id: awayTeamUuid,
-      home_team_abbr: homeTeamAbbr,
-      away_team_abbr: awayTeamAbbr,
-      home_team_name: homeTeamName,
-      away_team_name: awayTeamName,
-      created_at: new Date().toISOString(),
-    });
-
-    map.set(providerGameId, {
-      id: gameUuid,
-      provider,
-      provider_game_id: providerGameId,
-      home_team_id: homeTeamUuid,
-      away_team_id: awayTeamUuid,
-      meta,
-    });
-  });
-
-  if (inserts.length > 0) {
-    const { data: inserted, error: insertError } = await supabase
-      .from('games')
-      .upsert(inserts, { onConflict: 'provider,provider_game_id' })
-      .select('id,provider,provider_game_id,home_team_id,away_team_id');
-
-    if (insertError) {
-      throw insertError;
-    }
-
-    (inserted ?? []).forEach((row) => {
-      const entry = map.get(row.provider_game_id);
-      map.set(row.provider_game_id, {
-        ...(row as GameRow),
-        meta: entry?.meta ?? metaById.get(row.provider_game_id) ?? null,
-      });
-    });
+  if (providerGameIds.length === 0) {
+    return map;
   }
+
+  const { data, error } = await supabase
+    .from('games')
+    .select(
+      `
+        id,
+        provider,
+        provider_game_id,
+        home_team_id,
+        away_team_id,
+        home_team_abbr,
+        away_team_abbr,
+        home_team_name,
+        away_team_name
+      `,
+    )
+    .in('provider_game_id', providerGameIds);
+
+  if (error) {
+    throw error;
+  }
+
+  const entries = data ?? [];
+  const contexts = await Promise.all(
+    entries.map(async (row) => {
+      const homeRosterKey = await resolveTeamKey(
+        row.home_team_abbr ?? row.home_team_name ?? null,
+      );
+      const awayRosterKey = await resolveTeamKey(
+        row.away_team_abbr ?? row.away_team_name ?? null,
+      );
+      return {
+        ...(row as GameRow),
+        homeRosterKey,
+        awayRosterKey,
+      } satisfies GameContext;
+    }),
+  );
+
+  contexts.forEach((context) => {
+    map.set(context.provider_game_id, context);
+  });
 
   return map;
 };
 
-const isUuid = (value: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-
-const resolveSelectedTeamUuid = (inputTeamId: string, game: GameContext): string => {
-  const raw = (inputTeamId ?? '').trim();
-  if (!raw) {
-    throw new Error('Missing team identifier');
+const matchPlayerInRoster = (
+  playerId: string,
+  roster: RosterPlayer[] | undefined,
+): RosterPlayer | null => {
+  if (!roster) {
+    return null;
   }
-
-  if (isUuid(raw)) {
-    return raw;
-  }
-
-  const normalized = raw.toLowerCase();
-  const slugged = slugTeamName(raw);
-
-  const homeTokens = new Set<string>([
-    game.home_team_id.toLowerCase(),
-    'home',
-    'h',
-    'host',
-    'home-team',
-  ]);
-  const awayTokens = new Set<string>([
-    game.away_team_id.toLowerCase(),
-    'away',
-    'a',
-    'guest',
-    'visitor',
-    'away-team',
-  ]);
-
-  collectTeamTokens(game.meta?.homeTeam).forEach((token) => {
-    homeTokens.add(token);
-  });
-  collectTeamTokens(game.meta?.awayTeam).forEach((token) => {
-    awayTokens.add(token);
-  });
-
-  if (homeTokens.has(normalized) || homeTokens.has(slugged)) {
-    return game.home_team_id;
-  }
-  if (awayTokens.has(normalized) || awayTokens.has(slugged)) {
-    return game.away_team_id;
-  }
-
-  throw new Error(
-    `Cannot resolve team uuid for value "${inputTeamId}" on game ${game.provider_game_id}`,
-  );
+  return roster.find((player) => player.id === playerId) ?? null;
 };
 
-// Ritorna (o crea) un player interno e restituisce il suo UUID
+const findPlayerInGame = (
+  playerId: string,
+  game: GameContext,
+  rosters: RostersMap,
+): { side: 'home' | 'away'; rosterPlayer: RosterPlayer | null } | null => {
+  const homeRoster = game.homeRosterKey
+    ? rosters[game.homeRosterKey] ?? []
+    : [];
+  const awayRoster = game.awayRosterKey
+    ? rosters[game.awayRosterKey] ?? []
+    : [];
+
+  const homeMatch = matchPlayerInRoster(playerId, homeRoster);
+  if (homeMatch) {
+    return { side: 'home', rosterPlayer: homeMatch };
+  }
+
+  const awayMatch = matchPlayerInRoster(playerId, awayRoster);
+  if (awayMatch) {
+    return { side: 'away', rosterPlayer: awayMatch };
+  }
+
+  return null;
+};
+
+const findPlayerContext = (
+  playerId: string,
+  games: GameContext[],
+  rosters: RostersMap,
+) => {
+  for (const game of games) {
+    const match = findPlayerInGame(playerId, game, rosters);
+    if (match) {
+      return { game, ...match };
+    }
+  }
+  return null;
+};
+
 async function getOrCreatePlayerUuid(opts: {
   supabase: SupabaseClient<Database>;
   provider: string;               // es. 'local-rosters'
@@ -407,6 +317,8 @@ const fetchPicks = async (
         `
           game_id,
           selected_team_id,
+          selected_team_abbr,
+          selected_team_name,
           updated_at,
           changes_count,
           game:game_id (
@@ -537,130 +449,22 @@ export async function POST(request: NextRequest) {
     const payload = {
       ...validated,
       gamesMeta: Array.isArray(rawBody?.gamesMeta)
-        ? (rawBody.gamesMeta as GameMeta[])
+        ? (rawBody.gamesMeta as Array<Record<string, unknown>>)
         : undefined,
-    } satisfies typeof validated & { gamesMeta?: GameMeta[] };
+    } satisfies typeof validated & { gamesMeta?: Array<Record<string, unknown>> };
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
     if (role !== 'admin') {
       await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
-    }  
+    }
 
-    const gamesMap = await ensureGamesExist(
-      supabaseAdmin,
-      payload.gamesMeta ?? [],
-      payload.pickDate,
-    );
-
-    const findMetaForGame = (gameId: string) =>
-      (payload.gamesMeta ?? []).find(
-        (meta) => resolveMetaGameId(meta) === gameId,
-      ) ?? null;
-
-    const ensureGameContext = async (gameId: string): Promise<GameContext> => {
-      const existingMeta = findMetaForGame(gameId);
-      const cached = gamesMap.get(gameId);
-      if (cached) {
-        if (!cached.meta && existingMeta) {
-          cached.meta = existingMeta;
-        }
-        return cached;
-      }
-
-      const { data, error } = await supabaseAdmin
-        .from('games')
-        .select('id,provider,provider_game_id,home_team_id,away_team_id')
-        .eq('provider_game_id', gameId)
-        .maybeSingle();
-
-      if (!error && data) {
-        const context: GameContext = {
-          ...(data as GameRow),
-          meta: existingMeta,
-        };
-        gamesMap.set(gameId, context);
-        return context;
-      }
-
-      const baseDate = new Date(`${payload.pickDate}T00:00:00Z`);
-      const normalizedDate = Number.isNaN(baseDate.getTime())
-        ? new Date()
-        : baseDate;
-      const gameUuid = stableUuidFromString(`stub:game:${gameId}`);
-      const homeUuid = stableUuidFromString(`stub:home:${gameId}`);
-      const awayUuid = stableUuidFromString(`stub:away:${gameId}`);
-      const homeTeamAbbr =
-        existingMeta?.home?.abbr ??
-        existingMeta?.home?.abbreviation ??
-        existingMeta?.homeTeam?.abbr ??
-        existingMeta?.homeTeam?.abbreviation ??
-        null;
-      const awayTeamAbbr =
-        existingMeta?.away?.abbr ??
-        existingMeta?.away?.abbreviation ??
-        existingMeta?.awayTeam?.abbr ??
-        existingMeta?.awayTeam?.abbreviation ??
-        null;
-      const homeTeamName =
-        existingMeta?.home?.name ?? existingMeta?.homeTeam?.name ?? null;
-      const awayTeamName =
-        existingMeta?.away?.name ?? existingMeta?.awayTeam?.name ?? null;
-
-      const stubRow: Database['public']['Tables']['games']['Insert'] = {
-        id: gameUuid,
-        provider: existingMeta?.provider ?? 'stub',
-        provider_game_id: gameId,
-        season: existingMeta?.season ?? computeSeasonLabel(normalizedDate),
-        status: existingMeta?.status ?? 'scheduled',
-        game_date: normalizedDate.toISOString(),
-        locked_at: null,
-        home_team_id: homeUuid,
-        away_team_id: awayUuid,
-        home_team_abbr: homeTeamAbbr,
-        away_team_abbr: awayTeamAbbr,
-        home_team_name: homeTeamName,
-        away_team_name: awayTeamName,
-        created_at: new Date().toISOString(),
-      };
-
-      const { error: stubError } = await supabaseAdmin
-        .from('games')
-        .upsert(stubRow, { onConflict: 'provider,provider_game_id' });
-
-      if (stubError) {
-        throw stubError;
-      }
-
-      const context: GameContext = {
-        id: stubRow.id!,
-        provider: stubRow.provider,
-        provider_game_id: stubRow.provider_game_id,
-        home_team_id: stubRow.home_team_id,
-        away_team_id: stubRow.away_team_id,
-        meta: existingMeta,
-      };
-      gamesMap.set(gameId, context);
-      return context;
-    };
-
-    const resolvePlayerUuidForPick = async (pick: { gameId: string; playerId: string }) => {
-      const game = await ensureGameContext(pick.gameId);
-      const guessedTeamUuid = game.home_team_id;
-      const { first, last } = splitName(pick.playerId);
-
-      const uuid = await getOrCreatePlayerUuid({
-        supabase: supabaseAdmin,
-        provider: PLAYER_PROVIDER,
-        providerPlayerId: pick.playerId,
-        teamUuid: guessedTeamUuid,
-        firstName: first,
-        lastName: last,
-        position: null,
-      });
-
-      return uuid;
-    };
+    const providerGameIds = collectRequestedGameIds(payload);
+    const gamesMap = await loadGameContexts(supabaseAdmin, providerGameIds);
+    const missingGames = providerGameIds.filter((id) => !gamesMap.has(id));
+    if (missingGames.length > 0) {
+      throw new Error(`Unknown game(s): ${missingGames.join(', ')}`);
+    }
 
     const currentChanges = await getDailyChangeCount(
       supabaseAdmin,
@@ -674,6 +478,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const gameList = Array.from(gamesMap.values());
+    const rosters = await getRosters();
     const now = new Date().toISOString();
 
     await supabaseAdmin.from('picks_teams').delete().match({
@@ -688,74 +494,110 @@ export async function POST(request: NextRequest) {
       user_id: userId,
       pick_date: payload.pickDate,
     });
-    
-    // TEAM INSERT (UUID già risolti)
+
     const teamInsert: PicksTeamsInsert[] = await Promise.all(
       payload.teams.map(async (pick) => {
-        const game = await ensureGameContext(pick.gameId);
+        const game = gamesMap.get(pick.gameId);
+        if (!game) {
+          throw new Error(`Unknown game(s): ${pick.gameId}`);
+        }
+        const selectedTeamId = resolveSelectedTeamUuid(pick.teamId, game);
+        const isHome = selectedTeamId === game.home_team_id;
+        const selectedAbbr = isHome ? game.home_team_abbr : game.away_team_abbr;
+        const selectedName = isHome ? game.home_team_name : game.away_team_name;
         return {
           user_id: userId,
-          game_id: game.id,                                   // UUID
-          selected_team_id: resolveSelectedTeamUuid(pick.teamId, game), // UUID
+          game_id: game.id,
+          selected_team_id: selectedTeamId,
+          selected_team_abbr: selectedAbbr ?? null,
+          selected_team_name: selectedName ?? null,
           pick_date: payload.pickDate,
-          changes_count: 0,                                   // <-- nel POST sempre 0
+          changes_count: 0,
           created_at: now,
           updated_at: now,
         };
       }),
     );
-    
-    // PLAYERS INSERT (UUID già risolti)
+
+    const playerReferenceGames = payload.players
+      .map((pick) => gamesMap.get(pick.gameId))
+      .filter((value): value is GameContext => Boolean(value));
+
     const playerInsert: PicksPlayersInsert[] = await Promise.all(
       payload.players.map(async (pick) => {
-        const game = await ensureGameContext(pick.gameId);
-        const playerUuid = await resolvePlayerUuidForPick(pick);
-
+        const game = gamesMap.get(pick.gameId);
+        if (!game) {
+          throw new Error(`Unknown game(s): ${pick.gameId}`);
+        }
+        const match = findPlayerInGame(pick.playerId, game, rosters);
+        if (!match) {
+          throw new Error(
+            `Cannot resolve player "${pick.playerId}" for game ${pick.gameId}`,
+          );
+        }
+        const { first, last } = splitName(pick.playerId);
+        const playerUuid = await getOrCreatePlayerUuid({
+          supabase: supabaseAdmin,
+          provider: PLAYER_PROVIDER,
+          providerPlayerId: pick.playerId,
+          teamUuid: match.side === 'home' ? game.home_team_id : game.away_team_id,
+          firstName: first,
+          lastName: last,
+          position: match.rosterPlayer?.pos ?? null,
+        });
         return {
           user_id: userId,
-          game_id: game.id,            // UUID
+          game_id: game.id,
           category: pick.category,
-          player_id: playerUuid,       // UUID
+          player_id: playerUuid,
           pick_date: payload.pickDate,
-          changes_count: 0,            // <-- nel POST sempre 0
+          changes_count: 0,
           created_at: now,
           updated_at: now,
         };
       }),
     );
-    
-    // HIGHLIGHTS INSERT (UUID già risolti)
-    const fallbackGameId =
-      payload.players[0]?.gameId ??
-      (payload.gamesMeta ?? [])
-        .map((meta) => resolveMetaGameId(meta))
-        .find((id): id is string => Boolean(id)) ??
-      Array.from(gamesMap.keys())[0];
-    if (!fallbackGameId) {
-      // opzionale: se non ci sono player picks, scegli un game esistente del giorno
-      // o lancia un errore esplicito. Qui facciamo un fail-fast chiaro.
-      throw new Error('Cannot resolve a game for highlights');
-    }
-    
+
     const highlightInsert: PicksHighlightsInsert[] = await Promise.all(
       payload.highlights.map(async (pick) => {
-        const playerUuid = await resolvePlayerUuidForPick({
-          gameId: fallbackGameId,
-          playerId: pick.playerId,
+        const directMatch = findPlayerContext(pick.playerId, gameList, rosters);
+        const fallbackMatch =
+          directMatch ??
+          (playerReferenceGames.length > 0
+            ? (() => {
+                const fallbackGame = playerReferenceGames[0];
+                const match = findPlayerInGame(pick.playerId, fallbackGame, rosters);
+                return match ? { game: fallbackGame, ...match } : null;
+              })()
+            : null);
+        if (!fallbackMatch) {
+          throw new Error(
+            `Cannot resolve player "${pick.playerId}" for highlights`,
+          );
+        }
+        const { game, side, rosterPlayer } = fallbackMatch;
+        const { first, last } = splitName(pick.playerId);
+        const playerUuid = await getOrCreatePlayerUuid({
+          supabase: supabaseAdmin,
+          provider: PLAYER_PROVIDER,
+          providerPlayerId: pick.playerId,
+          teamUuid: side === 'home' ? game.home_team_id : game.away_team_id,
+          firstName: first,
+          lastName: last,
+          position: rosterPlayer?.pos ?? null,
         });
-    
         return {
           user_id: userId,
-          player_id: playerUuid,   // UUID
+          player_id: playerUuid,
           rank: pick.rank,
           pick_date: payload.pickDate,
-          changes_count: 0,        // <-- nel POST sempre 0
+          changes_count: 0,
           created_at: now,
           updated_at: now,
         };
       }),
     );
-    
+
     const [teamsResult, playersResult, highlightsResult] = await Promise.all([
       teamInsert.length
         ? supabaseAdmin.from('picks_teams').insert(teamInsert)
@@ -767,7 +609,7 @@ export async function POST(request: NextRequest) {
         ? supabaseAdmin.from('picks_highlights').insert(highlightInsert)
         : { error: null },
     ]);
-    
+
     if (teamsResult.error || playersResult.error || highlightsResult.error) {
       throw (
         teamsResult.error ??
@@ -776,7 +618,7 @@ export async function POST(request: NextRequest) {
         new Error('Failed to save picks')
       );
     }
-    
+
     return NextResponse.json(
       await fetchPicks(supabaseAdmin, userId, payload.pickDate),
       { status: 201 },
@@ -785,7 +627,6 @@ export async function POST(request: NextRequest) {
     if ((error as Error).message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
     console.error('[api/picks][POST]', error);
     return NextResponse.json(
       { error: (error as Error).message ?? 'Failed to save picks' },
@@ -803,9 +644,9 @@ export async function PUT(request: NextRequest) {
     const payload = {
       ...validated,
       gamesMeta: Array.isArray(rawBody?.gamesMeta)
-        ? (rawBody.gamesMeta as GameMeta[])
+        ? (rawBody.gamesMeta as Array<Record<string, unknown>>)
         : undefined,
-    } satisfies typeof validated & { gamesMeta?: GameMeta[] };
+    } satisfies typeof validated & { gamesMeta?: Array<Record<string, unknown>> };
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
@@ -813,118 +654,12 @@ export async function PUT(request: NextRequest) {
       await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
     }
 
-    const gamesMap = await ensureGamesExist(
-      supabaseAdmin,
-      payload.gamesMeta ?? [],
-      payload.pickDate,
-    );
-
-    const findMetaForGame = (gameId: string) =>
-      (payload.gamesMeta ?? []).find(
-        (meta) => resolveMetaGameId(meta) === gameId,
-      ) ?? null;
-
-    const ensureGameContext = async (gameId: string): Promise<GameContext> => {
-      const existingMeta = findMetaForGame(gameId);
-      const cached = gamesMap.get(gameId);
-      if (cached) {
-        if (!cached.meta && existingMeta) {
-          cached.meta = existingMeta;
-        }
-        return cached;
-      }
-      const { data, error } = await supabaseAdmin
-        .from('games')
-        .select('id,provider,provider_game_id,home_team_id,away_team_id')
-        .eq('provider_game_id', gameId)
-        .maybeSingle();
-      if (!error && data) {
-        const context: GameContext = {
-          ...(data as GameRow),
-          meta: existingMeta,
-        };
-        gamesMap.set(gameId, context);
-        return context;
-      }
-
-      const baseDate = new Date(`${payload.pickDate}T00:00:00Z`);
-      const normalizedDate = Number.isNaN(baseDate.getTime())
-        ? new Date()
-        : baseDate;
-      const gameUuid = stableUuidFromString(`stub:game:${gameId}`);
-      const homeUuid = stableUuidFromString(`stub:home:${gameId}`);
-      const awayUuid = stableUuidFromString(`stub:away:${gameId}`);
-      const homeTeamAbbr =
-        existingMeta?.home?.abbr ??
-        existingMeta?.home?.abbreviation ??
-        existingMeta?.homeTeam?.abbr ??
-        existingMeta?.homeTeam?.abbreviation ??
-        null;
-      const awayTeamAbbr =
-        existingMeta?.away?.abbr ??
-        existingMeta?.away?.abbreviation ??
-        existingMeta?.awayTeam?.abbr ??
-        existingMeta?.awayTeam?.abbreviation ??
-        null;
-      const homeTeamName =
-        existingMeta?.home?.name ?? existingMeta?.homeTeam?.name ?? null;
-      const awayTeamName =
-        existingMeta?.away?.name ?? existingMeta?.awayTeam?.name ?? null;
-
-      const stubRow: Database['public']['Tables']['games']['Insert'] = {
-        id: gameUuid,
-        provider: existingMeta?.provider ?? 'stub',
-        provider_game_id: gameId,
-        season: existingMeta?.season ?? computeSeasonLabel(normalizedDate),
-        status: existingMeta?.status ?? 'scheduled',
-        game_date: normalizedDate.toISOString(),
-        locked_at: null,
-        home_team_id: homeUuid,
-        away_team_id: awayUuid,
-        home_team_abbr: homeTeamAbbr,
-        away_team_abbr: awayTeamAbbr,
-        home_team_name: homeTeamName,
-        away_team_name: awayTeamName,
-        created_at: new Date().toISOString(),
-      };
-
-      const { error: stubError } = await supabaseAdmin
-        .from('games')
-        .upsert(stubRow, { onConflict: 'provider,provider_game_id' });
-
-      if (stubError) {
-        throw stubError;
-      }
-
-      const context: GameContext = {
-        id: stubRow.id!,
-        provider: stubRow.provider,
-        provider_game_id: stubRow.provider_game_id,
-        home_team_id: stubRow.home_team_id,
-        away_team_id: stubRow.away_team_id,
-        meta: existingMeta,
-      };
-      gamesMap.set(gameId, context);
-      return context;
-    };
-
-    const resolvePlayerUuidForPick = async (pick: { gameId: string; playerId: string }) => {
-      const game = await ensureGameContext(pick.gameId);
-      const guessedTeamUuid = game.home_team_id;
-      const { first, last } = splitName(pick.playerId);
-
-      const uuid = await getOrCreatePlayerUuid({
-        supabase: supabaseAdmin,
-        provider: PLAYER_PROVIDER,
-        providerPlayerId: pick.playerId,
-        teamUuid: guessedTeamUuid,
-        firstName: first,
-        lastName: last,
-        position: null,
-      });
-
-      return uuid;
-    };
+    const providerGameIds = collectRequestedGameIds(payload);
+    const gamesMap = await loadGameContexts(supabaseAdmin, providerGameIds);
+    const missingGames = providerGameIds.filter((id) => !gamesMap.has(id));
+    if (missingGames.length > 0) {
+      throw new Error(`Unknown game(s): ${missingGames.join(', ')}`);
+    }
 
     const currentChanges = await getDailyChangeCount(
       supabaseAdmin,
@@ -938,105 +673,145 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    const nextChangeCount = role === 'admin' ? currentChanges : currentChanges + 1;
     const now = new Date().toISOString();
-const nextChangeCount = role === 'admin' ? currentChanges : currentChanges + 1;
+    const gameList = Array.from(gamesMap.values());
+    const rosters = await getRosters();
 
-await supabaseAdmin.from('picks_teams').delete().match({
-  user_id: userId,
-  pick_date: payload.pickDate,
-});
-await supabaseAdmin.from('picks_players').delete().match({
-  user_id: userId,
-  pick_date: payload.pickDate,
-});
-await supabaseAdmin.from('picks_highlights').delete().match({
-  user_id: userId,
-  pick_date: payload.pickDate,
-});
-
-// TEAM UPSERT (UUID risolti)
-const teamUpsert: PicksTeamsInsert[] = await Promise.all(
-  payload.teams.map(async (pick) => {
-    const game = await ensureGameContext(pick.gameId);
-    return {
+    await supabaseAdmin.from('picks_teams').delete().match({
       user_id: userId,
-      game_id: game.id,                                   // UUID
-      selected_team_id: resolveSelectedTeamUuid(pick.teamId, game), // UUID
       pick_date: payload.pickDate,
-      changes_count: nextChangeCount,
-      created_at: now,
-      updated_at: now,
-    };
-  }),
-);
-
-// PLAYERS UPSERT (UUID risolti)
-const playerUpsert: PicksPlayersInsert[] = await Promise.all(
-  payload.players.map(async (pick) => {
-    const game = await ensureGameContext(pick.gameId);
-    const playerUuid = await resolvePlayerUuidForPick(pick);
-
-    return {
+    });
+    await supabaseAdmin.from('picks_players').delete().match({
       user_id: userId,
-      game_id: game.id,            // UUID
-      category: pick.category,
-      player_id: playerUuid,       // UUID
       pick_date: payload.pickDate,
-      changes_count: nextChangeCount,
-      created_at: now,
-      updated_at: now,
-    };
-  }),
-);
-
-// HIGHLIGHTS UPSERT (UUID risolti)
-const fallbackGameId =
-  payload.players[0]?.gameId ??
-  (payload.gamesMeta ?? [])
-    .map((meta) => resolveMetaGameId(meta))
-    .find((id): id is string => Boolean(id)) ??
-  Array.from(gamesMap.keys())[0];
-if (!fallbackGameId) {
-  throw new Error('Cannot resolve a game for highlights');
-}
-
-const highlightUpsert: PicksHighlightsInsert[] = await Promise.all(
-  payload.highlights.map(async (pick) => {
-    const playerUuid = await resolvePlayerUuidForPick({
-      gameId: fallbackGameId,
-      playerId: pick.playerId,
+    });
+    await supabaseAdmin.from('picks_highlights').delete().match({
+      user_id: userId,
+      pick_date: payload.pickDate,
     });
 
-    return {
-      user_id: userId,
-      player_id: playerUuid,   // UUID
-      rank: pick.rank,
-      pick_date: payload.pickDate,
-      changes_count: nextChangeCount,
-      created_at: now,
-      updated_at: now,
-    };
-  }),
-);
+    const teamUpsert: PicksTeamsInsert[] = await Promise.all(
+      payload.teams.map(async (pick) => {
+        const game = gamesMap.get(pick.gameId);
+        if (!game) {
+          throw new Error(`Unknown game(s): ${pick.gameId}`);
+        }
+        const selectedTeamId = resolveSelectedTeamUuid(pick.teamId, game);
+        const isHome = selectedTeamId === game.home_team_id;
+        const selectedAbbr = isHome ? game.home_team_abbr : game.away_team_abbr;
+        const selectedName = isHome ? game.home_team_name : game.away_team_name;
+        return {
+          user_id: userId,
+          game_id: game.id,
+          selected_team_id: selectedTeamId,
+          selected_team_abbr: selectedAbbr ?? null,
+          selected_team_name: selectedName ?? null,
+          pick_date: payload.pickDate,
+          changes_count: nextChangeCount,
+          created_at: now,
+          updated_at: now,
+        };
+      }),
+    );
 
-const [teamsResult, playersResult, highlightsResult] = await Promise.all([
-  teamUpsert.length
-    ? supabaseAdmin.from('picks_teams').insert(teamUpsert)
-    : { error: null },
-  playerUpsert.length
-    ? supabaseAdmin.from('picks_players').insert(playerUpsert)
-    : { error: null },
-  highlightUpsert.length
-    ? supabaseAdmin.from('picks_highlights').insert(highlightUpsert)
-    : { error: null },
-]);
+    const playerReferenceGames = payload.players
+      .map((pick) => gamesMap.get(pick.gameId))
+      .filter((value): value is GameContext => Boolean(value));
 
-if (teamsResult.error || playersResult.error || highlightsResult.error) {
-  throw (
-    teamsResult.error ??
-    playersResult.error ??
-    highlightsResult.error ??
-    new Error('Failed to update picks')
+    const playerUpsert: PicksPlayersInsert[] = await Promise.all(
+      payload.players.map(async (pick) => {
+        const game = gamesMap.get(pick.gameId);
+        if (!game) {
+          throw new Error(`Unknown game(s): ${pick.gameId}`);
+        }
+        const match = findPlayerInGame(pick.playerId, game, rosters);
+        if (!match) {
+          throw new Error(
+            `Cannot resolve player "${pick.playerId}" for game ${pick.gameId}`,
+          );
+        }
+        const { first, last } = splitName(pick.playerId);
+        const playerUuid = await getOrCreatePlayerUuid({
+          supabase: supabaseAdmin,
+          provider: PLAYER_PROVIDER,
+          providerPlayerId: pick.playerId,
+          teamUuid: match.side === 'home' ? game.home_team_id : game.away_team_id,
+          firstName: first,
+          lastName: last,
+          position: match.rosterPlayer?.pos ?? null,
+        });
+        return {
+          user_id: userId,
+          game_id: game.id,
+          category: pick.category,
+          player_id: playerUuid,
+          pick_date: payload.pickDate,
+          changes_count: nextChangeCount,
+          created_at: now,
+          updated_at: now,
+        };
+      }),
+    );
+
+    const highlightUpsert: PicksHighlightsInsert[] = await Promise.all(
+      payload.highlights.map(async (pick) => {
+        const directMatch = findPlayerContext(pick.playerId, gameList, rosters);
+        const fallbackMatch =
+          directMatch ??
+          (playerReferenceGames.length > 0
+            ? (() => {
+                const fallbackGame = playerReferenceGames[0];
+                const match = findPlayerInGame(pick.playerId, fallbackGame, rosters);
+                return match ? { game: fallbackGame, ...match } : null;
+              })()
+            : null);
+        if (!fallbackMatch) {
+          throw new Error(
+            `Cannot resolve player "${pick.playerId}" for highlights`,
+          );
+        }
+        const { game, side, rosterPlayer } = fallbackMatch;
+        const { first, last } = splitName(pick.playerId);
+        const playerUuid = await getOrCreatePlayerUuid({
+          supabase: supabaseAdmin,
+          provider: PLAYER_PROVIDER,
+          providerPlayerId: pick.playerId,
+          teamUuid: side === 'home' ? game.home_team_id : game.away_team_id,
+          firstName: first,
+          lastName: last,
+          position: rosterPlayer?.pos ?? null,
+        });
+        return {
+          user_id: userId,
+          player_id: playerUuid,
+          rank: pick.rank,
+          pick_date: payload.pickDate,
+          changes_count: nextChangeCount,
+          created_at: now,
+          updated_at: now,
+        };
+      }),
+    );
+
+    const [teamsResult, playersResult, highlightsResult] = await Promise.all([
+      teamUpsert.length
+        ? supabaseAdmin.from('picks_teams').insert(teamUpsert)
+        : { error: null },
+      playerUpsert.length
+        ? supabaseAdmin.from('picks_players').insert(playerUpsert)
+        : { error: null },
+      highlightUpsert.length
+        ? supabaseAdmin.from('picks_highlights').insert(highlightUpsert)
+        : { error: null },
+    ]);
+
+    if (teamsResult.error || playersResult.error || highlightsResult.error) {
+      throw (
+        teamsResult.error ??
+        playersResult.error ??
+        highlightsResult.error ??
+        new Error('Failed to update picks')
       );
     }
 

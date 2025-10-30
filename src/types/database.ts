@@ -122,6 +122,8 @@ export interface Database {
           user_id: string;
           game_id: string;
           selected_team_id: string;
+          selected_team_abbr: string | null;
+          selected_team_name: string | null;
           pick_date: string;
           changes_count: number;
           created_at: string;
@@ -132,6 +134,8 @@ export interface Database {
           user_id: string;
           game_id: string;
           selected_team_id: string;
+          selected_team_abbr?: string | null;
+          selected_team_name?: string | null;
           pick_date: string;
           changes_count?: number;
           created_at?: string;

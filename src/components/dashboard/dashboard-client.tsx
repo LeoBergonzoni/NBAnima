@@ -137,10 +137,12 @@ const SectionStatus = ({ complete }: { complete: boolean }) =>
 
 const TeamButton = ({
   team,
+  value,
   selected,
   onSelect,
 }: {
   team: GameTeam;
+  value: string;
   selected: boolean;
   onSelect: (teamId: string) => void;
 }) => {
@@ -156,7 +158,7 @@ const TeamButton = ({
   return (
     <button
       type="button"
-      onClick={() => onSelect(team.id)}
+      onClick={() => onSelect(value)}
       aria-pressed={selected}
       className={clsx(
         'group flex flex-1 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition min-h-[64px]',
@@ -208,11 +210,21 @@ const GameTeamsRow = ({
       <span>· {game.status}</span>
     </div>
     <div className="flex flex-col gap-3 sm:flex-row">
-      <TeamButton team={game.awayTeam} selected={selection === game.awayTeam.id} onSelect={onSelect} />
+      <TeamButton
+        team={game.awayTeam}
+        value="away"
+        selected={selection === 'away'}
+        onSelect={onSelect}
+      />
       <div className="flex items-center justify-center text-xs font-semibold uppercase tracking-wide text-slate-400">
         VS
       </div>
-      <TeamButton team={game.homeTeam} selected={selection === game.homeTeam.id} onSelect={onSelect} />
+      <TeamButton
+        team={game.homeTeam}
+        value="home"
+        selected={selection === 'home'}
+        onSelect={onSelect}
+      />
     </div>
   </div>
 );
@@ -932,7 +944,23 @@ export const DashboardClient = ({
 
     setTeamSelections(
       picks.teams.reduce<Record<string, string>>((acc, pick) => {
-        acc[pick.game_id] = pick.selected_team_id;
+        const game = (pick as any).game;
+        const selectedId = pick.selected_team_id;
+        if (selectedId === 'home' || selectedId === 'away') {
+          acc[pick.game_id] = selectedId;
+          return acc;
+        }
+        if (game) {
+          if (selectedId === game.home_team_id) {
+            acc[pick.game_id] = 'home';
+            return acc;
+          }
+          if (selectedId === game.away_team_id) {
+            acc[pick.game_id] = 'away';
+            return acc;
+          }
+        }
+        acc[pick.game_id] = selectedId;
         return acc;
       }, {}),
     );

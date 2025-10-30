@@ -38,6 +38,16 @@ export interface PicksResponse {
   teams: Array<{
     game_id: string;
     selected_team_id: string;
+    selected_team_abbr?: string | null;
+    selected_team_name?: string | null;
+    game?: {
+      home_team_id?: string | null;
+      away_team_id?: string | null;
+      home_team_abbr?: string | null;
+      away_team_abbr?: string | null;
+      home_team_name?: string | null;
+      away_team_name?: string | null;
+    } | null;
     updated_at?: string;
     changes_count?: number;
   }>;
