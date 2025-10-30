@@ -543,7 +543,9 @@ export async function POST(request: NextRequest) {
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
-    await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
+    if (role !== 'admin') {
+      await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
+    }  
 
     const gamesMap = await ensureGamesExist(
       supabaseAdmin,
@@ -807,7 +809,9 @@ export async function PUT(request: NextRequest) {
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
-    await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
+    if (role !== 'admin') {
+      await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
+    }
 
     const gamesMap = await ensureGamesExist(
       supabaseAdmin,
