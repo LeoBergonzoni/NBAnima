@@ -192,6 +192,22 @@ const ensureGamesExist = async (
     const homeTeamUuid = stableUuidFromString(`${provider}:team:${homeSeed}`);
     const awayTeamUuid = stableUuidFromString(`${provider}:team:${awaySeed}`);
     const gameUuid = stableUuidFromString(`${provider}:game:${providerGameId}`);
+    const homeTeamAbbr =
+      meta.home?.abbr ??
+      meta.home?.abbreviation ??
+      meta.homeTeam?.abbr ??
+      meta.homeTeam?.abbreviation ??
+      null;
+    const awayTeamAbbr =
+      meta.away?.abbr ??
+      meta.away?.abbreviation ??
+      meta.awayTeam?.abbr ??
+      meta.awayTeam?.abbreviation ??
+      null;
+    const homeTeamName =
+      meta.home?.name ?? meta.homeTeam?.name ?? null;
+    const awayTeamName =
+      meta.away?.name ?? meta.awayTeam?.name ?? null;
 
     inserts.push({
       id: gameUuid,
@@ -203,6 +219,10 @@ const ensureGamesExist = async (
       locked_at: null,
       home_team_id: homeTeamUuid,
       away_team_id: awayTeamUuid,
+      home_team_abbr: homeTeamAbbr,
+      away_team_abbr: awayTeamAbbr,
+      home_team_name: homeTeamName,
+      away_team_name: awayTeamName,
       created_at: new Date().toISOString(),
     });
 
@@ -383,7 +403,22 @@ const fetchPicks = async (
   const [teamResp, playerResp, highlightsResp] = await Promise.all([
     supabaseAdmin
       .from('picks_teams')
-      .select('game_id, selected_team_id, updated_at, changes_count')
+      .select(
+        `
+          game_id,
+          selected_team_id,
+          updated_at,
+          changes_count,
+          games (
+            home_team_abbr,
+            away_team_abbr,
+            home_team_name,
+            away_team_name,
+            home_team_id,
+            away_team_id
+          )
+        `,
+      )
       .eq('user_id', userId)
       .eq('pick_date', pickDate),
     supabaseAdmin
@@ -508,6 +543,22 @@ export async function POST(request: NextRequest) {
       const gameUuid = stableUuidFromString(`stub:game:${gameId}`);
       const homeUuid = stableUuidFromString(`stub:home:${gameId}`);
       const awayUuid = stableUuidFromString(`stub:away:${gameId}`);
+      const homeTeamAbbr =
+        existingMeta?.home?.abbr ??
+        existingMeta?.home?.abbreviation ??
+        existingMeta?.homeTeam?.abbr ??
+        existingMeta?.homeTeam?.abbreviation ??
+        null;
+      const awayTeamAbbr =
+        existingMeta?.away?.abbr ??
+        existingMeta?.away?.abbreviation ??
+        existingMeta?.awayTeam?.abbr ??
+        existingMeta?.awayTeam?.abbreviation ??
+        null;
+      const homeTeamName =
+        existingMeta?.home?.name ?? existingMeta?.homeTeam?.name ?? null;
+      const awayTeamName =
+        existingMeta?.away?.name ?? existingMeta?.awayTeam?.name ?? null;
 
       const stubRow: Database['public']['Tables']['games']['Insert'] = {
         id: gameUuid,
@@ -519,6 +570,10 @@ export async function POST(request: NextRequest) {
         locked_at: null,
         home_team_id: homeUuid,
         away_team_id: awayUuid,
+        home_team_abbr: homeTeamAbbr,
+        away_team_abbr: awayTeamAbbr,
+        home_team_name: homeTeamName,
+        away_team_name: awayTeamName,
         created_at: new Date().toISOString(),
       };
 
@@ -750,6 +805,22 @@ export async function PUT(request: NextRequest) {
       const gameUuid = stableUuidFromString(`stub:game:${gameId}`);
       const homeUuid = stableUuidFromString(`stub:home:${gameId}`);
       const awayUuid = stableUuidFromString(`stub:away:${gameId}`);
+      const homeTeamAbbr =
+        existingMeta?.home?.abbr ??
+        existingMeta?.home?.abbreviation ??
+        existingMeta?.homeTeam?.abbr ??
+        existingMeta?.homeTeam?.abbreviation ??
+        null;
+      const awayTeamAbbr =
+        existingMeta?.away?.abbr ??
+        existingMeta?.away?.abbreviation ??
+        existingMeta?.awayTeam?.abbr ??
+        existingMeta?.awayTeam?.abbreviation ??
+        null;
+      const homeTeamName =
+        existingMeta?.home?.name ?? existingMeta?.homeTeam?.name ?? null;
+      const awayTeamName =
+        existingMeta?.away?.name ?? existingMeta?.awayTeam?.name ?? null;
 
       const stubRow: Database['public']['Tables']['games']['Insert'] = {
         id: gameUuid,
@@ -761,6 +832,10 @@ export async function PUT(request: NextRequest) {
         locked_at: null,
         home_team_id: homeUuid,
         away_team_id: awayUuid,
+        home_team_abbr: homeTeamAbbr,
+        away_team_abbr: awayTeamAbbr,
+        home_team_name: homeTeamName,
+        away_team_name: awayTeamName,
         created_at: new Date().toISOString(),
       };
 

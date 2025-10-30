@@ -46,9 +46,22 @@ interface HighlightResult {
   result_date: string;
 }
 
+interface PicksPreviewTeam {
+  game_id: string;
+  selected_team_id: string;
+  games?: {
+    home_team_abbr: string | null;
+    away_team_abbr: string | null;
+    home_team_name: string | null;
+    away_team_name: string | null;
+    home_team_id: string | null;
+    away_team_id: string | null;
+  } | null;
+}
+
 interface PicksPreview {
   pickDate: string;
-  teams: Array<{ game_id: string; selected_team_id: string }>;
+  teams: PicksPreviewTeam[];
   players: Array<{ game_id: string; category: string; player_id: string }>;
   highlights: Array<{ player_id: string; rank: number }>;
 }
@@ -394,11 +407,32 @@ export const AdminClient = ({
               <div className="space-y-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4">
                 <h3 className="text-sm font-semibold text-white">Teams</h3>
                 <ul className="space-y-2 text-xs text-slate-300">
-                  {picksPreview.teams.map((team) => (
-                    <li key={team.game_id} className="rounded-xl bg-navy-800/70 px-3 py-2">
-                      {team.game_id} → {team.selected_team_id}
-                    </li>
-                  ))}
+                  {picksPreview.teams.map((team) => {
+                    const game = team.games;
+                    if (!game) {
+                      return (
+                        <li key={team.game_id} className="rounded-xl bg-navy-800/70 px-3 py-2">
+                          {team.game_id} → {team.selected_team_id}
+                        </li>
+                      );
+                    }
+                    const homeAbbr = game.home_team_abbr ?? game.home_team_name ?? 'Home';
+                    const awayAbbr = game.away_team_abbr ?? game.away_team_name ?? 'Away';
+                    const matchup = `${awayAbbr} @ ${homeAbbr}`;
+                    const homeLabel = `${homeAbbr} (${game.home_team_name ?? '—'})`;
+                    const awayLabel = `${awayAbbr} (${game.away_team_name ?? '—'})`;
+                    const selected =
+                      team.selected_team_id === game.home_team_id
+                        ? homeLabel
+                        : team.selected_team_id === game.away_team_id
+                          ? awayLabel
+                          : team.selected_team_id;
+                    return (
+                      <li key={team.game_id} className="rounded-xl bg-navy-800/70 px-3 py-2">
+                        {matchup} → <strong>{selected}</strong>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
               <div className="space-y-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4">
