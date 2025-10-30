@@ -219,7 +219,7 @@ const ensureGamesExist = async (
   if (inserts.length > 0) {
     const { data: inserted, error: insertError } = await supabase
       .from('games')
-      .upsert(inserts, { onConflict: 'provider_game_id' })
+      .upsert(inserts, { onConflict: 'provider,provider_game_id' })
       .select('id,provider,provider_game_id,home_team_id,away_team_id');
 
     if (insertError) {
@@ -524,7 +524,7 @@ export async function POST(request: NextRequest) {
 
       const { error: stubError } = await supabaseAdmin
         .from('games')
-        .upsert(stubRow, { onConflict: 'provider_game_id' });
+        .upsert(stubRow, { onConflict: 'provider,provider_game_id' });
 
       if (stubError) {
         throw stubError;
@@ -766,7 +766,7 @@ export async function PUT(request: NextRequest) {
 
       const { error: stubError } = await supabaseAdmin
         .from('games')
-        .upsert(stubRow, { onConflict: 'provider_game_id' });
+        .upsert(stubRow, { onConflict: 'provider,provider_game_id' });
 
       if (stubError) {
         throw stubError;
