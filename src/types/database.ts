@@ -67,6 +67,10 @@ export interface Database {
           locked_at: string | null;
           home_team_id: string;
           away_team_id: string;
+          home_team_abbr: string | null;
+          away_team_abbr: string | null;
+          home_team_name: string | null;
+          away_team_name: string | null;
           created_at: string;
         };
         Insert: {
@@ -79,6 +83,10 @@ export interface Database {
           locked_at?: string | null;
           home_team_id: string;
           away_team_id: string;
+          home_team_abbr?: string | null;
+          away_team_abbr?: string | null;
+          home_team_name?: string | null;
+          away_team_name?: string | null;
           created_at?: string;
         };
         Update: Partial<Omit<Database['public']['Tables']['games']['Row'], 'id'>>;
@@ -132,7 +140,22 @@ export interface Database {
         Update: Partial<
           Omit<Database['public']['Tables']['picks_teams']['Row'], 'id'>
         >;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'picks_teams_game_id_fkey';
+            columns: ['game_id'];
+            referencedRelation: 'games';
+            referencedColumns: ['id'];
+            isOneToOne: false;
+          },
+          {
+            foreignKeyName: 'picks_teams_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+            isOneToOne: false;
+          },
+        ];
       };
       picks_players: {
         Row: {
@@ -160,7 +183,29 @@ export interface Database {
         Update: Partial<
           Omit<Database['public']['Tables']['picks_players']['Row'], 'id'>
         >;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'picks_players_game_id_fkey';
+            columns: ['game_id'];
+            referencedRelation: 'games';
+            referencedColumns: ['id'];
+            isOneToOne: false;
+          },
+          {
+            foreignKeyName: 'picks_players_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+            isOneToOne: false;
+          },
+          {
+            foreignKeyName: 'picks_players_player_id_fkey';
+            columns: ['player_id'];
+            referencedRelation: 'player';
+            referencedColumns: ['id'];
+            isOneToOne: false;
+          },
+        ];
       };
       picks_highlights: {
         Row: {
@@ -186,7 +231,22 @@ export interface Database {
         Update: Partial<
           Omit<Database['public']['Tables']['picks_highlights']['Row'], 'id'>
         >;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'picks_highlights_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+            isOneToOne: false;
+          },
+          {
+            foreignKeyName: 'picks_highlights_player_id_fkey';
+            columns: ['player_id'];
+            referencedRelation: 'player';
+            referencedColumns: ['id'];
+            isOneToOne: false;
+          },
+        ];
       };
       results_team: {
         Row: {
