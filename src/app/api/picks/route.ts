@@ -409,7 +409,8 @@ const fetchPicks = async (
           selected_team_id,
           updated_at,
           changes_count,
-          games (
+          game:game_id (
+            id,
             home_team_abbr,
             away_team_abbr,
             home_team_name,
@@ -423,12 +424,46 @@ const fetchPicks = async (
       .eq('pick_date', pickDate),
     supabaseAdmin
       .from('picks_players')
-      .select('game_id, category, player_id, updated_at, changes_count')
+      .select(
+        `
+          game_id,
+          category,
+          player_id,
+          updated_at,
+          changes_count,
+          player:player_id (
+            first_name,
+            last_name,
+            position
+          ),
+          game:game_id (
+            id,
+            home_team_name,
+            home_team_abbr,
+            home_team_id,
+            away_team_name,
+            away_team_abbr,
+            away_team_id
+          )
+        `,
+      )
       .eq('user_id', userId)
       .eq('pick_date', pickDate),
     supabaseAdmin
       .from('picks_highlights')
-      .select('player_id, rank, updated_at, changes_count')
+      .select(
+        `
+          player_id,
+          rank,
+          updated_at,
+          changes_count,
+          player:player_id (
+            first_name,
+            last_name,
+            position
+          )
+        `,
+      )
       .eq('user_id', userId)
       .eq('pick_date', pickDate),
   ]);
@@ -442,14 +477,24 @@ const fetchPicks = async (
     );
   }
 
+  const teams = (teamResp.data ?? []) as Array<
+    Record<string, unknown> & { changes_count?: number | null }
+  >;
+  const players = (playerResp.data ?? []) as Array<
+    Record<string, unknown> & { changes_count?: number | null }
+  >;
+  const highlights = (highlightsResp.data ?? []) as Array<
+    Record<string, unknown> & { changes_count?: number | null }
+  >;
+
   return {
-    teams: teamResp.data ?? [],
-    players: playerResp.data ?? [],
-    highlights: highlightsResp.data ?? [],
+    teams,
+    players,
+    highlights,
     changesCount: Math.max(
-      ...(teamResp.data ?? []).map((p) => p.changes_count ?? 0),
-      ...(playerResp.data ?? []).map((p) => p.changes_count ?? 0),
-      ...(highlightsResp.data ?? []).map((p) => p.changes_count ?? 0),
+      ...teams.map((p) => p.changes_count ?? 0),
+      ...players.map((p) => p.changes_count ?? 0),
+      ...highlights.map((p) => p.changes_count ?? 0),
       0,
     ),
   };

@@ -24,6 +24,26 @@ const fetcher = async (url: string) => {
   return response.json();
 };
 
+const fullName = (p?: { first_name?: string | null; last_name?: string | null }) =>
+  [p?.first_name ?? '', p?.last_name ?? ''].join(' ').trim() || '—';
+
+const fmtMatchup = (g?: {
+  away_team_abbr?: string | null;
+  home_team_abbr?: string | null;
+}) => `${g?.away_team_abbr ?? 'AWY'} @ ${g?.home_team_abbr ?? 'HOME'}`;
+
+const TeamBadge = ({ kind }: { kind: 'HOME' | 'AWAY' }) => (
+  <span
+    className={`ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+      kind === 'HOME'
+        ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30'
+        : 'bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30'
+    }`}
+  >
+    {kind}
+  </span>
+);
+
 interface ShopCard {
   id: string;
   name: string;
@@ -49,7 +69,8 @@ interface HighlightResult {
 interface PicksPreviewTeam {
   game_id: string;
   selected_team_id: string;
-  games?: {
+  game?: {
+    id?: string | null;
     home_team_abbr: string | null;
     away_team_abbr: string | null;
     home_team_name: string | null;
@@ -59,11 +80,41 @@ interface PicksPreviewTeam {
   } | null;
 }
 
+interface PicksPreviewPlayer {
+  game_id: string;
+  category: string;
+  player_id?: string;
+  player?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    position?: string | null;
+  } | null;
+  game?: {
+    id?: string | null;
+    home_team_name?: string | null;
+    home_team_abbr?: string | null;
+    home_team_id?: string | null;
+    away_team_name?: string | null;
+    away_team_abbr?: string | null;
+    away_team_id?: string | null;
+  } | null;
+}
+
+interface PicksPreviewHighlight {
+  player_id?: string;
+  rank: number;
+  player?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    position?: string | null;
+  } | null;
+}
+
 interface PicksPreview {
   pickDate: string;
   teams: PicksPreviewTeam[];
-  players: Array<{ game_id: string; category: string; player_id: string }>;
-  highlights: Array<{ player_id: string; rank: number }>;
+  players: PicksPreviewPlayer[];
+  highlights: PicksPreviewHighlight[];
 }
 
 interface AdminClientProps {
@@ -126,6 +177,44 @@ export const AdminClient = ({
       : null,
     fetcher,
   );
+
+  const gameById = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        id?: string | null;
+        home_team_name?: string | null;
+        home_team_abbr?: string | null;
+        home_team_id?: string | null;
+        away_team_name?: string | null;
+        away_team_abbr?: string | null;
+        away_team_id?: string | null;
+      }
+    >();
+    (picksPreview?.teams ?? []).forEach((team) => {
+      const record = team as any;
+      const game = record.game;
+      const key =
+        (typeof game?.id === 'string' && game.id) ||
+        (typeof team.game_id === 'string' && team.game_id) ||
+        null;
+      if (key && game) {
+        map.set(key, game);
+      }
+    });
+    (picksPreview?.players ?? []).forEach((player) => {
+      const record = player as any;
+      const game = record.game;
+      const key =
+        (typeof game?.id === 'string' && game.id) ||
+        (typeof player.game_id === 'string' && player.game_id) ||
+        null;
+      if (key && game) {
+        map.set(key, game);
+      }
+    });
+    return map;
+  }, [picksPreview?.teams, picksPreview?.players]);
 
   const { games } = useGames(locale);
   const [highlightOptions, setHighlightOptions] = useState<
@@ -405,57 +494,115 @@ export const AdminClient = ({
           ) : picksPreview ? (
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4">
-                <h3 className="text-sm font-semibold text-white">Teams</h3>
-                <ul className="space-y-2 text-xs text-slate-300">
-                  {picksPreview.teams.map((team) => {
-                    const game = team.games;
-                    if (!game) {
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold text-white">Teams</h3>
+                  <div className="space-y-2 text-sm">
+                    {(picksPreview.teams ?? []).map((team, index) => {
+                      const record = team as any;
+                      const key =
+                        (typeof record.game?.id === 'string' && record.game.id) ||
+                        (typeof team.game_id === 'string' && team.game_id) ||
+                        undefined;
+                      const game = record.game ?? (key ? gameById.get(key) : undefined);
+                      const isHome =
+                        Boolean(game?.home_team_id) &&
+                        team.selected_team_id === game?.home_team_id;
+                      const isAway =
+                        Boolean(game?.away_team_id) &&
+                        team.selected_team_id === game?.away_team_id;
+                      const chosenAbbr = isHome
+                        ? game?.home_team_abbr ?? 'HOME'
+                        : isAway
+                          ? game?.away_team_abbr ?? 'AWY'
+                          : '???';
+                      const chosenName = isHome
+                        ? game?.home_team_name ?? 'Home team'
+                        : isAway
+                          ? game?.away_team_name ?? 'Away team'
+                          : 'Unknown team';
+
                       return (
-                        <li key={team.game_id} className="rounded-xl bg-navy-800/70 px-3 py-2">
-                          {team.game_id} → {team.selected_team_id}
-                        </li>
+                        <div key={`${team.game_id}-${index}`} className="rounded border border-white/10 p-2">
+                          <div className="text-slate-300">{fmtMatchup(game)}</div>
+                          <div className="mt-1 text-slate-100">
+                            <strong className="mr-2">{chosenAbbr}</strong>
+                            <span className="opacity-90">{chosenName}</span>
+                            {isHome ? <TeamBadge kind="HOME" /> : null}
+                            {isAway ? <TeamBadge kind="AWAY" /> : null}
+                            {!isHome && !isAway ? (
+                              <span className="ml-2 text-[11px] text-amber-300/80">
+                                not matching home/away
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
                       );
-                    }
-                    const homeAbbr = game.home_team_abbr ?? game.home_team_name ?? 'Home';
-                    const awayAbbr = game.away_team_abbr ?? game.away_team_name ?? 'Away';
-                    const matchup = `${awayAbbr} @ ${homeAbbr}`;
-                    const homeLabel = `${homeAbbr} (${game.home_team_name ?? '—'})`;
-                    const awayLabel = `${awayAbbr} (${game.away_team_name ?? '—'})`;
-                    const selected =
-                      team.selected_team_id === game.home_team_id
-                        ? homeLabel
-                        : team.selected_team_id === game.away_team_id
-                          ? awayLabel
-                          : team.selected_team_id;
-                    return (
-                      <li key={team.game_id} className="rounded-xl bg-navy-800/70 px-3 py-2">
-                        {matchup} → <strong>{selected}</strong>
-                      </li>
-                    );
-                  })}
-                </ul>
+                    })}
+                    {(picksPreview.teams?.length ?? 0) === 0 ? (
+                      <div className="text-slate-400">No team picks.</div>
+                    ) : null}
+                  </div>
+                </section>
               </div>
               <div className="space-y-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4">
-                <h3 className="text-sm font-semibold text-white">Players</h3>
-                <ul className="space-y-2 text-xs text-slate-300">
-                  {picksPreview.players.map((player) => (
-                    <li key={`${player.game_id}-${player.category}`} className="rounded-xl bg-navy-800/70 px-3 py-2">
-                      {player.category} → {player.player_id}
-                    </li>
-                  ))}
-                </ul>
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold text-white">Players</h3>
+                  <div className="space-y-2 text-sm text-slate-200">
+                    {(picksPreview.players ?? []).map((player, index) => {
+                      const record = player as any;
+                      const game = record.game ?? gameById.get(player.game_id);
+                      const name = fullName(record.player);
+                      return (
+                        <div key={`${player.game_id}-${player.category}-${index}`} className="rounded-xl bg-navy-800/70 px-3 py-2">
+                          <div className="text-xs opacity-70">{fmtMatchup(game)}</div>
+                          <div>
+                            <span className="mr-2 text-xs uppercase opacity-70">
+                              {player.category}
+                            </span>
+                            <strong>{name}</strong>
+                            {record.player?.position ? (
+                              <span className="text-xs opacity-60"> · {record.player.position}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {(picksPreview.players?.length ?? 0) === 0 ? (
+                      <div className="rounded-xl bg-navy-800/70 px-3 py-2 text-xs text-slate-400">
+                        No player picks.
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
               </div>
               <div className="space-y-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4 md:col-span-2">
-                <h3 className="text-sm font-semibold text-white">
-                  {dictionary.common.highlights}
-                </h3>
-                <ul className="grid gap-2 text-xs text-slate-300 md:grid-cols-2">
-                  {picksPreview.highlights.map((highlight) => (
-                    <li key={`${highlight.rank}-${highlight.player_id}`} className="rounded-xl bg-navy-800/70 px-3 py-2">
-                      #{highlight.rank} → {highlight.player_id}
-                    </li>
-                  ))}
-                </ul>
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold text-white">
+                    {dictionary.common.highlights}
+                  </h3>
+                  <div className="space-y-1 text-sm text-slate-200">
+                    {(picksPreview.highlights ?? []).map((highlight, index) => {
+                      const record = highlight as any;
+                      const name = fullName(record.player);
+                      return (
+                        <div key={`${highlight.rank}-${index}`} className="rounded-xl bg-navy-800/70 px-3 py-2">
+                          <span className="mr-2 text-xs uppercase opacity-70">
+                            RANK #{highlight.rank}
+                          </span>
+                          <strong>{name}</strong>
+                          {record.player?.position ? (
+                            <span className="text-xs opacity-60"> · {record.player.position}</span>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                    {(picksPreview.highlights?.length ?? 0) === 0 ? (
+                      <div className="rounded-xl bg-navy-800/70 px-3 py-2 text-xs text-slate-400">
+                        No highlight picks.
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
               </div>
             </div>
           ) : (
