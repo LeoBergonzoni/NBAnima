@@ -38,10 +38,23 @@ export const useGames = (_locale?: Locale) => {
     { revalidateOnFocus: false },
   );
 
+  const mapByProviderId = (Array.isArray(data) ? data : []).reduce<Record<string, string>>(
+    (acc, game) => {
+      const providerId = (game as unknown as { provider_game_id?: string })?.provider_game_id;
+      const supabaseId = (game as unknown as { id?: string })?.id;
+      if (providerId && typeof providerId === 'string' && supabaseId && typeof supabaseId === 'string') {
+        acc[providerId] = supabaseId;
+      }
+      return acc;
+    },
+    {},
+  );
+
   return {
     games: data ?? [],
     isLoading,
     error,
     refresh: mutate,
+    mapByProviderId,
   };
 };

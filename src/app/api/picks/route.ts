@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -10,6 +11,7 @@ import {
   createAdminSupabaseClient,
   createServerSupabase,
 } from '@/lib/supabase';
+import { resolveOrUpsertGame, type ClientGameDTO } from '@/lib/server/resolveGame';
 import type { Database } from '@/lib/supabase.types';
 import {
   getRosters,
@@ -17,6 +19,7 @@ import {
   type RosterPlayer,
   type RostersMap,
 } from '@/lib/rosters';
+import { TIMEZONES } from '@/lib/constants';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,10 +30,8 @@ const PLAYER_PROVIDER = 'local-rosters'; // o 'balldontlie' se preferisci unific
 
 type GameRow = {
   id: string; // uuid
-  provider: string;
-  provider_game_id: string; // es. "18446877"
-  home_team_id: string;     // uuid
-  away_team_id: string;     // uuid
+  home_team_id: string; // uuid
+  away_team_id: string; // uuid
   home_team_abbr: string | null;
   away_team_abbr: string | null;
   home_team_name: string | null;
@@ -42,56 +43,163 @@ type GameContext = GameRow & {
   awayRosterKey: string | null;
 };
 
-const isUuid = (value: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+function isUuidLike(v: string) {
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(v);
+}
 
-const resolveSelectedTeamUuid = (input: string, game: GameRow): string => {
-  const trimmed = (input ?? '').trim();
-  if (!trimmed) {
+function looksLikeAbbr(v: string) {
+  return /^[A-Z]{2,4}$/.test(v);
+}
+
+function teamUuidFromAbbr(input?: string | null) {
+  const value = (input ?? '').trim().toLowerCase();
+  if (!value) {
+    throw new Error('Cannot derive team UUID without an abbreviation');
+  }
+  const hash = createHash('sha1').update(`team:${value}`).digest('hex');
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
+}
+
+const canonicalTeamUuid = (value: string | null | undefined, abbr?: string | null) => {
+  const rawValue = (value ?? '').trim();
+  if (rawValue && isUuidLike(rawValue)) {
+    return rawValue;
+  }
+  const normalizedAbbr = (abbr ?? rawValue).trim();
+  if (!normalizedAbbr) {
+    throw new Error('Cannot derive canonical team uuid without identifier');
+  }
+  return teamUuidFromAbbr(normalizedAbbr);
+};
+
+function norm(s?: string | null) {
+  return String(s ?? '').trim().toLowerCase();
+}
+
+function slugName(s?: string | null) {
+  return norm(s).replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+
+type GameCtx = {
+  id: string;
+  home_team_id: string;
+  away_team_id: string;
+  home_team_abbr?: string | null;
+  away_team_abbr?: string | null;
+  home_team_name?: string | null;
+  away_team_name?: string | null;
+};
+
+function resolveTeamSelection(input: string, game: GameCtx) {
+  const raw = (input ?? '').trim();
+  if (!raw) {
     throw new Error('Missing team value');
   }
 
-  if (isUuid(trimmed)) {
-    if (trimmed === game.home_team_id || trimmed === game.away_team_id) {
-      return trimmed;
+  const homeUuid = isUuidLike(game.home_team_id)
+    ? game.home_team_id
+    : teamUuidFromAbbr(game.home_team_abbr ?? game.home_team_id);
+  const awayUuid = isUuidLike(game.away_team_id)
+    ? game.away_team_id
+    : teamUuidFromAbbr(game.away_team_abbr ?? game.away_team_id);
+
+  if (raw === 'home') {
+    return {
+      uuid: homeUuid,
+      abbr: game.home_team_abbr ?? null,
+      name: game.home_team_name ?? null,
+      side: 'home' as const,
+    };
+  }
+  if (raw === 'away') {
+    return {
+      uuid: awayUuid,
+      abbr: game.away_team_abbr ?? null,
+      name: game.away_team_name ?? null,
+      side: 'away' as const,
+    };
+  }
+
+  if (isUuidLike(raw)) {
+    const lowered = raw.toLowerCase();
+    if (lowered === homeUuid.toLowerCase()) {
+      return {
+        uuid: homeUuid,
+        abbr: game.home_team_abbr ?? null,
+        name: game.home_team_name ?? null,
+        side: 'home' as const,
+      };
     }
-    throw new Error(`Team UUID does not belong to this game: ${trimmed}`);
+    if (lowered === awayUuid.toLowerCase()) {
+      return {
+        uuid: awayUuid,
+        abbr: game.away_team_abbr ?? null,
+        name: game.away_team_name ?? null,
+        side: 'away' as const,
+      };
+    }
+    throw new Error(`Team UUID does not belong to this game: "${raw}"`);
   }
 
-  const value = trimmed.toLowerCase();
-  const homeTokens = new Set<string>([
-    'home',
-    'h',
-    (game.home_team_abbr ?? '').toLowerCase(),
-  ]);
-  const awayTokens = new Set<string>([
-    'away',
-    'a',
-    (game.away_team_abbr ?? '').toLowerCase(),
-  ]);
-
-  if (homeTokens.has(value)) {
-    return game.home_team_id;
+  if (looksLikeAbbr(raw)) {
+    const upper = raw.toUpperCase();
+    const homeAbbr = (game.home_team_abbr ?? '').toUpperCase();
+    const awayAbbr = (game.away_team_abbr ?? '').toUpperCase();
+    if (upper === homeAbbr) {
+      return {
+        uuid: homeUuid,
+        abbr: game.home_team_abbr ?? null,
+        name: game.home_team_name ?? null,
+        side: 'home' as const,
+      };
+    }
+    if (upper === awayAbbr) {
+      return {
+        uuid: awayUuid,
+        abbr: game.away_team_abbr ?? null,
+        name: game.away_team_name ?? null,
+        side: 'away' as const,
+      };
+    }
+    throw new Error(`Unknown team abbreviation for this game: "${raw}"`);
   }
-  if (awayTokens.has(value)) {
-    return game.away_team_id;
+
+  const slugInput = slugName(raw);
+  if (slugInput) {
+    const homeSlug = slugName(game.home_team_name);
+    const awaySlug = slugName(game.away_team_name);
+    if (slugInput === homeSlug) {
+      return {
+        uuid: homeUuid,
+        abbr: game.home_team_abbr ?? null,
+        name: game.home_team_name ?? null,
+        side: 'home' as const,
+      };
+    }
+    if (slugInput === awaySlug) {
+      return {
+        uuid: awayUuid,
+        abbr: game.away_team_abbr ?? null,
+        name: game.away_team_name ?? null,
+        side: 'away' as const,
+      };
+    }
   }
 
-  const allowed = [
-    `home (${game.home_team_abbr ?? 'N/A'})`,
-    `away (${game.away_team_abbr ?? 'N/A'})`,
-  ];
-  throw new Error(
-    `Cannot resolve team for value "${input}". Allowed: ${allowed.join(', ')}.`,
-  );
-};
+  throw new Error(`Cannot resolve team from input "${raw}"`);
+}
 
-const collectRequestedGameIds = (payload: {
+const collectRequestedGameUuids = (payload: {
   teams: Array<{ gameId: string }>;
   players: Array<{ gameId: string }>;
-  gamesMeta?: unknown;
+  gameUuids?: string[];
 }) => {
   const ids = new Set<string>();
+  payload.gameUuids?.forEach((uuid) => {
+    if (uuid) {
+      ids.add(String(uuid));
+    }
+  });
   payload.teams.forEach((pick) => {
     if (pick?.gameId) {
       ids.add(String(pick.gameId));
@@ -102,28 +210,151 @@ const collectRequestedGameIds = (payload: {
       ids.add(String(pick.gameId));
     }
   });
-  if (Array.isArray(payload.gamesMeta)) {
-    for (const meta of payload.gamesMeta as Array<Record<string, unknown>>) {
-      const raw =
-        meta?.providerGameId ??
-        meta?.gameId ??
-        meta?.id ??
-        null;
-      if (raw) {
-        ids.add(String(raw));
+  return Array.from(ids).filter(Boolean);
+};
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const normalizePayloadGameIds = async (
+  payload: Record<string, unknown>,
+  supabase: SupabaseClient<Database>,
+) => {
+  const normalized = payload as {
+    gameUuids?: unknown;
+    providerGameIds?: unknown;
+    teams?: unknown;
+    players?: unknown;
+  };
+
+  const resolvedUuidSet = new Set<string>();
+  const providerIds = new Set<string>();
+
+  const rawGameUuidValues = Array.isArray(normalized.gameUuids)
+    ? (normalized.gameUuids as unknown[])
+    : [];
+  const cleanedGameUuids = rawGameUuidValues
+    .filter((value) => value !== null && value !== undefined)
+    .map((value) => String(value));
+  cleanedGameUuids.forEach((value) => {
+    if (UUID_REGEX.test(value)) {
+      resolvedUuidSet.add(value);
+    } else {
+      providerIds.add(value);
+    }
+  });
+  normalized.gameUuids = cleanedGameUuids;
+
+  const rawProviderGameIds = Array.isArray(normalized.providerGameIds)
+    ? (normalized.providerGameIds as unknown[])
+    : [];
+  const cleanedProviderGameIds = rawProviderGameIds
+    .filter((value) => value !== null && value !== undefined)
+    .map((value) => String(value));
+  cleanedProviderGameIds.forEach((value) => providerIds.add(value));
+  normalized.providerGameIds =
+    cleanedProviderGameIds.length > 0 ? cleanedProviderGameIds : undefined;
+
+  const pendingTeamUpdates: Array<{ pick: Record<string, unknown>; providerId: string }> = [];
+  const pendingPlayerUpdates: Array<{ pick: Record<string, unknown>; providerId: string }> = [];
+
+  const processPickArray = (
+    entries: unknown,
+    pending: Array<{ pick: Record<string, unknown>; providerId: string }>,
+  ) => {
+    if (!Array.isArray(entries)) {
+      return;
+    }
+    entries.forEach((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return;
       }
+      const pick = entry as Record<string, unknown>;
+      const rawGameId = pick.gameId ?? pick.game_id;
+      if (rawGameId === null || rawGameId === undefined) {
+        return;
+      }
+      const stringValue = String(rawGameId);
+      if (UUID_REGEX.test(stringValue)) {
+        pick.gameId = stringValue;
+        if ('game_id' in pick) {
+          delete pick.game_id;
+        }
+        resolvedUuidSet.add(stringValue);
+      } else {
+        providerIds.add(stringValue);
+        pending.push({ pick, providerId: stringValue });
+      }
+    });
+  };
+
+  processPickArray(normalized.teams, pendingTeamUpdates);
+  processPickArray(normalized.players, pendingPlayerUpdates);
+
+  const providerIdList = Array.from(providerIds);
+  const providerToUuid = new Map<string, string>();
+
+  if (providerIdList.length > 0) {
+    const { data, error } = await supabase
+      .from('games')
+      .select('id, provider_game_id')
+      .in('provider_game_id', providerIdList);
+
+    if (error) {
+      throw error;
+    }
+
+    (data ?? []).forEach((row) => {
+      if (row?.provider_game_id && row?.id) {
+        providerToUuid.set(String(row.provider_game_id), String(row.id));
+      }
+    });
+
+    pendingTeamUpdates.forEach(({ pick, providerId }) => {
+      const uuid = providerToUuid.get(providerId);
+      if (uuid) {
+        pick.gameId = uuid;
+        if ('game_id' in pick) {
+          delete pick.game_id;
+        }
+        resolvedUuidSet.add(uuid);
+      }
+    });
+
+    pendingPlayerUpdates.forEach(({ pick, providerId }) => {
+      const uuid = providerToUuid.get(providerId);
+      if (uuid) {
+        pick.gameId = uuid;
+        if ('game_id' in pick) {
+          delete pick.game_id;
+        }
+        resolvedUuidSet.add(uuid);
+      }
+    });
+
+    providerIdList.forEach((providerId) => {
+      const uuid = providerToUuid.get(providerId);
+      if (uuid) {
+        resolvedUuidSet.add(uuid);
+      }
+    });
+
+    const missingProviderIds = providerIdList.filter((id) => !providerToUuid.has(id));
+    if (missingProviderIds.length > 0) {
+      return { missingProviderIds };
     }
   }
-  return Array.from(ids).filter(Boolean);
+
+  normalized.gameUuids = Array.from(resolvedUuidSet);
+  return { missingProviderIds: [] as string[] };
 };
 
 const loadGameContexts = async (
   supabase: SupabaseClient<Database>,
-  providerGameIds: string[],
+  gameUuids: string[],
 ) => {
   const map = new Map<string, GameContext>();
-  if (providerGameIds.length === 0) {
-    return map;
+  if (gameUuids.length === 0) {
+    return { map, missing: [] as string[] };
   }
 
   const { data, error } = await supabase
@@ -131,8 +362,6 @@ const loadGameContexts = async (
     .select(
       `
         id,
-        provider,
-        provider_game_id,
         home_team_id,
         away_team_id,
         home_team_abbr,
@@ -141,15 +370,20 @@ const loadGameContexts = async (
         away_team_name
       `,
     )
-    .in('provider_game_id', providerGameIds);
+    .in('id', gameUuids);
 
   if (error) {
     throw error;
   }
 
   const entries = data ?? [];
+  const foundIds = new Set(entries.map((row) => row.id));
+  const missing = gameUuids.filter((id) => !foundIds.has(id));
+
   const contexts = await Promise.all(
     entries.map(async (row) => {
+      const canonicalHomeUuid = canonicalTeamUuid(row.home_team_id, row.home_team_abbr);
+      const canonicalAwayUuid = canonicalTeamUuid(row.away_team_id, row.away_team_abbr);
       const homeRosterKey = await resolveTeamKey(
         row.home_team_abbr ?? row.home_team_name ?? null,
       );
@@ -158,6 +392,8 @@ const loadGameContexts = async (
       );
       return {
         ...(row as GameRow),
+        home_team_id: canonicalHomeUuid,
+        away_team_id: canonicalAwayUuid,
         homeRosterKey,
         awayRosterKey,
       } satisfies GameContext;
@@ -165,10 +401,10 @@ const loadGameContexts = async (
   );
 
   contexts.forEach((context) => {
-    map.set(context.provider_game_id, context);
+    map.set(context.id, context);
   });
 
-  return map;
+  return { map, missing };
 };
 
 const matchPlayerInRoster = (
@@ -272,6 +508,49 @@ function splitName(full: string) {
 }
 
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
+
+const toDateNy = (iso: string | null | undefined, fallback: string) => {
+  if (!iso) {
+    return fallback;
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIMEZONES.US_EASTERN,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date);
+};
+
+type GameMetaLike = {
+  providerGameId: string;
+  season: string;
+  status?: string;
+  home?: { abbr?: string; name?: string };
+  away?: { abbr?: string; name?: string };
+  gameDateISO?: string;
+};
+
+const buildDtoFromMeta = (meta: GameMetaLike, pickDate: string): ClientGameDTO => ({
+  provider: 'bdl',
+  providerGameId: meta.providerGameId,
+  season: meta.season,
+  status: meta.status ?? 'scheduled',
+  dateNY: toDateNy(meta.gameDateISO ?? null, pickDate),
+  startTimeUTC: meta.gameDateISO ?? null,
+  home: {
+    abbr: meta.home?.abbr,
+    name: meta.home?.name ?? meta.home?.abbr,
+  },
+  away: {
+    abbr: meta.away?.abbr,
+    name: meta.away?.name ?? meta.away?.abbr,
+  },
+});
 
 type PicksTeamsInsert = Database['public']['Tables']['picks_teams']['Insert'];
 type PicksPlayersInsert = Database['public']['Tables']['picks_players']['Insert'];
@@ -445,13 +724,157 @@ export async function POST(request: NextRequest) {
   try {
     const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
     const rawBody = await request.json();
-    const validated = validatePicksPayload(rawBody);
-    const payload = {
-      ...validated,
-      gamesMeta: Array.isArray(rawBody?.gamesMeta)
-        ? (rawBody.gamesMeta as Array<Record<string, unknown>>)
-        : undefined,
-    } satisfies typeof validated & { gamesMeta?: Array<Record<string, unknown>> };
+    const rawPayload = (rawBody ?? {}) as Record<string, unknown>;
+    const payload = validatePicksPayload(rawPayload);
+    payload.teams = payload.teams.map((pick) => ({ ...pick }));
+    payload.players = payload.players.map((pick) => ({ ...pick }));
+    payload.highlights = payload.highlights.map((pick) => ({ ...pick }));
+
+    type GameMetaEntry = NonNullable<typeof payload.gamesMeta>[number];
+    const gamesMetaByProvider = new Map<string, GameMetaEntry>();
+    payload.gamesMeta?.forEach((meta) => {
+      if (meta?.providerGameId) {
+        gamesMetaByProvider.set(meta.providerGameId, meta);
+      }
+    });
+
+    const gameRefsByProvider = new Map<string, { dto?: ClientGameDTO }>();
+    payload.gameRefs?.forEach((ref) => {
+      if (ref?.providerGameId) {
+        gameRefsByProvider.set(ref.providerGameId, { dto: ref.dto });
+      }
+    });
+
+    const resolvedGameIds = new Set<string>(
+      Array.isArray(payload.gameUuids) ? payload.gameUuids : [],
+    );
+    const providerToResolvedId = new Map<string, string>();
+    const refToResolvedId = new Map<string, string>();
+
+    resolvedGameIds.forEach((uuid) => {
+      refToResolvedId.set(uuid, uuid);
+    });
+
+    if (Array.isArray(payload.gameRefs) && payload.gameRefs.length > 0) {
+      for (const ref of payload.gameRefs) {
+        try {
+          const dto =
+            ref.dto ??
+            (() => {
+              const meta = gamesMetaByProvider.get(ref.providerGameId);
+              return meta ? buildDtoFromMeta(meta, payload.pickDate) : undefined;
+            })();
+
+          const result = await resolveOrUpsertGame({
+            supabaseAdmin,
+            gameProvider: ref.provider ?? 'bdl',
+            providerGameId: ref.providerGameId,
+            dto,
+          });
+
+          resolvedGameIds.add(result.id);
+          providerToResolvedId.set(ref.providerGameId, result.id);
+          refToResolvedId.set(ref.providerGameId, result.id);
+        } catch (error) {
+          console.error('[api/picks][POST] resolve gameRef failed', {
+            providerGameId: ref.providerGameId,
+            error,
+          });
+        }
+      }
+    }
+
+    if (resolvedGameIds.size === 0) {
+      return NextResponse.json({ error: 'GAME_NOT_FOUND' }, { status: 404 });
+    }
+
+    const resolveGameForPick = async (
+      gameReference: {
+        gameId?: string;
+        gameProvider?: 'bdl';
+        providerGameId?: string;
+        dto?: ClientGameDTO;
+      },
+    ) => {
+      const rawGameId = gameReference.gameId;
+      const isUuidGameId = rawGameId && isUuidLike(rawGameId);
+      const providerGameId =
+        gameReference.providerGameId ?? (!isUuidGameId && rawGameId ? rawGameId : undefined);
+      const ref = providerGameId ? gameRefsByProvider.get(providerGameId) : undefined;
+      const dto =
+        gameReference.dto ??
+        ref?.dto ??
+        (providerGameId
+          ? (() => {
+              const meta = gamesMetaByProvider.get(providerGameId);
+              return meta ? buildDtoFromMeta(meta, payload.pickDate) : undefined;
+            })()
+          : undefined);
+
+      const result = await resolveOrUpsertGame({
+        supabaseAdmin,
+        gameId: isUuidGameId ? rawGameId : undefined,
+        gameProvider: gameReference.gameProvider ?? dto?.provider,
+        providerGameId,
+        dto,
+      });
+
+      if (rawGameId) {
+        refToResolvedId.set(rawGameId, result.id);
+      }
+      if (providerGameId) {
+        providerToResolvedId.set(providerGameId, result.id);
+        refToResolvedId.set(providerGameId, result.id);
+      }
+      resolvedGameIds.add(result.id);
+      return result.id;
+    };
+
+    for (const pick of payload.teams) {
+      try {
+        const resolvedId = await resolveGameForPick(pick);
+        pick.gameId = resolvedId;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'GAME_NOT_FOUND';
+        if (message === 'GAME_NOT_FOUND' || message === 'TEAM_NOT_FOUND') {
+          return NextResponse.json({ error: message }, { status: 404 });
+        }
+        console.error('[api/picks][POST] resolve game for team failed', error);
+        return NextResponse.json({ error: 'GAME_RESOLUTION_FAILED' }, { status: 500 });
+      }
+    }
+
+    for (const pick of payload.players) {
+      if (isUuidLike(pick.gameId)) {
+        resolvedGameIds.add(pick.gameId);
+        continue;
+      }
+      const knownResolved =
+        refToResolvedId.get(pick.gameId) ?? providerToResolvedId.get(pick.gameId);
+      if (knownResolved) {
+        pick.gameId = knownResolved;
+        resolvedGameIds.add(knownResolved);
+        continue;
+      }
+      try {
+        const resolvedId = await resolveGameForPick({
+          gameId: pick.gameId,
+          gameProvider: 'bdl',
+          providerGameId: pick.gameId,
+        });
+        pick.gameId = resolvedId;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'GAME_NOT_FOUND';
+        if (message === 'GAME_NOT_FOUND' || message === 'TEAM_NOT_FOUND') {
+          return NextResponse.json({ error: message }, { status: 404 });
+        }
+        console.error('[api/picks][POST] resolve game for player failed', error);
+        return NextResponse.json({ error: 'GAME_RESOLUTION_FAILED' }, { status: 500 });
+      }
+    }
+
+    payload.gameUuids = Array.from(resolvedGameIds);
+
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
@@ -459,11 +882,19 @@ export async function POST(request: NextRequest) {
       await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
     }
 
-    const providerGameIds = collectRequestedGameIds(payload);
-    const gamesMap = await loadGameContexts(supabaseAdmin, providerGameIds);
-    const missingGames = providerGameIds.filter((id) => !gamesMap.has(id));
-    if (missingGames.length > 0) {
-      throw new Error(`Unknown game(s): ${missingGames.join(', ')}`);
+    const requestedGameUuids = collectRequestedGameUuids(payload);
+    const { map: gamesMap, missing: missingGameUuids } = await loadGameContexts(
+      supabaseAdmin,
+      requestedGameUuids,
+    );
+    if (missingGameUuids.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Unknown game uuid(s)',
+          missingGameUuids,
+        },
+        { status: 400 },
+      );
     }
 
     const currentChanges = await getDailyChangeCount(
@@ -495,29 +926,49 @@ export async function POST(request: NextRequest) {
       pick_date: payload.pickDate,
     });
 
-    const teamInsert: PicksTeamsInsert[] = await Promise.all(
-      payload.teams.map(async (pick) => {
-        const game = gamesMap.get(pick.gameId);
-        if (!game) {
-          throw new Error(`Unknown game(s): ${pick.gameId}`);
-        }
-        const selectedTeamId = resolveSelectedTeamUuid(pick.teamId, game);
-        const isHome = selectedTeamId === game.home_team_id;
-        const selectedAbbr = isHome ? game.home_team_abbr : game.away_team_abbr;
-        const selectedName = isHome ? game.home_team_name : game.away_team_name;
-        return {
-          user_id: userId,
-          game_id: game.id,
-          selected_team_id: selectedTeamId,
-          selected_team_abbr: selectedAbbr ?? null,
-          selected_team_name: selectedName ?? null,
-          pick_date: payload.pickDate,
-          changes_count: 0,
-          created_at: now,
-          updated_at: now,
-        };
-      }),
-    );
+    const teamRecords: PicksTeamsInsert[] = payload.teams.map((pick) => {
+      const game = gamesMap.get(pick.gameId);
+      if (!game) {
+        throw new Error(`Unknown game(s): ${pick.gameId}`);
+      }
+
+      if (looksLikeAbbr(pick.teamId)) {
+        console.warn('[teams] abbreviation received from client, resolving server-side', {
+          pick,
+          gameId: pick.gameId,
+        });
+      }
+
+      const sel = resolveTeamSelection(pick.teamId, game);
+
+      console.debug('[teams] resolve', {
+        input: pick.teamId,
+        gameId: pick.gameId,
+        resolved: sel,
+      });
+
+      if (!isUuidLike(sel.uuid)) {
+        throw new Error(`Resolved selected_team_id is not a uuid-like value: "${sel.uuid}" from "${pick.teamId}"`);
+      }
+
+      return {
+        user_id: userId,
+        game_id: game.id,
+        selected_team_id: sel.uuid,
+        selected_team_abbr: sel.abbr ?? null,
+        selected_team_name: sel.name ?? null,
+        pick_date: payload.pickDate,
+        changes_count: 0,
+        created_at: now,
+        updated_at: now,
+      } satisfies PicksTeamsInsert;
+    });
+
+    for (const record of teamRecords) {
+      if (!isUuidLike(record.selected_team_id as string)) {
+        throw new Error(`Non-UUID selected_team_id about to be inserted: ${record.selected_team_id}`);
+      }
+    }
 
     const playerReferenceGames = payload.players
       .map((pick) => gamesMap.get(pick.gameId))
@@ -599,8 +1050,8 @@ export async function POST(request: NextRequest) {
     );
 
     const [teamsResult, playersResult, highlightsResult] = await Promise.all([
-      teamInsert.length
-        ? supabaseAdmin.from('picks_teams').insert(teamInsert)
+      teamRecords.length
+        ? supabaseAdmin.from('picks_teams').insert(teamRecords)
         : { error: null },
       playerInsert.length
         ? supabaseAdmin.from('picks_players').insert(playerInsert)
@@ -640,13 +1091,19 @@ export async function PUT(request: NextRequest) {
   try {
     const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
     const rawBody = await request.json();
-    const validated = validatePicksPayload(rawBody);
-    const payload = {
-      ...validated,
-      gamesMeta: Array.isArray(rawBody?.gamesMeta)
-        ? (rawBody.gamesMeta as Array<Record<string, unknown>>)
-        : undefined,
-    } satisfies typeof validated & { gamesMeta?: Array<Record<string, unknown>> };
+    const rawPayload = (rawBody ?? {}) as Record<string, unknown>;
+    const { missingProviderIds } = await normalizePayloadGameIds(rawPayload, supabaseAdmin);
+    if (missingProviderIds.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Unknown provider game id(s)',
+          missingProviderIds,
+        },
+        { status: 400 },
+      );
+    }
+
+    const payload = validatePicksPayload(rawPayload);
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
@@ -654,11 +1111,19 @@ export async function PUT(request: NextRequest) {
       await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
     }
 
-    const providerGameIds = collectRequestedGameIds(payload);
-    const gamesMap = await loadGameContexts(supabaseAdmin, providerGameIds);
-    const missingGames = providerGameIds.filter((id) => !gamesMap.has(id));
-    if (missingGames.length > 0) {
-      throw new Error(`Unknown game(s): ${missingGames.join(', ')}`);
+    const requestedGameUuids = collectRequestedGameUuids(payload);
+    const { map: gamesMap, missing: missingGameUuids } = await loadGameContexts(
+      supabaseAdmin,
+      requestedGameUuids,
+    );
+    if (missingGameUuids.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Unknown game uuid(s)',
+          missingGameUuids,
+        },
+        { status: 400 },
+      );
     }
 
     const currentChanges = await getDailyChangeCount(
@@ -691,29 +1156,49 @@ export async function PUT(request: NextRequest) {
       pick_date: payload.pickDate,
     });
 
-    const teamUpsert: PicksTeamsInsert[] = await Promise.all(
-      payload.teams.map(async (pick) => {
-        const game = gamesMap.get(pick.gameId);
-        if (!game) {
-          throw new Error(`Unknown game(s): ${pick.gameId}`);
-        }
-        const selectedTeamId = resolveSelectedTeamUuid(pick.teamId, game);
-        const isHome = selectedTeamId === game.home_team_id;
-        const selectedAbbr = isHome ? game.home_team_abbr : game.away_team_abbr;
-        const selectedName = isHome ? game.home_team_name : game.away_team_name;
-        return {
-          user_id: userId,
-          game_id: game.id,
-          selected_team_id: selectedTeamId,
-          selected_team_abbr: selectedAbbr ?? null,
-          selected_team_name: selectedName ?? null,
-          pick_date: payload.pickDate,
-          changes_count: nextChangeCount,
-          created_at: now,
-          updated_at: now,
-        };
-      }),
-    );
+    const teamRecords: PicksTeamsInsert[] = payload.teams.map((pick) => {
+      const game = gamesMap.get(pick.gameId);
+      if (!game) {
+        throw new Error(`Unknown game(s): ${pick.gameId}`);
+      }
+
+      if (looksLikeAbbr(pick.teamId)) {
+        console.warn('[teams] abbreviation received from client, resolving server-side', {
+          pick,
+          gameId: pick.gameId,
+        });
+      }
+
+      const sel = resolveTeamSelection(pick.teamId, game);
+
+      console.debug('[teams] resolve', {
+        input: pick.teamId,
+        gameId: pick.gameId,
+        resolved: sel,
+      });
+
+      if (!isUuidLike(sel.uuid)) {
+        throw new Error(`Resolved selected_team_id is not a uuid-like value: "${sel.uuid}" from "${pick.teamId}"`);
+      }
+
+      return {
+        user_id: userId,
+        game_id: game.id,
+        selected_team_id: sel.uuid,
+        selected_team_abbr: sel.abbr ?? null,
+        selected_team_name: sel.name ?? null,
+        pick_date: payload.pickDate,
+        changes_count: nextChangeCount ?? 0,
+        created_at: now,
+        updated_at: now,
+      } satisfies PicksTeamsInsert;
+    });
+
+    for (const record of teamRecords) {
+      if (!isUuidLike(record.selected_team_id as string)) {
+        throw new Error(`Non-UUID selected_team_id about to be inserted: ${record.selected_team_id}`);
+      }
+    }
 
     const playerReferenceGames = payload.players
       .map((pick) => gamesMap.get(pick.gameId))
@@ -795,8 +1280,8 @@ export async function PUT(request: NextRequest) {
     );
 
     const [teamsResult, playersResult, highlightsResult] = await Promise.all([
-      teamUpsert.length
-        ? supabaseAdmin.from('picks_teams').insert(teamUpsert)
+      teamRecords.length
+        ? supabaseAdmin.from('picks_teams').insert(teamRecords)
         : { error: null },
       playerUpsert.length
         ? supabaseAdmin.from('picks_players').insert(playerUpsert)

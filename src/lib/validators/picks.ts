@@ -9,10 +9,44 @@ const playerCategories = [
 export const playerCategorySchema = z.enum(playerCategories);
 export type PlayerCategory = z.infer<typeof playerCategorySchema>;
 
-export const teamPickSchema = z.object({
-  gameId: z.string().min(1),
-  teamId: z.string().min(1),
-});
+const clientGameTeamSchema = z
+  .object({
+    abbr: z.string().min(1).optional(),
+    providerTeamId: z.string().min(1).optional(),
+    name: z.string().min(1).optional(),
+  })
+  .passthrough();
+
+export const clientGameDtoSchema = z
+  .object({
+    provider: z.literal('bdl'),
+    providerGameId: z.string().min(1),
+    season: z.string().min(1),
+    status: z.string().min(1),
+    dateNY: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    startTimeUTC: z.union([z.string().min(1), z.null()]).optional(),
+    home: clientGameTeamSchema,
+    away: clientGameTeamSchema,
+  })
+  .passthrough();
+
+export const gameRefSchema = z
+  .object({
+    provider: z.literal('bdl'),
+    providerGameId: z.string().min(1),
+    dto: clientGameDtoSchema.optional(),
+  })
+  .passthrough();
+
+export const teamPickSchema = z
+  .object({
+    gameId: z.string().min(1),
+    teamId: z.string().min(1),
+    gameProvider: z.literal('bdl').optional(),
+    providerGameId: z.string().min(1).optional(),
+    dto: clientGameDtoSchema.optional(),
+  })
+  .passthrough();
 
 export const playerPickSchema = z.object({
   gameId: z.string().min(1),
@@ -27,29 +61,22 @@ export const highlightPickSchema = z.object({
 
 const gameMetaTeamSchema = z
   .object({
-    id: z.string().min(1).nullable().optional(),
-    providerId: z.string().min(1).nullable().optional(),
-    abbreviation: z.string().min(1).nullable().optional(),
-    abbr: z.string().min(1).nullable().optional(),
-    name: z.string().min(1).nullable().optional(),
-    code: z.string().min(1).nullable().optional(),
-    slug: z.string().min(1).nullable().optional(),
+    abbr: z.string().min(1),
+    name: z.string().min(1),
   })
   .passthrough();
 
 export const gameMetaSchema = z
   .object({
+    provider: z.enum(['balldontlie', 'stub']).default('balldontlie'),
+    providerGameId: z.string().min(1),
+    gameDateISO: z.string().min(1),
+    season: z.string().min(1),
+    status: z.string().min(1).optional(),
+    home: gameMetaTeamSchema,
+    away: gameMetaTeamSchema,
     gameId: z.string().min(1).optional(),
     id: z.string().min(1).optional(),
-    provider: z.string().min(1).optional(),
-    providerGameId: z.string().min(1).optional(),
-    startsAt: z.string().min(1).optional(),
-    status: z.string().min(1).optional(),
-    season: z.string().min(1).optional(),
-    homeTeam: gameMetaTeamSchema.nullish(),
-    awayTeam: gameMetaTeamSchema.nullish(),
-    home: gameMetaTeamSchema.nullish(),
-    away: gameMetaTeamSchema.nullish(),
   })
   .passthrough();
 
@@ -64,6 +91,55 @@ export const picksPayloadSchema = z.object({
     .array(highlightPickSchema)
     .max(5, 'Up to 5 highlight picks are allowed'),
   gamesMeta: z.array(gameMetaSchema).optional(),
+  gameUuids: z.array(z.string().uuid()),
+  gameRefs: z.array(gameRefSchema).optional(),
+  providerGameIds: z.array(z.string()).optional(),
+}).superRefine((val, ctx) => {
+  const categories = new Set<string>();
+  val.players.forEach((pick) => {
+    const key = `${pick.gameId}-${pick.category}`;
+    if (categories.has(key)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Duplicate category ${pick.category} for game ${pick.gameId}`,
+      });
+    }
+    categories.add(key);
+  });
+
+  const ranks = val.highlights.map((h) => h.rank);
+  const uniqueRanks = new Set(ranks);
+  if (uniqueRanks.size !== val.highlights.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Highlight ranks must be unique.',
+    });
+  }
+
+  const highlightPlayers = new Set<string>();
+  val.highlights.forEach((highlight) => {
+    if (highlightPlayers.has(highlight.playerId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Highlight players must be unique.',
+      });
+    }
+    highlightPlayers.add(highlight.playerId);
+  });
+
+  const uuidSet = new Set(val.gameUuids);
+  const referencedGameIds = new Set<string>();
+  val.teams.forEach((pick) => referencedGameIds.add(pick.gameId));
+  val.players.forEach((pick) => referencedGameIds.add(pick.gameId));
+  const missingReferences = Array.from(referencedGameIds).filter(
+    (id) => !uuidSet.has(id),
+  );
+  if (missingReferences.length > 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Missing gameUuids for: ${missingReferences.join(', ')}`,
+    });
+  }
 });
 
 export type PicksPayload = z.infer<typeof picksPayloadSchema>;

@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { LOCK_WINDOW_BUFFER_MINUTES } from './constants';
 import type { Database } from './supabase.types';
-import { playerCategorySchema, type PicksPayload } from './validators/picks';
+import { picksPayloadSchema, type PicksPayload } from './validators/picks';
 
 const isoDateSchema = z
   .string()
@@ -85,65 +85,5 @@ export const assertLockWindowOpen = async (
   }
 };
 
-export const validatePicksPayload = (payload: unknown): PicksPayload => {
-  const picks = z
-    .object({
-      pickDate: isoDateSchema,
-      teams: z.array(
-        z.object({
-          gameId: z.string().min(1),
-          teamId: z.string().min(1),
-        }),
-      ),
-      players: z.array(
-        z.object({
-          gameId: z.string().min(1),
-          category: playerCategorySchema,
-          playerId: z.string().min(1),
-        }),
-      ),
-      highlights: z
-        .array(
-          z.object({
-            playerId: z.string().min(1),
-            rank: z.number().int().min(1).max(10),
-          }),
-        )
-        .max(5),
-    })
-    .superRefine((val, ctx) => {
-      const categories = new Set<string>();
-      val.players.forEach((pick) => {
-        const key = `${pick.gameId}-${pick.category}`;
-        if (categories.has(key)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `Duplicate category ${pick.category} for game ${pick.gameId}`,
-          });
-        }
-        categories.add(key);
-      });
-
-      const ranks = val.highlights.map((h) => h.rank);
-      const uniqueRanks = new Set(ranks);
-      if (uniqueRanks.size !== val.highlights.length) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Highlight ranks must be unique.',
-        });
-      }
-
-      const highlightPlayers = new Set<string>();
-      val.highlights.forEach((highlight) => {
-        if (highlightPlayers.has(highlight.playerId)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Highlight players must be unique.',
-          });
-        }
-        highlightPlayers.add(highlight.playerId);
-      });
-    });
-
-  return picks.parse(payload);
-};
+export const validatePicksPayload = (payload: unknown): PicksPayload =>
+  picksPayloadSchema.parse(payload);

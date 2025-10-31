@@ -72,6 +72,7 @@ export interface Database {
           home_team_name: string | null;
           away_team_name: string | null;
           created_at: string;
+          updated_at: string | null;
         };
         Insert: {
           id?: string;
@@ -88,8 +89,31 @@ export interface Database {
           home_team_name?: string | null;
           away_team_name?: string | null;
           created_at?: string;
+          updated_at?: string | null;
         };
         Update: Partial<Omit<Database['public']['Tables']['games']['Row'], 'id'>>;
+        Relationships: [];
+      };
+      teams: {
+        Row: {
+          id: string;
+          provider: string;
+          provider_team_id: string;
+          abbr: string;
+          name: string;
+          city: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider: string;
+          provider_team_id: string;
+          abbr: string;
+          name: string;
+          city?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Omit<Database['public']['Tables']['teams']['Row'], 'id'>>;
         Relationships: [];
       };
       player: {

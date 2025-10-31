@@ -2,6 +2,9 @@
 
 import useSWR from 'swr';
 
+import { TIMEZONES } from '@/lib/constants';
+import { useGames } from './useGames';
+
 export interface TeamPick {
   gameId: string;
   teamId: string;
@@ -19,18 +22,18 @@ export interface HighlightPick {
 }
 
 export interface GameMetaTeam {
-  id: string;
-  abbr: string | null;
-  name: string | null;
+  abbr: string;
+  name: string;
 }
 
 export interface GameMeta {
-  gameId: string;
-  startsAt?: string | null;
-  home?: GameMetaTeam | null;
-  away?: GameMetaTeam | null;
-  homeTeam?: GameMetaTeam | null;
-  awayTeam?: GameMetaTeam | null;
+  provider: 'balldontlie' | 'stub';
+  providerGameId: string;
+  gameDateISO: string;
+  season: string;
+  status?: string;
+  home: GameMetaTeam;
+  away: GameMetaTeam;
 }
 
 export interface PicksResponse {
@@ -73,7 +76,32 @@ export interface SavePicksPayload {
   players: PlayerPick[];
   highlights: HighlightPick[];
   gamesMeta?: GameMeta[];
+  gameUuids: string[];
+  gameRefs?: GameRef[];
 }
+
+type ClientGameTeamDTO = {
+  abbr?: string;
+  providerTeamId?: string;
+  name?: string;
+};
+
+type ClientGameDTO = {
+  provider: 'bdl';
+  providerGameId: string;
+  season: string;
+  status: string;
+  dateNY: string;
+  startTimeUTC?: string | null;
+  home: ClientGameTeamDTO;
+  away: ClientGameTeamDTO;
+};
+
+type GameRef = {
+  provider: 'bdl';
+  providerGameId: string;
+  dto?: ClientGameDTO;
+};
 
 const fetcher = async (url: string) => {
   const response = await fetch(url, { cache: 'no-store' });
@@ -108,6 +136,62 @@ export const usePicks = (pickDate: string) => {
     fetcher,
     { revalidateOnFocus: false },
   );
+  const { mapByProviderId } = useGames();
+
+  const isUuid = (value: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+  const FORMATTER_NY = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIMEZONES.US_EASTERN,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+  const toDateNy = (iso: string | null | undefined, fallback: string) => {
+    if (!iso) {
+      return fallback;
+    }
+    const parsed = new Date(iso);
+    if (Number.isNaN(parsed.getTime())) {
+      return fallback;
+    }
+    return FORMATTER_NY.format(parsed);
+  };
+
+  const cloneGameRef = (ref: GameRef): GameRef => ({
+    provider: ref.provider,
+    providerGameId: ref.providerGameId,
+    dto: ref.dto
+      ? {
+          provider: ref.dto.provider,
+          providerGameId: ref.dto.providerGameId,
+          season: ref.dto.season,
+          status: ref.dto.status,
+          dateNY: ref.dto.dateNY,
+          startTimeUTC: ref.dto.startTimeUTC ?? null,
+          home: { ...ref.dto.home },
+          away: { ...ref.dto.away },
+        }
+      : undefined,
+  });
+
+  const buildDtoFromMeta = (meta: GameMeta, fallbackDate: string): ClientGameDTO => ({
+    provider: 'bdl',
+    providerGameId: meta.providerGameId,
+    season: meta.season,
+    status: meta.status ?? 'scheduled',
+    dateNY: toDateNy(meta.gameDateISO ?? null, fallbackDate),
+    startTimeUTC: meta.gameDateISO ?? null,
+    home: {
+      abbr: meta.home?.abbr,
+      name: meta.home?.name,
+    },
+    away: {
+      abbr: meta.away?.abbr,
+      name: meta.away?.name,
+    },
+  });
 
   const optimisticBase = () => ({
     pickDate,
@@ -117,26 +201,78 @@ export const usePicks = (pickDate: string) => {
     changesCount: data?.changesCount ?? 0,
   });
 
-  const save = async (payload: SavePicksPayload, method: 'POST' | 'PUT') =>
-    mutate(
-      () => mutatePicks(payload, method),
+  const save = async (payload: SavePicksPayload, method: 'POST' | 'PUT') => {
+    const sanitizedPayload: SavePicksPayload = {
+      ...payload,
+      teams: payload.teams.map((pick) => ({ ...pick })),
+      players: payload.players.map((pick) => ({ ...pick })),
+      highlights: payload.highlights.map((pick) => ({ ...pick })),
+      gameRefs: payload.gameRefs ? payload.gameRefs.map(cloneGameRef) : undefined,
+    };
+
+    const resolvedUuidSet = new Set<string>();
+    const existingRefs = sanitizedPayload.gameRefs ?? [];
+    const seenRefs = new Set(existingRefs.map((ref) => ref.providerGameId));
+    const gameRefs: GameRef[] = [...existingRefs];
+
+    sanitizedPayload.gameUuids.forEach((rawId) => {
+      if (!rawId) {
+        return;
+      }
+      const mappedUuid = mapByProviderId[rawId];
+      if (mappedUuid) {
+        resolvedUuidSet.add(mappedUuid);
+        return;
+      }
+      if (isUuid(rawId)) {
+        resolvedUuidSet.add(rawId);
+        return;
+      }
+      if (seenRefs.has(rawId)) {
+        return;
+      }
+
+      const meta =
+        sanitizedPayload.gamesMeta?.find((entry) => entry.providerGameId === rawId) ?? null;
+
+      if (meta) {
+        gameRefs.push({
+          provider: 'bdl',
+          providerGameId: rawId,
+          dto: buildDtoFromMeta(meta, sanitizedPayload.pickDate),
+        });
+      } else {
+        gameRefs.push({
+          provider: 'bdl',
+          providerGameId: rawId,
+        });
+      }
+
+      seenRefs.add(rawId);
+    });
+
+    sanitizedPayload.gameUuids = Array.from(resolvedUuidSet);
+    sanitizedPayload.gameRefs = gameRefs.length > 0 ? gameRefs : undefined;
+
+    return mutate(
+      () => mutatePicks(sanitizedPayload, method),
       {
         optimisticData: {
           ...optimisticBase(),
-          teams: payload.teams.map((pick) => ({
+          teams: sanitizedPayload.teams.map((pick) => ({
             game_id: pick.gameId,
             selected_team_id: pick.teamId,
             changes_count:
               method === 'PUT' ? Math.min((data?.changesCount ?? 0) + 1, 1) : 0,
           })),
-          players: payload.players.map((pick) => ({
+          players: sanitizedPayload.players.map((pick) => ({
             game_id: pick.gameId,
             category: pick.category,
             player_id: pick.playerId,
             changes_count:
               method === 'PUT' ? Math.min((data?.changesCount ?? 0) + 1, 1) : 0,
           })),
-          highlights: payload.highlights.map((pick) => ({
+          highlights: sanitizedPayload.highlights.map((pick) => ({
             player_id: pick.playerId,
             rank: pick.rank,
             changes_count:
@@ -151,6 +287,7 @@ export const usePicks = (pickDate: string) => {
         revalidate: true,
       },
     );
+  };
 
   return {
     data,

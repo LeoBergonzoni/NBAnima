@@ -23,6 +23,7 @@ import { createBrowserSupabase } from '@/lib/supabase-browser';
 import type { Dictionary } from '@/locales/dictionaries';
 import { useGames } from '@/hooks/useGames';
 import {
+  type GameMeta,
   type HighlightPick,
   type PlayerPick,
   type TeamPick,
@@ -127,6 +128,43 @@ const formatGameTime = (locale: Locale, date: string) => {
     return value.toLocaleString();
   }
 };
+
+const deriveSeasonFromDate = (iso: string): string => {
+  const date = new Date(iso);
+  const fallback = new Date();
+  const validDate = Number.isNaN(date.getTime()) ? fallback : date;
+  const year = validDate.getUTCFullYear();
+  const month = validDate.getUTCMonth(); // 0-indexed
+  const startYear = month >= 6 ? year : year - 1;
+  return `${startYear}-${startYear + 1}`;
+};
+
+const computeTeamAbbr = (team: GameTeam): string => {
+  const explicit = team.abbreviation?.trim();
+  if (explicit) {
+    return explicit.toUpperCase();
+  }
+  if (team.name) {
+    const tokens = team.name.split(/\s+/).filter(Boolean);
+    if (tokens.length === 1) {
+      const [single] = tokens;
+      if (single.length >= 3) {
+        return single.slice(0, 3).toUpperCase();
+      }
+    }
+    if (tokens.length > 0) {
+      return tokens
+        .map((part) => part[0] ?? '')
+        .join('')
+        .slice(0, 3)
+        .toUpperCase();
+    }
+  }
+  return 'UNK';
+};
+
+const normalizeProvider = (provider?: string): GameMeta['provider'] =>
+  provider === 'balldontlie' ? 'balldontlie' : 'stub';
 
 const SectionStatus = ({ complete }: { complete: boolean }) =>
   complete ? (
@@ -903,13 +941,13 @@ const ShopGrid = ({
   );
 };
 
-export const DashboardClient = ({
+export function DashboardClient({
   locale,
   balance,
   ownedCards,
   shopCards,
   role,
-}: DashboardClientProps) => {
+}: DashboardClientProps) {
   const { dictionary } = useLocale();
   const router = useRouter();
   const supabase = useMemo(() => createBrowserSupabase(), []);
@@ -1068,34 +1106,73 @@ export const DashboardClient = ({
       return;
     }
 
-    const gamesMeta = games.map((game) => {
-      const home = {
-        id: String(game.homeTeam.id),
-        abbr: game.homeTeam.abbreviation ?? null,
-        name: game.homeTeam.name ?? null,
-      };
-      const away = {
-        id: String(game.awayTeam.id),
-        abbr: game.awayTeam.abbreviation ?? null,
-        name: game.awayTeam.name ?? null,
-      };
+    const gamesMeta: GameMeta[] = games.map((game) => {
+      const providerGameId =
+        String((game as { providerGameId?: string; id: string }).providerGameId ?? game.id);
+      const provider = normalizeProvider(
+        (game as { provider?: string }).provider,
+      );
+      const startsAtDate = new Date(game.startsAt);
+      const startsAtIso = Number.isNaN(startsAtDate.getTime())
+        ? new Date().toISOString()
+        : startsAtDate.toISOString();
+      const seasonValue = (game as { season?: string | number }).season;
+      const season =
+        typeof seasonValue === 'number' || typeof seasonValue === 'string'
+          ? String(seasonValue)
+          : deriveSeasonFromDate(game.startsAt);
 
       return {
-        gameId: String(game.id),
-        startsAt: game.startsAt,
-        home,
-        away,
-        homeTeam: home,
-        awayTeam: away,
+        provider,
+        providerGameId,
+        gameDateISO: startsAtIso,
+        season,
+        status: game.status ?? 'scheduled',
+        home: {
+          abbr: computeTeamAbbr(game.homeTeam),
+          name: game.homeTeam.name ?? (game.homeTeam.city ?? 'Unknown'),
+        },
+        away: {
+          abbr: computeTeamAbbr(game.awayTeam),
+          name: game.awayTeam.name ?? (game.awayTeam.city ?? 'Unknown'),
+        },
       };
     });
+    const gameUuids = Array.from(new Set(games.map((game) => game.id)));
+
+    const teams: TeamPick[] = games
+      .map((game) => {
+        const selection = teamSelections[game.id];
+        if (!selection) {
+          return null;
+        }
+        const rawSelection = String(selection);
+        if (rawSelection === 'home' || rawSelection === 'away') {
+          return { gameId: game.id, teamId: rawSelection };
+        }
+        const lowerSelection = rawSelection.toLowerCase();
+        const homeAbbr = game.homeTeam.abbreviation?.toLowerCase() ?? '';
+        const awayAbbr = game.awayTeam.abbreviation?.toLowerCase() ?? '';
+        const homeId = String(game.homeTeam.id).toLowerCase();
+        const awayId = String(game.awayTeam.id).toLowerCase();
+
+        if (lowerSelection === homeAbbr || lowerSelection === homeId) {
+          return { gameId: game.id, teamId: 'home' };
+        }
+        if (lowerSelection === awayAbbr || lowerSelection === awayId) {
+          return { gameId: game.id, teamId: 'away' };
+        }
+
+        return null;
+      })
+      .filter(
+        (entry): entry is TeamPick =>
+          entry !== null && (entry.teamId === 'home' || entry.teamId === 'away'),
+      );
 
     const payload = {
       pickDate,
-      teams: Object.entries(teamSelections).map<TeamPick>(([gameId, teamId]) => ({
-        gameId,
-        teamId,
-      })),
+      teams,
       players: Object.entries(playerSelections).flatMap(([gameId, categories]) =>
         Object.entries(categories)
           .filter(([, playerId]) => !!playerId)
@@ -1110,6 +1187,7 @@ export const DashboardClient = ({
         rank: entry.rank,
       })),
       gamesMeta,
+      gameUuids,
     };
 
     setIsSaving(true);
@@ -1157,6 +1235,13 @@ export const DashboardClient = ({
 
   return (
     <div className="space-y-8 pb-16 pt-2 sm:pt-4 lg:pb-24">
+      <section>
+        <h1 className="mb-2 text-xl font-bold">Dashboard NBAnima</h1>
+        <p className="text-sm text-gray-500">
+          Benvenuto! Bilancio attuale: {balance} Anima Points
+        </p>
+      </section>
+
       <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-navy-900/60 p-6 shadow-card sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-wide text-slate-400">
@@ -1423,4 +1508,4 @@ export const DashboardClient = ({
       </section>
     </div>
   );
-};
+}
