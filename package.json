@@ -6,7 +6,7 @@
     "dev": "next dev",
     "dev:webpack": "cross-env NEXT_DISABLE_TURBOPACK=1 next dev",
     "build": "npm run build:webpack",
-    "build:webpack": "cross-env NEXT_DISABLE_TURBOPACK=1 NEXT_PRIVATE_TURBOPACK=0 next build",
+    "build:webpack": "next build --webpack",
     "prebuild": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/build-rosters.ts || node --loader ts-node/esm scripts/build-rosters.ts || node scripts/build-rosters.js",
     "start": "next start",
     "start:webpack": "next start",

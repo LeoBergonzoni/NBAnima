@@ -53,7 +53,8 @@ export async function GET(request: NextRequest) {
     const { data: winners, error: winnersError } = await supabaseAdmin
       .from('v_results_team_with_names')
       .select('game_id, winner_team_id')
-      .eq('slate_date', slateDate);
+      .eq('slate_date', slateDate)
+      .returns<Array<{ game_id: string; winner_team_id: string | null }>>();
 
     if (winnersError) {
       throw winnersError;

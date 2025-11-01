@@ -5,7 +5,7 @@ import './globals.css';
 import { RosterPreload } from '@/components/providers/roster-preload';
 import { APP_TITLE } from '@/lib/constants';
 
-export const geist = localFont({
+const geist = localFont({
   src: [
     {
       path: '../../public/fonts/geist/GeistVF.woff2',
@@ -18,7 +18,7 @@ export const geist = localFont({
   display: 'swap',
 });
 
-export const geistMono = localFont({
+const geistMono = localFont({
   src: [
     {
       path: '../../public/fonts/geist/GeistMonoVF.woff2',
