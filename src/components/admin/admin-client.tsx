@@ -38,7 +38,7 @@ const fetcher = async (url: string) => {
   return response.json();
 };
 
-const fullName = (p?: { first_name?: string | null; last_name?: string | null }) =>
+const fullName = (p?: { first_name?: string | null; last_name?: string | null } | null) =>
   [p?.first_name ?? '', p?.last_name ?? ''].join(' ').trim() || '—';
 
 interface ShopCard {
@@ -267,7 +267,11 @@ export const AdminClient = ({
     isLoading: teamWinnersLoading,
     mutate: mutateTeamWinners,
     error: teamWinnersError,
-  } = useSWR<LoadTeamWinnersResult>(
+  } = useSWR<
+    LoadTeamWinnersResult,
+    Error,
+    readonly ['admin-team-winners', string] | null
+  >(
     teamWinnersKey,
     ([, date]) => loadTeamWinners(date),
     { revalidateOnFocus: false },
@@ -278,7 +282,11 @@ export const AdminClient = ({
     isLoading: playerWinnersLoading,
     mutate: mutatePlayerWinners,
     error: playerWinnersError,
-  } = useSWR<LoadPlayerWinnersResult>(
+  } = useSWR<
+    LoadPlayerWinnersResult,
+    Error,
+    readonly ['admin-player-winners', string] | null
+  >(
     playerWinnersKey,
     ([, date]) => loadPlayerWinners(date),
     { revalidateOnFocus: false },
@@ -627,17 +635,20 @@ export const AdminClient = ({
   const handleHighlightsSave = () => {
     const payload = highlightForm
       .filter((entry) => entry.playerId)
-      .map((entry) => ({
-        rank: entry.rank,
-        player:
-          entry.player ??
-          ({
+      .map((entry) => {
+        const player: PlayerSelectResult =
+          entry.player ?? {
             id: entry.playerId,
-            label: entry.player?.label ?? entry.playerId,
+            label: entry.playerId,
             source: 'supabase',
             supabaseId: entry.playerId,
-          } satisfies PlayerSelectResult),
-      }));
+          };
+
+        return {
+          rank: entry.rank,
+          player,
+        };
+      });
     startHighlight(() =>
       saveHighlightsAction({
         date: highlightDate,

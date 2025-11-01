@@ -69,6 +69,7 @@ type UserRow = Pick<
   Database['public']['Tables']['users']['Row'],
   'id' | 'email' | 'anima_points_balance'
 >;
+type PlayerCategoryEnum = Database['public']['Enums']['player_category'];
 
 export type TeamWinnerRow = {
   id: string;
@@ -334,66 +335,62 @@ const ensureAdminUser = async () => {
   return user;
 };
 
-const fetchGamesForDate = async (dateNY: string) => {
+const fetchGamesForDate = async (dateNY: string): Promise<GameRow[]> => {
   const { start, end } = dayRangeForDate(dateNY);
 
   const { data, error } = await supabaseAdmin
     .from('games')
-    .select(
-      [
-        'id',
-        'status',
-        'home_team_id',
-        'away_team_id',
-        'home_team_abbr',
-        'away_team_abbr',
-        'home_team_name',
-        'away_team_name',
-      ].join(', '),
-    )
+    .select('*')
     .gte('game_date', start)
     .lte('game_date', end)
-    .order('game_date', { ascending: true });
+    .order('game_date', { ascending: true })
+    .returns<GameRow[]>();
 
   if (error) {
     throw error;
   }
 
-  return (data ?? []) as GameRow[];
+  return data ?? [];
 };
 
-const fetchTeamResultsForGames = async (gameIds: string[]) => {
+const fetchTeamResultsForGames = async (
+  gameIds: string[],
+): Promise<TeamResultRow[]> => {
   if (gameIds.length === 0) {
-    return [] as TeamResultRow[];
+    return [];
   }
 
   const { data, error } = await supabaseAdmin
     .from('results_team')
-    .select('game_id, winner_team_id, settled_at')
-    .in('game_id', gameIds);
+    .select('*')
+    .in('game_id', gameIds)
+    .returns<TeamResultRow[]>();
 
   if (error) {
     throw error;
   }
 
-  return (data ?? []) as TeamResultRow[];
+  return data ?? [];
 };
 
-const fetchPlayerResultsForGames = async (gameIds: string[]) => {
+const fetchPlayerResultsForGames = async (
+  gameIds: string[],
+): Promise<PlayerResultRow[]> => {
   if (gameIds.length === 0) {
-    return [] as PlayerResultRow[];
+    return [];
   }
 
   const { data, error } = await supabaseAdmin
     .from('results_players')
-    .select('game_id, category, player_id, settled_at')
-    .in('game_id', gameIds);
+    .select('*')
+    .in('game_id', gameIds)
+    .returns<PlayerResultRow[]>();
 
   if (error) {
     throw error;
   }
 
-  return (data ?? []) as PlayerResultRow[];
+  return data ?? [];
 };
 
 const fetchHighlightResultsForDate = async (dateNY: string) => {
@@ -873,7 +870,8 @@ export const loadPlayerWinners = async (
             'player:player_id(first_name,last_name,position)',
           ].join(', '),
         )
-        .eq('pick_date', pickDate),
+        .eq('pick_date', pickDate)
+        .returns<PlayerPickWithMeta[]>(),
       fetchPlayerResultsForGames(gameIds),
     ]);
 
@@ -898,7 +896,7 @@ export const loadPlayerWinners = async (
     } | null;
   };
 
-  const playerPicks = (playerPicksRaw ?? []) as PlayerPickWithMeta[];
+  const playerPicks = playerPicksRaw ?? [];
 
   const optionsByGameCategory = new Map<
     string,
@@ -1102,7 +1100,7 @@ export const publishPlayerWinners = async (
     const resolved = await Promise.all(
       validWinners.map(async (entry) => ({
         gameId: entry.gameId,
-        category: entry.category,
+        category: entry.category as PlayerCategoryEnum,
         playerId: await ensurePlayerUuid(entry.player),
       })),
     );
