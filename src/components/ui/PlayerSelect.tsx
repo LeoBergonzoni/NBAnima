@@ -18,9 +18,10 @@ type PlayerSelectProps = {
   options: PlayerOption[];
   placeholder?: string;
   disabled?: boolean;
+  debounceMs?: number;
 };
 
-const DEBOUNCE_MS = 130;
+const DEFAULT_DEBOUNCE_MS = 130;
 
 export function PlayerSelect({
   value,
@@ -28,6 +29,7 @@ export function PlayerSelect({
   options,
   placeholder = 'Scegli giocatore',
   disabled = false,
+  debounceMs = DEFAULT_DEBOUNCE_MS,
 }: PlayerSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -38,9 +40,9 @@ export function PlayerSelect({
   useEffect(() => {
     const t = window.setTimeout(() => {
       setDebouncedQuery(query.trim().toLowerCase());
-    }, DEBOUNCE_MS);
+    }, debounceMs);
     return () => window.clearTimeout(t);
-  }, [query]);
+  }, [query, debounceMs]);
 
   // Apertura/chiusura
   const handleOpenChange = useCallback((nextOpen: boolean) => {

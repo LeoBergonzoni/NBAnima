@@ -982,18 +982,18 @@ export function DashboardClient({
 
     setTeamSelections(
       picks.teams.reduce<Record<string, string>>((acc, pick) => {
-        const game = (pick as any).game;
+        const game = pick.game ?? null;
         const selectedId = pick.selected_team_id;
         if (selectedId === 'home' || selectedId === 'away') {
           acc[pick.game_id] = selectedId;
           return acc;
         }
         if (game) {
-          if (selectedId === game.home_team_id) {
+          if (selectedId && selectedId === game.home_team_id) {
             acc[pick.game_id] = 'home';
             return acc;
           }
-          if (selectedId === game.away_team_id) {
+          if (selectedId && selectedId === game.away_team_id) {
             acc[pick.game_id] = 'away';
             return acc;
           }

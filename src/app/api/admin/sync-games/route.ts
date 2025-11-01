@@ -18,6 +18,29 @@ const BDL_HOSTS: BalldontlieHost[] = [
   { baseUrl: 'https://balldontlie.io/api/v1', requiresKey: false },
 ];
 
+type BalldontlieTeam = {
+  id?: number | string | null;
+  abbreviation?: string | null;
+  full_name?: string | null;
+  name?: string | null;
+};
+
+type BalldontlieGame = {
+  id?: number | string | null;
+  date?: string | null;
+  season?: number | string | null;
+  status?: string | null;
+  home_team?: BalldontlieTeam | null;
+  visitor_team?: BalldontlieTeam | null;
+};
+
+type BalldontlieResponse = {
+  data?: BalldontlieGame[];
+  meta?: {
+    next_page?: number | string | null;
+  };
+};
+
 const DATE_REGEXP = /^\d{4}-\d{2}-\d{2}$/;
 
 const stableUuidFromString = (value: string) => {
@@ -196,8 +219,8 @@ const parseNextPage = (value: unknown, currentPage: number) => {
   return null;
 };
 
-async function fetchGamesForDate(date: string) {
-  const games: any[] = [];
+async function fetchGamesForDate(date: string): Promise<BalldontlieGame[]> {
+  const games: BalldontlieGame[] = [];
   let page = 1;
   let activeHost: BalldontlieHost | undefined;
 
@@ -221,7 +244,7 @@ async function fetchGamesForDate(date: string) {
         host = fallback.host;
         response = fallback.response;
         activeHost = host;
-      } catch (sameHostError) {
+      } catch {
         const fallback = await fetchFromAnyHost(fallbackPath, {
           acceptStatuses: [404],
         });
@@ -244,7 +267,7 @@ async function fetchGamesForDate(date: string) {
       throw new Error(`Failed to fetch games from balldontlie (status ${response.status})`);
     }
 
-    const payload = await response.json();
+    const payload = (await response.json()) as BalldontlieResponse;
     const data = Array.isArray(payload?.data) ? payload.data : [];
     games.push(...data);
 
@@ -286,7 +309,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ synced: 0 });
     }
 
-    const upserts: Database['public']['Tables']['games']['Insert'][] = games.map((game: any) => {
+    const upserts: Database['public']['Tables']['games']['Insert'][] = games.map((game) => {
       const providerGameId = game?.id;
       if (!providerGameId) {
         throw new Error('Missing balldontlie game id');

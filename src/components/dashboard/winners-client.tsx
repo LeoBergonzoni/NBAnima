@@ -7,6 +7,9 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
 
+import { PicksPlayersTable, type PlayerPickRow } from '@/components/picks/PicksPlayersTable';
+import { PicksTeamsTable, type TeamPickRow } from '@/components/picks/PicksTeamsTable';
+import { matchesTeamIdentity } from '@/components/picks/cells';
 import { TIMEZONES, type Locale } from '@/lib/constants';
 import { getTeamMetadata } from '@/lib/teamMetadata';
 import type { Dictionary } from '@/locales/dictionaries';
@@ -36,23 +39,61 @@ interface WinnersResponse {
   players: PlayerResult[];
 }
 
-type MyTeamPick = {
+interface PicksTeamRecord {
   game_id: string;
   selected_team_id: string;
-};
+  selected_team_abbr?: string | null;
+  selected_team_name?: string | null;
+  pick_date?: string | null;
+  changes_count?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  result?: string | null;
+  game?: {
+    id?: string | null;
+    home_team_id?: string | null;
+    away_team_id?: string | null;
+    home_team_abbr?: string | null;
+    away_team_abbr?: string | null;
+    home_team_name?: string | null;
+    away_team_name?: string | null;
+  } | null;
+}
 
-type MyPlayerPick = {
+interface PicksPlayerRecord {
   game_id: string;
   category: string;
   player_id: string;
-  player?: { firstName: string; lastName: string } | null;
-};
+  pick_date?: string | null;
+  changes_count?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  player?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    position?: string | null;
+    team_abbr?: string | null;
+  } | null;
+  game?: {
+    id?: string | null;
+    home_team_id?: string | null;
+    away_team_id?: string | null;
+    home_team_abbr?: string | null;
+    away_team_abbr?: string | null;
+    home_team_name?: string | null;
+    away_team_name?: string | null;
+  } | null;
+}
 
 interface MyPicksResponse {
-  date: string;
-  teams: MyTeamPick[];
-  players: MyPlayerPick[];
+  pickDate: string;
+  userId?: string;
+  teams: PicksTeamRecord[];
+  players: PicksPlayerRecord[];
   highlights: Array<{ player_id: string; rank: number }>;
+  changesCount: number;
 }
 
 interface PointsResponse {
@@ -127,7 +168,7 @@ export const WinnersClient = ({ locale, dictionary }: WinnersClientProps) => {
     [selectedDate],
   );
   const picksKey = useMemo(
-    () => ['/api/my-picks', selectedDate] as const,
+    () => ['/api/picks', selectedDate] as const,
     [selectedDate],
   );
   const pointsKey = useMemo(
@@ -175,16 +216,166 @@ export const WinnersClient = ({ locale, dictionary }: WinnersClientProps) => {
   const playerPickMetaMap = useMemo(
     () =>
       new Map(
-        (myPicks?.players ?? []).map((pick) => [
-          `${pick.game_id}:${pick.category}`,
-          pick.player ?? null,
-        ]),
+        (myPicks?.players ?? []).map((pick) => {
+          const raw = pick.player ?? null;
+          const meta = raw
+            ? {
+                firstName:
+                  (raw as { firstName?: string | null }).firstName ??
+                  (raw as { first_name?: string | null }).first_name ??
+                  '',
+                lastName:
+                  (raw as { lastName?: string | null }).lastName ??
+                  (raw as { last_name?: string | null }).last_name ??
+                  '',
+              }
+            : null;
+          return [`${pick.game_id}:${pick.category}`, meta];
+        }),
       ),
     [myPicks?.players],
   );
 
   const hasResults =
     (winners?.teams?.length ?? 0) > 0 || (winners?.players?.length ?? 0) > 0;
+
+  const winnersByGameId = useMemo(
+    () =>
+      new Map(
+        (winners?.teams ?? []).map((team) => [team.game_id, team]),
+      ),
+    [winners?.teams],
+  );
+
+  const myTeamTableRows = useMemo<TeamPickRow[]>(() => {
+    if (!myPicks?.teams) {
+      return [];
+    }
+    return myPicks.teams.map((pick) => {
+      const record = pick as PicksTeamRecord;
+      const winner = winnersByGameId.get(record.game_id);
+      const selectedMeta = getTeamMetadata(record.selected_team_id);
+      const homeMeta =
+        (record.game?.home_team_id
+          ? getTeamMetadata(record.game.home_team_id)
+          : winner?.home_team_id
+            ? getTeamMetadata(winner.home_team_id)
+            : undefined) ?? undefined;
+      const awayMeta =
+        (record.game?.away_team_id
+          ? getTeamMetadata(record.game.away_team_id)
+          : winner?.visitor_team_id
+            ? getTeamMetadata(winner.visitor_team_id)
+            : undefined) ?? undefined;
+      const gameInfo: TeamPickRow['game'] = {
+        id: record.game?.id ?? record.game_id,
+        home_team_id: record.game?.home_team_id ?? winner?.home_team_id ?? null,
+        away_team_id: record.game?.away_team_id ?? winner?.visitor_team_id ?? null,
+        home_team_abbr:
+          record.game?.home_team_abbr ?? homeMeta?.abbreviation ?? null,
+        away_team_abbr:
+          record.game?.away_team_abbr ?? awayMeta?.abbreviation ?? null,
+        home_team_name:
+          record.game?.home_team_name ?? homeMeta?.name ?? null,
+        away_team_name:
+          record.game?.away_team_name ?? awayMeta?.name ?? null,
+      };
+      const winnerMeta =
+        winner?.winner_team_id ? getTeamMetadata(winner.winner_team_id) : undefined;
+
+      let result = record.result ?? null;
+      if (!result && winner?.winner_team_id) {
+        const selected = {
+          id: record.selected_team_id,
+          abbr:
+            record.selected_team_abbr ??
+            selectedMeta?.abbreviation ??
+            null,
+        };
+        const winning = {
+          id: winner.winner_team_id,
+          abbr: winnerMeta?.abbreviation ?? null,
+        };
+        result = matchesTeamIdentity(selected, winning) ? 'win' : 'loss';
+      }
+
+      return {
+        game_id: record.game_id,
+        selected_team_id: record.selected_team_id,
+        selected_team_abbr:
+          record.selected_team_abbr ?? selectedMeta?.abbreviation ?? null,
+        selected_team_name:
+          record.selected_team_name ?? selectedMeta?.name ?? null,
+        pick_date: record.pick_date ?? myPicks.pickDate ?? selectedDate,
+        result,
+        changes_count: record.changes_count ?? null,
+        created_at: record.created_at ?? null,
+        updated_at: record.updated_at ?? null,
+        game: gameInfo,
+      };
+    });
+  }, [myPicks, winnersByGameId, selectedDate]);
+
+  const myPlayerTableRows = useMemo<PlayerPickRow[]>(() => {
+    if (!myPicks?.players) {
+      return [];
+    }
+    return myPicks.players.map((pick) => {
+      const record = pick as PicksPlayerRecord;
+      const winner = winnersByGameId.get(record.game_id);
+      const homeMeta =
+        (record.game?.home_team_id
+          ? getTeamMetadata(record.game.home_team_id)
+          : winner?.home_team_id
+            ? getTeamMetadata(winner.home_team_id)
+            : undefined) ?? undefined;
+      const awayMeta =
+        (record.game?.away_team_id
+          ? getTeamMetadata(record.game.away_team_id)
+          : winner?.visitor_team_id
+            ? getTeamMetadata(winner.visitor_team_id)
+            : undefined) ?? undefined;
+
+      const normalizedPlayer = record.player
+        ? {
+            first_name:
+              record.player.first_name ??
+              (record.player as { firstName?: string | null }).firstName ??
+              null,
+            last_name:
+              record.player.last_name ??
+              (record.player as { lastName?: string | null }).lastName ??
+              null,
+            position: record.player.position ?? null,
+            team_abbr: record.player.team_abbr ?? null,
+          }
+        : null;
+
+      return {
+        game_id: record.game_id,
+        category: record.category,
+        player_id: record.player_id,
+        pick_date: record.pick_date ?? myPicks.pickDate ?? selectedDate,
+        changes_count: record.changes_count ?? null,
+        created_at: record.created_at ?? null,
+        updated_at: record.updated_at ?? null,
+        player: normalizedPlayer,
+        game: {
+          id: record.game?.id ?? record.game_id,
+          home_team_id: record.game?.home_team_id ?? winner?.home_team_id ?? null,
+          away_team_id: record.game?.away_team_id ?? winner?.visitor_team_id ?? null,
+          home_team_abbr:
+            record.game?.home_team_abbr ?? homeMeta?.abbreviation ?? null,
+          away_team_abbr:
+            record.game?.away_team_abbr ?? awayMeta?.abbreviation ?? null,
+          home_team_name:
+            record.game?.home_team_name ?? homeMeta?.name ?? null,
+          away_team_name:
+            record.game?.away_team_name ?? awayMeta?.name ?? null,
+        },
+      };
+    });
+  }, [myPicks, winnersByGameId, selectedDate]);
 
   return (
     <div className="space-y-6">
@@ -336,61 +527,22 @@ export const WinnersClient = ({ locale, dictionary }: WinnersClientProps) => {
           <p className="text-sm text-red-400">
             {(picksError as Error).message ?? 'Failed to load picks.'}
           </p>
-        ) : (myPicks?.teams?.length ?? 0) > 0 ||
-          (myPicks?.players?.length ?? 0) > 0 ||
-          (myPicks?.highlights?.length ?? 0) > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4 shadow-card">
-              <h4 className="text-sm font-semibold text-white">
-                {dictionary.play.teams.title}
-              </h4>
-              <ul className="space-y-2 text-xs text-slate-300">
-                {(myPicks?.teams ?? []).map((pick) => {
-                  const teamMeta = getTeamMetadata(pick.selected_team_id);
-                  return (
-                    <li
-                      key={`${pick.game_id}-${pick.selected_team_id}`}
-                      className="rounded-xl border border-white/5 bg-navy-800/70 px-3 py-2"
-                    >
-                      <span className="font-semibold text-white">
-                        {teamMeta?.name ?? pick.selected_team_id}
-                      </span>
-                      <span className="ml-2 text-[11px] uppercase tracking-wide text-slate-500">
-                        {pick.game_id.slice(0, 8)}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-
-            <div className="space-y-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4 shadow-card">
-              <h4 className="text-sm font-semibold text-white">
-                {dictionary.play.players.title}
-              </h4>
-              <ul className="space-y-2 text-xs text-slate-300">
-                {(myPicks?.players ?? []).map((pick) => {
-                  const categoryLabel = getCategoryLabel(dictionary, pick.category);
-                  const label = pick.player
-                    ? `${pick.player.firstName} ${pick.player.lastName}`.trim()
-                    : pick.player_id;
-                  return (
-                    <li
-                      key={`${pick.game_id}-${pick.category}-${pick.player_id}`}
-                      className="rounded-xl border border-white/5 bg-navy-800/70 px-3 py-2"
-                    >
-                      <span className="font-semibold text-white">{label}</span>
-                      <span className="ml-2 text-[11px] uppercase tracking-wide text-slate-500">
-                        {categoryLabel}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
         ) : (
-          <p className="text-sm text-slate-300">{dictionary.dashboard.winners.empty}</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <PicksTeamsTable
+              className="h-full"
+              title={dictionary.play.teams.title}
+              rows={myTeamTableRows}
+              emptyMessage={dictionary.dashboard.winners.empty}
+            />
+            <PicksPlayersTable
+              className="h-full"
+              title={dictionary.play.players.title}
+              rows={myPlayerTableRows}
+              emptyMessage={dictionary.dashboard.winners.empty}
+              formatCategory={(category) => getCategoryLabel(dictionary, category)}
+            />
+          </div>
         )}
       </section>
 

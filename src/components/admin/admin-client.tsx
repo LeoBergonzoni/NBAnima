@@ -1,8 +1,10 @@
 'use client';
 
 import clsx from 'clsx';
-import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { Loader2, Pencil, Trash2 } from 'lucide-react';
+import { subDays } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import useSWR from 'swr';
 
 import {
@@ -10,9 +12,21 @@ import {
   assignCardAction,
   revokeCardAction,
   saveHighlightsAction,
+  loadTeamWinners,
+  loadPlayerWinners,
+  publishTeamWinners,
+  publishPlayerWinners,
+  type LoadTeamWinnersResult,
+  type LoadPlayerWinnersResult,
 } from '@/app/[locale]/admin/actions';
-import { useGames } from '@/hooks/useGames';
-import type { Locale } from '@/lib/constants';
+import { PicksPlayersTable } from '@/components/picks/PicksPlayersTable';
+import { PicksTeamsTable } from '@/components/picks/PicksTeamsTable';
+import {
+  PlayerSelect,
+  type PlayerSelectResult,
+} from '@/components/admin/PlayerSelect';
+import { ADMIN_POINT_STEP } from '@/lib/admin';
+import { TIMEZONES, type Locale } from '@/lib/constants';
 import type { Dictionary } from '@/locales/dictionaries';
 
 const fetcher = async (url: string) => {
@@ -26,23 +40,6 @@ const fetcher = async (url: string) => {
 
 const fullName = (p?: { first_name?: string | null; last_name?: string | null }) =>
   [p?.first_name ?? '', p?.last_name ?? ''].join(' ').trim() || '—';
-
-const fmtMatchup = (g?: {
-  away_team_abbr?: string | null;
-  home_team_abbr?: string | null;
-}) => `${g?.away_team_abbr ?? 'AWY'} @ ${g?.home_team_abbr ?? 'HOME'}`;
-
-const TeamBadge = ({ kind }: { kind: 'HOME' | 'AWAY' }) => (
-  <span
-    className={`ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-      kind === 'HOME'
-        ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30'
-        : 'bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30'
-    }`}
-  >
-    {kind}
-  </span>
-);
 
 interface ShopCard {
   id: string;
@@ -69,6 +66,13 @@ interface HighlightResult {
 interface PicksPreviewTeam {
   game_id: string;
   selected_team_id: string;
+  selected_team_abbr?: string | null;
+  selected_team_name?: string | null;
+  pick_date?: string | null;
+  changes_count?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  result?: string | null;
   game?: {
     id?: string | null;
     home_team_abbr: string | null;
@@ -84,10 +88,15 @@ interface PicksPreviewPlayer {
   game_id: string;
   category: string;
   player_id?: string;
+  pick_date?: string | null;
+  changes_count?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
   player?: {
     first_name?: string | null;
     last_name?: string | null;
     position?: string | null;
+    team_abbr?: string | null;
   } | null;
   game?: {
     id?: string | null;
@@ -125,6 +134,27 @@ interface AdminClientProps {
   highlights: HighlightResult[];
 }
 
+const ADMIN_TABS = [
+  'users',
+  'picks',
+  'winnersTeams',
+  'winnersPlayers',
+  'highlights',
+] as const;
+
+type AdminTab = (typeof ADMIN_TABS)[number];
+
+type HighlightFormEntry = {
+  rank: number;
+  playerId: string;
+  player?: PlayerSelectResult | null;
+};
+
+type PlayerWinnerOverridesState = Record<
+  string,
+  Record<string, PlayerSelectResult | null>
+>;
+
 export const AdminClient = ({
   locale,
   dictionary,
@@ -132,16 +162,14 @@ export const AdminClient = ({
   shopCards,
   highlights,
 }: AdminClientProps) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'picks' | 'highlights'>(
-    'users',
-  );
+  const [activeTab, setActiveTab] = useState<AdminTab>('users');
   const [search, setSearch] = useState('');
   const [adjustPending, startAdjust] = useTransition();
   const [cardPending, startCardTransition] = useTransition();
   const [highlightPending, startHighlight] = useTransition();
-  const [selectedUser, setSelectedUser] = useState<string>(
-    users[0]?.id ?? '',
-  );
+  const [publishTeamsPending, startPublishTeams] = useTransition();
+  const [publishPlayersPending, startPublishPlayers] = useTransition();
+  const [selectedUser, setSelectedUser] = useState<string>(users[0]?.id ?? '');
   const [selectedCard, setSelectedCard] = useState<Record<string, string>>({});
   const [picksDate, setPicksDate] = useState(
     new Date().toISOString().slice(0, 10),
@@ -149,14 +177,55 @@ export const AdminClient = ({
   const [highlightDate, setHighlightDate] = useState(
     highlights[0]?.result_date ?? new Date().toISOString().slice(0, 10),
   );
-  const [highlightForm, setHighlightForm] = useState<
-    Array<{ rank: number; playerId: string }>
-  >(
+  const [highlightForm, setHighlightForm] = useState<HighlightFormEntry[]>(
     highlights.map((entry) => ({
       rank: entry.rank,
       playerId: entry.player_id,
     })),
   );
+  const [statusMessage, setStatusMessage] = useState<{
+    kind: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  const defaultWinnersDate = useMemo(
+    () =>
+      formatInTimeZone(
+        subDays(new Date(), 1),
+        TIMEZONES.US_EASTERN,
+        'yyyy-MM-dd',
+      ),
+    [],
+  );
+
+  const winnersDateOptions = useMemo(() => {
+    const base = Array.from({ length: 14 }, (_, index) =>
+      formatInTimeZone(
+        subDays(new Date(), index + 1),
+        TIMEZONES.US_EASTERN,
+        'yyyy-MM-dd',
+      ),
+    );
+    if (!base.includes(defaultWinnersDate)) {
+      base.unshift(defaultWinnersDate);
+    }
+    return Array.from(new Set(base));
+  }, [defaultWinnersDate]);
+
+  const [winnersDate, setWinnersDate] = useState(defaultWinnersDate);
+  const [teamWinnerOverrides, setTeamWinnerOverrides] = useState<
+    Record<string, string>
+  >({});
+  const [playerWinnerOverrides, setPlayerWinnerOverrides] =
+    useState<PlayerWinnerOverridesState>({});
+
+  useEffect(() => {
+    if (!statusMessage) {
+      return;
+    }
+    const timeout = window.setTimeout(() => setStatusMessage(null), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [statusMessage]);
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) {
@@ -178,6 +247,73 @@ export const AdminClient = ({
     fetcher,
   );
 
+  const teamWinnersKey = useMemo(
+    () =>
+      winnersDate
+        ? (['admin-team-winners', winnersDate] as const)
+        : null,
+    [winnersDate],
+  );
+  const playerWinnersKey = useMemo(
+    () =>
+      winnersDate
+        ? (['admin-player-winners', winnersDate] as const)
+        : null,
+    [winnersDate],
+  );
+
+  const {
+    data: teamWinnersData,
+    isLoading: teamWinnersLoading,
+    mutate: mutateTeamWinners,
+    error: teamWinnersError,
+  } = useSWR<LoadTeamWinnersResult>(
+    teamWinnersKey,
+    ([, date]) => loadTeamWinners(date),
+    { revalidateOnFocus: false },
+  );
+
+  const {
+    data: playerWinnersData,
+    isLoading: playerWinnersLoading,
+    mutate: mutatePlayerWinners,
+    error: playerWinnersError,
+  } = useSWR<LoadPlayerWinnersResult>(
+    playerWinnersKey,
+    ([, date]) => loadPlayerWinners(date),
+    { revalidateOnFocus: false },
+  );
+
+  const baseTeamSelections = useMemo(() => {
+    if (!teamWinnersData) {
+      return {} as Record<string, string>;
+    }
+    return teamWinnersData.games.reduce<Record<string, string>>((acc, game) => {
+      if (game.winnerTeamId) {
+        acc[game.id] = game.winnerTeamId;
+      }
+      return acc;
+    }, {});
+  }, [teamWinnersData]);
+
+  const basePlayerSelections = useMemo(() => {
+    if (!playerWinnersData) {
+      return {} as Record<string, Record<string, string>>;
+    }
+    return playerWinnersData.games.reduce<
+      Record<string, Record<string, string>>
+    >((acc, game) => {
+      const categories: Record<string, string> = {};
+      game.categories.forEach((category) => {
+        if (category.winnerPlayerId) {
+          categories[category.category] = category.winnerPlayerId;
+        }
+      });
+      acc[game.id] = categories;
+      return acc;
+    }, {});
+  }, [playerWinnersData]);
+
   const gameById = useMemo(() => {
     const map = new Map<
       string,
@@ -192,22 +328,22 @@ export const AdminClient = ({
       }
     >();
     (picksPreview?.teams ?? []).forEach((team) => {
-      const record = team as any;
+      const record = team as PicksPreviewTeam;
       const game = record.game;
       const key =
         (typeof game?.id === 'string' && game.id) ||
-        (typeof team.game_id === 'string' && team.game_id) ||
+        (typeof record.game_id === 'string' && record.game_id) ||
         null;
       if (key && game) {
         map.set(key, game);
       }
     });
     (picksPreview?.players ?? []).forEach((player) => {
-      const record = player as any;
+      const record = player as PicksPreviewPlayer;
       const game = record.game;
       const key =
         (typeof game?.id === 'string' && game.id) ||
-        (typeof player.game_id === 'string' && player.game_id) ||
+        (typeof record.game_id === 'string' && record.game_id) ||
         null;
       if (key && game) {
         map.set(key, game);
@@ -216,54 +352,233 @@ export const AdminClient = ({
     return map;
   }, [picksPreview?.teams, picksPreview?.players]);
 
-  const { games } = useGames(locale);
-  const [highlightOptions, setHighlightOptions] = useState<
-    Array<{ id: string; label: string }>
-  >([]);
+  const defaultPickDate = picksPreview?.pickDate ?? picksDate;
 
-  useEffect(() => {
-    if (activeTab !== 'highlights' || games.length === 0) {
-      return;
-    }
+  const teamTableRows = (picksPreview?.teams ?? []).map((team) => {
+    const record = team as PicksPreviewTeam;
+    const game =
+      record.game ??
+      (record.game_id ? gameById.get(record.game_id) : undefined) ??
+      null;
+    return {
+      game_id: record.game_id,
+      selected_team_id: record.selected_team_id,
+      selected_team_abbr: record.selected_team_abbr ?? null,
+      selected_team_name: record.selected_team_name ?? null,
+      pick_date: record.pick_date ?? defaultPickDate,
+      result: record.result ?? null,
+      changes_count: record.changes_count ?? null,
+      created_at: record.created_at ?? null,
+      updated_at: record.updated_at ?? null,
+      game,
+    };
+  });
 
-    let cancelled = false;
+  const playerTableRows = (picksPreview?.players ?? []).map((player) => {
+    const record = player as PicksPreviewPlayer;
+    const game =
+      record.game ??
+      (record.game_id ? gameById.get(record.game_id) : undefined) ??
+      null;
+    return {
+      game_id: record.game_id,
+      category: record.category,
+      player_id: record.player_id ?? 'unknown',
+      pick_date: record.pick_date ?? defaultPickDate,
+      changes_count: record.changes_count ?? null,
+      created_at: record.created_at ?? null,
+      updated_at: record.updated_at ?? null,
+      player: record.player ?? null,
+      game,
+    };
+  });
 
-    const loadPlayers = async () => {
-      try {
-        const results = await Promise.all(
-          games.map((game) =>
-            fetch(`/api/players?gameId=${game.id}`)
-              .then((response) => (response.ok ? response.json() : []))
-              .catch(() => []),
-          ),
-        );
+  const formatCategoryLabel = useCallback(
+    (category: string) => {
+      const categories = dictionary.play.players.categories as Record<string, string>;
+      return categories[category] ?? category;
+    },
+    [dictionary.play.players.categories],
+  );
 
-        if (cancelled) {
-          return;
+  const handleTeamWinnerChange = useCallback(
+    (gameId: string, winnerId: string) => {
+      setTeamWinnerOverrides((previous) => {
+        const baseValue = baseTeamSelections[gameId] ?? '';
+        if (!winnerId || winnerId === baseValue) {
+          const next = { ...previous };
+          delete next[gameId];
+          return next;
+        }
+        return {
+          ...previous,
+          [gameId]: winnerId,
+        };
+      });
+    },
+    [baseTeamSelections],
+  );
+
+  const handlePlayerWinnerChange = useCallback(
+    (
+      gameId: string,
+      category: string,
+      selection: PlayerSelectResult | null,
+    ) => {
+      setPlayerWinnerOverrides((previous) => {
+        const baseSelection = basePlayerSelections[gameId]?.[category] ?? '';
+        const next = { ...previous };
+        const current = { ...(next[gameId] ?? {}) };
+
+        const selectedId = selection?.supabaseId ?? selection?.id ?? '';
+
+        if (
+          !selection ||
+          !selectedId ||
+          (selection.source === 'supabase' && selectedId === baseSelection)
+        ) {
+          delete current[category];
+        } else {
+          current[category] = { ...selection };
         }
 
-        const unique = new Map<string, string>();
-        (results.flat() as Array<{ id: string; fullName: string }>)
-          .forEach((player) => {
-            if (!unique.has(player.id)) {
-              unique.set(player.id, player.fullName ?? player.id);
+        if (Object.keys(current).length === 0) {
+          delete next[gameId];
+        } else {
+          next[gameId] = current;
+        }
+
+        return next;
+      });
+    },
+    [basePlayerSelections],
+  );
+
+  const handleWinnersDateChange = useCallback((value: string) => {
+    setWinnersDate(value);
+    setTeamWinnerOverrides({});
+    setPlayerWinnerOverrides({});
+  }, []);
+
+  const handlePublishTeamWinners = useCallback(() => {
+    if (!teamWinnersData) {
+      return;
+    }
+    const payload = teamWinnersData.games
+      .map((game) => {
+        const selected =
+          teamWinnerOverrides[game.id] ?? baseTeamSelections[game.id] ?? null;
+        return selected
+          ? {
+              gameId: game.id,
+              winnerTeamId: selected,
             }
-          });
-
-        setHighlightOptions(
-          Array.from(unique.entries()).map(([id, label]) => ({ id, label })),
-        );
+          : null;
+      })
+      .filter(
+        (entry): entry is { gameId: string; winnerTeamId: string } =>
+          entry !== null,
+      );
+    startPublishTeams(async () => {
+      try {
+        await publishTeamWinners(winnersDate, payload, locale);
+        setStatusMessage({
+          kind: 'success',
+          message: 'Vincitori Teams pubblicati.',
+        });
+        await mutateTeamWinners();
+        setTeamWinnerOverrides({});
       } catch (error) {
-        console.error('Failed to load highlight players', error);
+        setStatusMessage({
+          kind: 'error',
+          message:
+            (error as Error)?.message ??
+            'Pubblicazione vincitori Teams fallita.',
+        });
       }
-    };
+    });
+  }, [
+    teamWinnersData,
+    teamWinnerOverrides,
+    baseTeamSelections,
+    winnersDate,
+    locale,
+    mutateTeamWinners,
+    startPublishTeams,
+  ]);
 
-    loadPlayers();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, games]);
+  const handlePublishPlayerWinners = useCallback(() => {
+    if (!playerWinnersData) {
+      return;
+    }
+    const payload = playerWinnersData.games
+      .flatMap((game) =>
+        game.categories.map((category) => {
+          const override =
+            playerWinnerOverrides[game.id]?.[category.category] ?? null;
+          if (override) {
+            return {
+              gameId: game.id,
+              category: category.category,
+              player: override,
+            };
+          }
+          const baseId =
+            basePlayerSelections[game.id]?.[category.category] ?? '';
+          if (baseId) {
+            const label =
+              category.options.find((option) => option.value === baseId)?.label ??
+              baseId;
+            return {
+              gameId: game.id,
+              category: category.category,
+              player: {
+                id: baseId,
+                label,
+                source: 'supabase',
+                supabaseId: baseId,
+              } satisfies PlayerSelectResult,
+            };
+          }
+          return null;
+        }),
+      )
+      .filter(
+        (
+          entry,
+        ): entry is {
+          gameId: string;
+          category: string;
+          player: PlayerSelectResult;
+        } => entry !== null,
+      );
+    startPublishPlayers(async () => {
+      try {
+        await publishPlayerWinners(winnersDate, payload, locale);
+        setStatusMessage({
+          kind: 'success',
+          message: 'Vincitori Players pubblicati.',
+        });
+        await mutatePlayerWinners();
+        setPlayerWinnerOverrides({});
+      } catch (error) {
+        setStatusMessage({
+          kind: 'error',
+          message:
+            (error as Error)?.message ??
+            'Pubblicazione vincitori Players fallita.',
+        });
+      }
+    });
+  }, [
+    playerWinnersData,
+    playerWinnerOverrides,
+    basePlayerSelections,
+    winnersDate,
+    locale,
+    mutatePlayerWinners,
+    startPublishPlayers,
+  ]);
 
   const handleBalanceAdjust = (userId: string, delta: number) => {
     startAdjust(() =>
@@ -291,19 +606,38 @@ export const AdminClient = ({
     );
   };
 
-  const handleHighlightChange = (rank: number, playerId: string) => {
+  const handleHighlightChange = (
+    rank: number,
+    selection: PlayerSelectResult | null,
+  ) => {
     setHighlightForm((previous) => {
       const filtered = previous.filter((entry) => entry.rank !== rank);
+      if (!selection) {
+        return filtered;
+      }
+      const playerId = selection.supabaseId ?? selection.id;
       if (!playerId) {
         return filtered;
       }
-      filtered.push({ rank, playerId });
+      filtered.push({ rank, playerId, player: selection });
       return filtered.sort((a, b) => a.rank - b.rank);
     });
   };
 
   const handleHighlightsSave = () => {
-    const payload = highlightForm.filter((entry) => entry.playerId);
+    const payload = highlightForm
+      .filter((entry) => entry.playerId)
+      .map((entry) => ({
+        rank: entry.rank,
+        player:
+          entry.player ??
+          ({
+            id: entry.playerId,
+            label: entry.player?.label ?? entry.playerId,
+            source: 'supabase',
+            supabaseId: entry.playerId,
+          } satisfies PlayerSelectResult),
+      }));
     startHighlight(() =>
       saveHighlightsAction({
         date: highlightDate,
@@ -318,25 +652,33 @@ export const AdminClient = ({
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center gap-4">
-        {['users', 'picks', 'highlights'].map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab as typeof activeTab)}
-            className={clsx(
-              'rounded-full border px-4 py-2 text-sm font-semibold transition',
-              activeTab === tab
-                ? 'border-accent-gold bg-accent-gold/20 text-accent-gold'
-                : 'border-white/10 bg-navy-800/70 text-slate-300 hover:border-accent-gold/30',
-            )}
-          >
-            {tab === 'users'
+        {ADMIN_TABS.map((tab) => {
+          const label =
+            tab === 'users'
               ? dictionary.admin.usersTab
               : tab === 'picks'
                 ? dictionary.admin.picksTab
-                : dictionary.admin.highlightsTab}
-          </button>
-        ))}
+                : tab === 'winnersTeams'
+                  ? 'Winners Teams'
+                  : tab === 'winnersPlayers'
+                    ? 'Winners Players'
+                    : dictionary.admin.highlightsTab;
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={clsx(
+                'rounded-full border px-4 py-2 text-sm font-semibold transition',
+                activeTab === tab
+                  ? 'border-accent-gold bg-accent-gold/20 text-accent-gold'
+                  : 'border-white/10 bg-navy-800/70 text-slate-300 hover:border-accent-gold/30',
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
       </header>
 
       {activeTab === 'users' ? (
@@ -383,17 +725,21 @@ export const AdminClient = ({
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={() => handleBalanceAdjust(user.id, 50)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-accent-gold/40 text-accent-gold hover:bg-accent-gold/10"
+                            onClick={() =>
+                              handleBalanceAdjust(user.id, ADMIN_POINT_STEP)
+                            }
+                            className="inline-flex h-8 w-14 items-center justify-center rounded-full border border-accent-gold/40 text-accent-gold hover:bg-accent-gold/10"
                           >
-                            <Plus className="h-4 w-4" />
+                            {`+${ADMIN_POINT_STEP}`}
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleBalanceAdjust(user.id, -50)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-slate-300 hover:border-accent-gold/40"
+                            onClick={() =>
+                              handleBalanceAdjust(user.id, -ADMIN_POINT_STEP)
+                            }
+                            className="inline-flex h-8 w-14 items-center justify-center rounded-full border border-white/10 text-slate-300 hover:border-accent-gold/40"
                           >
-                            —
+                            {`-${ADMIN_POINT_STEP}`}
                           </button>
                         </div>
                       </div>
@@ -492,106 +838,45 @@ export const AdminClient = ({
               <span>{dictionary.common.loading}</span>
             </div>
           ) : picksPreview ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4">
-                <section>
-                  <h3 className="mb-2 text-sm font-semibold text-white">Teams</h3>
-                  <div className="space-y-2 text-sm">
-                    {(picksPreview.teams ?? []).map((team, index) => {
-                      const record = team as any;
-                      const key =
-                        (typeof record.game?.id === 'string' && record.game.id) ||
-                        (typeof team.game_id === 'string' && team.game_id) ||
-                        undefined;
-                      const game = record.game ?? (key ? gameById.get(key) : undefined);
-                      const isHome =
-                        Boolean(game?.home_team_id) &&
-                        team.selected_team_id === game?.home_team_id;
-                      const isAway =
-                        Boolean(game?.away_team_id) &&
-                        team.selected_team_id === game?.away_team_id;
-                      const chosenAbbr = isHome
-                        ? game?.home_team_abbr ?? 'HOME'
-                        : isAway
-                          ? game?.away_team_abbr ?? 'AWY'
-                          : '???';
-                      const chosenName = isHome
-                        ? game?.home_team_name ?? 'Home team'
-                        : isAway
-                          ? game?.away_team_name ?? 'Away team'
-                          : 'Unknown team';
-
-                      return (
-                        <div key={`${team.game_id}-${index}`} className="rounded border border-white/10 p-2">
-                          <div className="text-slate-300">{fmtMatchup(game)}</div>
-                          <div className="mt-1 text-slate-100">
-                            <strong className="mr-2">{chosenAbbr}</strong>
-                            <span className="opacity-90">{chosenName}</span>
-                            {isHome ? <TeamBadge kind="HOME" /> : null}
-                            {isAway ? <TeamBadge kind="AWAY" /> : null}
-                            {!isHome && !isAway ? (
-                              <span className="ml-2 text-[11px] text-amber-300/80">
-                                not matching home/away
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {(picksPreview.teams?.length ?? 0) === 0 ? (
-                      <div className="text-slate-400">No team picks.</div>
-                    ) : null}
-                  </div>
-                </section>
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <PicksTeamsTable
+                  className="h-full"
+                  title={dictionary.play.teams.title}
+                  rows={teamTableRows}
+                  emptyMessage="No team picks."
+                />
+                <PicksPlayersTable
+                  className="h-full"
+                  title={dictionary.play.players.title}
+                  rows={playerTableRows}
+                  emptyMessage="No player picks."
+                  formatCategory={formatCategoryLabel}
+                />
               </div>
               <div className="space-y-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4">
-                <section>
-                  <h3 className="mb-2 text-sm font-semibold text-white">Players</h3>
-                  <div className="space-y-2 text-sm text-slate-200">
-                    {(picksPreview.players ?? []).map((player, index) => {
-                      const record = player as any;
-                      const game = record.game ?? gameById.get(player.game_id);
-                      const name = fullName(record.player);
-                      return (
-                        <div key={`${player.game_id}-${player.category}-${index}`} className="rounded-xl bg-navy-800/70 px-3 py-2">
-                          <div className="text-xs opacity-70">{fmtMatchup(game)}</div>
-                          <div>
-                            <span className="mr-2 text-xs uppercase opacity-70">
-                              {player.category}
-                            </span>
-                            <strong>{name}</strong>
-                            {record.player?.position ? (
-                              <span className="text-xs opacity-60"> · {record.player.position}</span>
-                            ) : null}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {(picksPreview.players?.length ?? 0) === 0 ? (
-                      <div className="rounded-xl bg-navy-800/70 px-3 py-2 text-xs text-slate-400">
-                        No player picks.
-                      </div>
-                    ) : null}
-                  </div>
-                </section>
-              </div>
-              <div className="space-y-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4 md:col-span-2">
                 <section>
                   <h3 className="mb-2 text-sm font-semibold text-white">
                     {dictionary.common.highlights}
                   </h3>
                   <div className="space-y-1 text-sm text-slate-200">
                     {(picksPreview.highlights ?? []).map((highlight, index) => {
-                      const record = highlight as any;
+                      const record = highlight as PicksPreviewHighlight;
                       const name = fullName(record.player);
                       return (
-                        <div key={`${highlight.rank}-${index}`} className="rounded-xl bg-navy-800/70 px-3 py-2">
+                        <div
+                          key={`${highlight.rank}-${index}`}
+                          className="rounded-xl bg-navy-800/70 px-3 py-2"
+                        >
                           <span className="mr-2 text-xs uppercase opacity-70">
                             RANK #{highlight.rank}
                           </span>
                           <strong>{name}</strong>
                           {record.player?.position ? (
-                            <span className="text-xs opacity-60"> · {record.player.position}</span>
+                            <span className="text-xs opacity-60">
+                              {' '}
+                              · {record.player.position}
+                            </span>
                           ) : null}
                         </div>
                       );
@@ -611,6 +896,319 @@ export const AdminClient = ({
         </section>
       ) : null}
 
+      {activeTab === 'winnersTeams' ? (
+        <section className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="date"
+                value={winnersDate}
+                onChange={(event) => handleWinnersDateChange(event.target.value)}
+                className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+              />
+              <select
+                value={winnersDate}
+                onChange={(event) => handleWinnersDateChange(event.target.value)}
+                className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+              >
+                {winnersDateOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {statusMessage ? (
+              <div
+                className={clsx(
+                  'rounded-full px-4 py-2 text-xs font-semibold',
+                  statusMessage.kind === 'success'
+                    ? 'border border-emerald-400/40 bg-emerald-400/10 text-emerald-200'
+                    : 'border border-rose-400/40 bg-rose-400/10 text-rose-200',
+                )}
+              >
+                {statusMessage.message}
+              </div>
+            ) : null}
+          </div>
+          {teamWinnersLoading ? (
+            <div className="flex items-center gap-2 text-sm text-slate-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>{dictionary.common.loading}</span>
+            </div>
+          ) : teamWinnersError ? (
+            <p className="text-sm text-rose-400">
+              {(teamWinnersError as Error)?.message ?? 'Errore nel caricamento.'}
+            </p>
+          ) : teamWinnersData ? (
+            teamWinnersData.games.length > 0 ? (
+              <div className="overflow-hidden rounded-2xl border border-white/10">
+                <table className="min-w-full divide-y divide-white/10 text-sm">
+                  <thead className="bg-navy-900/80 text-[11px] uppercase tracking-wide text-slate-400">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Matchup</th>
+                      <th className="px-4 py-3 text-left">Status</th>
+                      <th className="px-4 py-3 text-left">Vincitore</th>
+                      <th className="px-4 py-3 text-left">Pubblicazione</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/10 text-[13px] text-slate-200">
+                    {teamWinnersData.games.map((game) => {
+                      const baseSelection = baseTeamSelections[game.id] ?? '';
+                      const selection =
+                        teamWinnerOverrides[game.id] ?? baseSelection;
+                      return (
+                        <tr key={game.id}>
+                          <td className="px-4 py-3 align-top">
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-white">
+                                {(game.awayTeam.abbr ?? 'AWY').toUpperCase()} @{' '}
+                                {(game.homeTeam.abbr ?? 'HOME').toUpperCase()}
+                              </span>
+                              <span className="text-xs text-slate-400">
+                                {(game.awayTeam.name ?? 'Away Team')}{' '}
+                                vs {(game.homeTeam.name ?? 'Home Team')}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top text-xs uppercase tracking-wide text-slate-400">
+                            {game.status}
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <select
+                              value={selection}
+                              onChange={(event) =>
+                                handleTeamWinnerChange(game.id, event.target.value)
+                              }
+                              className="w-full rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+                            >
+                              <option value="">—</option>
+                              <option value={game.homeTeam.id}>
+                                {(game.homeTeam.abbr ?? 'HOME').toUpperCase()} ·{' '}
+                                {game.homeTeam.name ?? 'Home'}
+                              </option>
+                              <option value={game.awayTeam.id}>
+                                {(game.awayTeam.abbr ?? 'AWY').toUpperCase()} ·{' '}
+                                {game.awayTeam.name ?? 'Away'}
+                              </option>
+                            </select>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            {game.winnerTeamId ? (
+                              <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold text-emerald-200">
+                                Pubblicato
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full border border-white/10 px-3 py-1 text-[11px] font-semibold text-slate-400">
+                                In attesa
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-300">
+                Nessuna partita trovata per la data selezionata.
+              </p>
+            )
+          ) : (
+            <p className="text-sm text-slate-300">Nessun dato disponibile.</p>
+          )}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handlePublishTeamWinners}
+              disabled={
+                publishTeamsPending ||
+                teamWinnersLoading ||
+                Boolean(teamWinnersError) ||
+                !teamWinnersData
+              }
+              className={clsx(
+                'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold',
+                publishTeamsPending
+                  ? 'border-white/10 bg-navy-800/70 text-slate-400'
+                  : 'border-accent-gold/40 text-accent-gold hover:border-accent-gold',
+              )}
+            >
+              {publishTeamsPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              Pubblica vincitori
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {activeTab === 'winnersPlayers' ? (
+        <section className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="date"
+                value={winnersDate}
+                onChange={(event) => handleWinnersDateChange(event.target.value)}
+                className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+              />
+              <select
+                value={winnersDate}
+                onChange={(event) => handleWinnersDateChange(event.target.value)}
+                className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+              >
+                {winnersDateOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {statusMessage ? (
+              <div
+                className={clsx(
+                  'rounded-full px-4 py-2 text-xs font-semibold',
+                  statusMessage.kind === 'success'
+                    ? 'border border-emerald-400/40 bg-emerald-400/10 text-emerald-200'
+                    : 'border border-rose-400/40 bg-rose-400/10 text-rose-200',
+                )}
+              >
+                {statusMessage.message}
+              </div>
+            ) : null}
+          </div>
+          {playerWinnersLoading ? (
+            <div className="flex items-center gap-2 text-sm text-slate-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>{dictionary.common.loading}</span>
+            </div>
+          ) : playerWinnersError ? (
+            <p className="text-sm text-rose-400">
+              {(playerWinnersError as Error)?.message ??
+                'Errore nel caricamento.'}
+            </p>
+          ) : playerWinnersData ? (
+            playerWinnersData.games.length > 0 ? (
+              <div className="space-y-4">
+                {playerWinnersData.games.map((game) => (
+                  <div
+                    key={game.id}
+                    className="space-y-3 rounded-2xl border border-white/10 bg-navy-900/60 p-4"
+                  >
+                    <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-white">
+                          {(game.awayTeam.abbr ?? 'AWY').toUpperCase()} @{' '}
+                          {(game.homeTeam.abbr ?? 'HOME').toUpperCase()}
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          {(game.awayTeam.name ?? 'Away Team')} vs{' '}
+                          {(game.homeTeam.name ?? 'Home Team')}
+                        </p>
+                      </div>
+                      <span className="text-[11px] uppercase tracking-wide text-slate-500">
+                        {game.status}
+                      </span>
+                    </header>
+                    <div className="space-y-3">
+                      {game.categories.map((category) => {
+                        const baseSelectionId =
+                          basePlayerSelections[game.id]?.[category.category] ?? '';
+                        const overrideSelection =
+                          playerWinnerOverrides[game.id]?.[category.category] ??
+                          null;
+                        const selectionValue = overrideSelection
+                          ? overrideSelection.supabaseId ?? overrideSelection.id
+                          : baseSelectionId;
+                        const published = Boolean(baseSelectionId);
+                        return (
+                          <div
+                            key={`${game.id}-${category.category}`}
+                            className="flex flex-col gap-2 rounded-xl border border-white/10 bg-navy-800/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div className="flex flex-col gap-1">
+                              <span className="text-sm font-semibold text-white">
+                                {formatCategoryLabel(category.category)}
+                              </span>
+                              {published ? (
+                                <span className="inline-flex w-fit items-center rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-200">
+                                  Pubblicato
+                                </span>
+                              ) : (
+                                <span className="inline-flex w-fit items-center rounded-full border border-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-slate-400">
+                                  In attesa
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex w-full flex-col gap-2 sm:w-64">
+                              <PlayerSelect
+                                value={selectionValue || undefined}
+                                onChange={(selection) =>
+                                  handlePlayerWinnerChange(
+                                    game.id,
+                                    category.category,
+                                    selection,
+                                  )
+                                }
+                                placeholder="Seleziona giocatore"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handlePlayerWinnerChange(
+                                    game.id,
+                                    category.category,
+                                    null,
+                                  )
+                                }
+                                className="self-start text-[11px] text-slate-400 hover:text-slate-200"
+                              >
+                                Reset
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-300">
+                Nessuna categoria disponibile per la data selezionata.
+              </p>
+            )
+          ) : (
+            <p className="text-sm text-slate-300">Nessun dato disponibile.</p>
+          )}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handlePublishPlayerWinners}
+              disabled={
+                publishPlayersPending ||
+                playerWinnersLoading ||
+                Boolean(playerWinnersError) ||
+                !playerWinnersData
+              }
+              className={clsx(
+                'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold',
+                publishPlayersPending
+                  ? 'border-white/10 bg-navy-800/70 text-slate-400'
+                  : 'border-accent-gold/40 text-accent-gold hover:border-accent-gold',
+              )}
+            >
+              {publishPlayersPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              Pubblica vincitori
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       {activeTab === 'highlights' ? (
         <section className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -624,22 +1222,31 @@ export const AdminClient = ({
           <div className="grid gap-3 md:grid-cols-2">
             {Array.from({ length: 10 }).map((_, index) => {
               const rank = index + 1;
-              const selected = highlightForm.find((entry) => entry.rank === rank)?.playerId ?? '';
+              const entry = highlightForm.find((item) => item.rank === rank);
+              const selected =
+                entry?.player?.supabaseId ??
+                entry?.player?.id ??
+                entry?.playerId ??
+                '';
               return (
                 <label key={rank} className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4 text-xs text-slate-300">
                   <span className="font-semibold text-white">#{rank}</span>
-                  <select
-                    value={selected}
-                    onChange={(event) => handleHighlightChange(rank, event.target.value)}
-                    className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
-                  >
-                    <option value="">—</option>
-                    {highlightOptions.map((option) => (
-                      <option key={`${rank}-${option.id}`} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex flex-col gap-2">
+                    <PlayerSelect
+                      value={selected || undefined}
+                      onChange={(selection) => handleHighlightChange(rank, selection)}
+                      placeholder="Seleziona giocatore"
+                    />
+                    {selected ? (
+                      <button
+                        type="button"
+                        onClick={() => handleHighlightChange(rank, null)}
+                        className="self-start text-[11px] text-slate-400 hover:text-slate-200"
+                      >
+                        Reset
+                      </button>
+                    ) : null}
+                  </div>
                 </label>
               );
             })}
