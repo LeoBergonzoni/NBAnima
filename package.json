@@ -11,6 +11,7 @@
     "start": "next start",
     "start:webpack": "next start",
     "lint": "eslint . --ext .ts,.tsx",
+    "test:ts": "tsc -p tsconfig.test.json && node --test \"./.tmp-tests/**/*.test.js\" && node -e \"fs.rmSync('.tmp-tests', { recursive: true, force: true })\"",
     "postinstall": "mkdir -p public/fonts/geist && cp node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2 public/fonts/geist/GeistVF.woff2 && cp node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2 public/fonts/geist/GeistMonoVF.woff2"
   },
   "dependencies": {

@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { ZodError } from 'zod';
 
 import {
   assertLockWindowOpen,
@@ -20,6 +21,12 @@ import {
   type RostersMap,
 } from '@/lib/rosters';
 import { TIMEZONES } from '@/lib/constants';
+import { toEasternYYYYMMDD, yesterdayInEastern } from '@/lib/date-us-eastern';
+import {
+  SlateDateSchema,
+  UserPicksResponseSchema,
+} from '@/lib/types-winners';
+import { getUserPicksByDate } from '@/server/services/winners.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -509,6 +516,16 @@ function splitName(full: string) {
 
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
 
+const resolveSlateDate = (request: NextRequest) => {
+  const fallback = toEasternYYYYMMDD(yesterdayInEastern());
+  const input = request.nextUrl.searchParams.get('date') ?? fallback;
+  const parsed = SlateDateSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ZodError(parsed.error.issues);
+  }
+  return parsed.data;
+};
+
 const toDateNy = (iso: string | null | undefined, fallback: string) => {
   if (!iso) {
     return fallback;
@@ -589,105 +606,37 @@ const fetchPicks = async (
   userId: string,
   pickDate: string,
 ) => {
-  const [teamResp, playerResp, highlightsResp] = await Promise.all([
-    supabaseAdmin
-      .from('picks_teams')
-      .select(
-        `
-          game_id,
-          selected_team_id,
-          selected_team_abbr,
-          selected_team_name,
-          updated_at,
-          changes_count,
-          game:game_id (
-            id,
-            home_team_abbr,
-            away_team_abbr,
-            home_team_name,
-            away_team_name,
-            home_team_id,
-            away_team_id
-          )
-        `,
-      )
-      .eq('user_id', userId)
-      .eq('pick_date', pickDate),
-    supabaseAdmin
-      .from('picks_players')
-      .select(
-        `
-          game_id,
-          category,
-          player_id,
-          updated_at,
-          changes_count,
-          player:player_id (
-            first_name,
-            last_name,
-            position
-          ),
-          game:game_id (
-            id,
-            home_team_name,
-            home_team_abbr,
-            home_team_id,
-            away_team_name,
-            away_team_abbr,
-            away_team_id
-          )
-        `,
-      )
-      .eq('user_id', userId)
-      .eq('pick_date', pickDate),
-    supabaseAdmin
-      .from('picks_highlights')
-      .select(
-        `
-          player_id,
-          rank,
-          updated_at,
-          changes_count,
-          player:player_id (
-            first_name,
-            last_name,
-            position
-          )
-        `,
-      )
-      .eq('user_id', userId)
-      .eq('pick_date', pickDate),
-  ]);
-
-  if (teamResp.error || playerResp.error || highlightsResp.error) {
-    throw (
-      teamResp.error ??
-      playerResp.error ??
-      highlightsResp.error ??
-      new Error('Failed to load picks')
-    );
-  }
-
-  const teams = (teamResp.data ?? []) as Array<
-    Record<string, unknown> & { changes_count?: number | null }
-  >;
-  const players = (playerResp.data ?? []) as Array<
-    Record<string, unknown> & { changes_count?: number | null }
-  >;
-  const highlights = (highlightsResp.data ?? []) as Array<
-    Record<string, unknown> & { changes_count?: number | null }
-  >;
+  const { teamPicks, playerPicks, highlightPicks, changesCount } = await getUserPicksByDate(
+    supabaseAdmin,
+    userId,
+    pickDate,
+  );
 
   return {
-    teams,
-    players,
-    highlights,
-    changesCount: Math.max(
-      ...teams.map((p) => p.changes_count ?? 0),
-      ...players.map((p) => p.changes_count ?? 0),
-      ...highlights.map((p) => p.changes_count ?? 0),
-      0,
-    ),
+    teams: teamPicks.map((pick) => ({
+      game_id: pick.game_id,
+      selected_team_id: pick.selected_team_id,
+      selected_team_abbr: pick.selected_team_abbr ?? null,
+      selected_team_name: pick.selected_team_name ?? null,
+      game: pick.game ?? null,
+    })),
+    players: playerPicks.map((pick) => ({
+      game_id: pick.game_id,
+      category: pick.category,
+      player_id: pick.player_id,
+      player: {
+        first_name: pick.first_name ?? null,
+        last_name: pick.last_name ?? null,
+        position: pick.position ?? null,
+        team_id: pick.team_id ?? null,
+      },
+      game: pick.game ?? null,
+    })),
+    highlights: highlightPicks.map((pick) => ({
+      player_id: pick.player_id,
+      rank: pick.rank,
+    })),
+    changesCount,
   };
 };
 
@@ -695,21 +644,63 @@ export async function GET(request: NextRequest) {
   const supabaseAdmin = createAdminSupabaseClient();
   try {
     const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
-    const pickDate =
-      request.nextUrl.searchParams.get('date') ?? formatDate(new Date());
+    const pickDate = resolveSlateDate(request);
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
-    const picks = await fetchPicks(supabaseAdmin, userId, pickDate);
+    const base = await getUserPicksByDate(supabaseAdmin, userId, pickDate);
+    const normalized = UserPicksResponseSchema.parse({
+      date: pickDate,
+      teamPicks: base.teamPicks,
+      playerPicks: base.playerPicks,
+      highlightPicks: base.highlightPicks,
+      changesCount: base.changesCount,
+    });
+
+    const legacyTeams = normalized.teamPicks.map((pick) => ({
+      game_id: pick.game_id,
+      selected_team_id: pick.selected_team_id,
+      selected_team_abbr: pick.selected_team_abbr ?? null,
+      selected_team_name: pick.selected_team_name ?? null,
+      game: pick.game ?? null,
+    }));
+
+    const legacyPlayers = normalized.playerPicks.map((pick) => ({
+      game_id: pick.game_id,
+      category: pick.category,
+      player_id: pick.player_id,
+      player: {
+        first_name: pick.first_name ?? null,
+        last_name: pick.last_name ?? null,
+        position: pick.position ?? null,
+        team_id: pick.team_id ?? null,
+      },
+      game: pick.game ?? null,
+    }));
+
+    const legacyHighlights = (normalized.highlightPicks ?? []).map((pick) => ({
+      player_id: pick.player_id,
+      rank: pick.rank,
+    }));
 
     return NextResponse.json({
-      pickDate,
+      ...normalized,
+      pickDate: normalized.date,
       userId,
-      ...picks,
+      teams: legacyTeams,
+      players: legacyPlayers,
+      highlights: legacyHighlights,
+      changesCount: normalized.changesCount ?? 0,
     });
   } catch (error) {
     if ((error as Error).message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid date parameter. Expected format YYYY-MM-DD.' },
+        { status: 400 },
+      );
     }
     console.error('[api/picks][GET]', error);
     return NextResponse.json(
