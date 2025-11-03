@@ -537,8 +537,8 @@ const en: Dictionary = {
     lastUpdated: 'Last updated',
     winners: {
       title: 'Winners',
-      dateLabel: 'Slate',
-      pointsOfDay: 'Anima Points earned this slate',
+      dateLabel: 'Date',
+      pointsOfDay: 'Anima Points earned this date',
       myPick: 'My Pick',
       empty: 'No results available for this date.',
     },

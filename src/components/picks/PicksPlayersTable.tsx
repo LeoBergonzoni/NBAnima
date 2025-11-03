@@ -14,7 +14,9 @@ export interface PlayerPickRow {
   game_id: string;
   category: string;
   player_id: string;
+  provider_player_id?: string | null;
   pick_date?: string | null;
+  result?: string | null;
   changes_count?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -50,6 +52,10 @@ export interface PicksPlayersTableProps {
   emptyMessage?: string;
   className?: string;
   formatCategory?: (category: string) => string;
+  showDateColumn?: boolean;
+  showChangesColumn?: boolean;
+  showTimestampsColumn?: boolean;
+  showOutcomeColumn?: boolean;
 }
 
 export const PicksPlayersTable = ({
@@ -58,6 +64,10 @@ export const PicksPlayersTable = ({
   emptyMessage = 'No player picks.',
   className,
   formatCategory,
+  showDateColumn = true,
+  showChangesColumn = true,
+  showTimestampsColumn = true,
+  showOutcomeColumn = true,
 }: PicksPlayersTableProps) => {
   const sortedRows = useMemo(() => sortRows(rows), [rows]);
 
@@ -70,6 +80,46 @@ export const PicksPlayersTable = ({
           .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
           .join(' ')),
     [formatCategory],
+  );
+
+  const outcomeLabel = useMemo(
+    () =>
+      (value?: string | null) => {
+        const normalized = (value ?? '').trim().toLowerCase();
+        if (!normalized) {
+          return { label: '—', className: 'text-slate-400' };
+        }
+        if (normalized === 'win' || normalized === 'won') {
+          return {
+            label: 'Win',
+            className:
+              'rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-200',
+          };
+        }
+        if (normalized === 'loss' || normalized === 'lost') {
+          return {
+            label: 'Loss',
+            className:
+              'rounded-full border border-rose-400/40 bg-rose-400/10 px-2.5 py-0.5 text-xs font-semibold text-rose-200',
+          };
+        }
+        if (normalized === 'pending') {
+          return {
+            label: 'Pending',
+            className:
+              'rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-xs font-semibold text-amber-200',
+          };
+        }
+        if (normalized === 'push') {
+          return {
+            label: 'Push',
+            className:
+              'rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-xs font-semibold text-amber-200',
+          };
+        }
+        return { label: value ?? '—', className: 'text-slate-300' };
+      },
+    [],
   );
 
   return (
@@ -87,24 +137,35 @@ export const PicksPlayersTable = ({
           <table className="min-w-full divide-y divide-white/10 text-sm">
             <thead className="bg-navy-900/80 text-[11px] uppercase tracking-wide text-slate-400">
               <tr>
-                <th scope="col" className="px-4 py-3 text-left">
-                  Data (NY)
-                </th>
+                {showDateColumn ? (
+                  <th scope="col" className="px-4 py-3 text-left">
+                    Data (NY)
+                  </th>
+                ) : null}
                 <th scope="col" className="px-4 py-3 text-left">
                   Categoria / Posizione
                 </th>
                 <th scope="col" className="px-4 py-3 text-left">
                   Giocatore
                 </th>
+                {showOutcomeColumn ? (
+                  <th scope="col" className="px-4 py-3 text-left">
+                    Esito
+                  </th>
+                ) : null}
                 <th scope="col" className="px-4 py-3 text-left">
                   Matchup
                 </th>
-                <th scope="col" className="px-4 py-3 text-left">
-                  Changes
-                </th>
-                <th scope="col" className="px-4 py-3 text-left">
-                  Created / Updated
-                </th>
+                {showChangesColumn ? (
+                  <th scope="col" className="px-4 py-3 text-left">
+                    Changes
+                  </th>
+                ) : null}
+                {showTimestampsColumn ? (
+                  <th scope="col" className="px-4 py-3 text-left">
+                    Created / Updated
+                  </th>
+                ) : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10 text-[13px] text-slate-200">
@@ -119,12 +180,15 @@ export const PicksPlayersTable = ({
                 );
                 const playerName = baseName === '—' ? row.player_id : baseName;
                 const changes = row.changes_count ?? 0;
+                const outcome = outcomeLabel(row.result);
 
                 return (
                   <tr key={`${row.game_id}-${row.category}-${row.player_id}`}>
-                    <td className="whitespace-nowrap px-4 py-3 align-top text-xs text-slate-300">
-                      {formatDateNy(row.pick_date)}
-                    </td>
+                    {showDateColumn ? (
+                      <td className="whitespace-nowrap px-4 py-3 align-top text-xs text-slate-300">
+                        {formatDateNy(row.pick_date)}
+                      </td>
+                    ) : null}
                     <td className="px-4 py-3 align-top text-xs uppercase tracking-wide text-slate-300">
                       <div className="font-semibold text-white">
                         {formatCategoryLabel(row.category)}
@@ -143,6 +207,15 @@ export const PicksPlayersTable = ({
                         </span>
                       </div>
                     </td>
+                    {showOutcomeColumn ? (
+                      <td className="px-4 py-3 align-top text-sm">
+                        {outcome.className.startsWith('rounded-full') ? (
+                          <span className={outcome.className}>{outcome.label}</span>
+                        ) : (
+                          <span className={outcome.className}>{outcome.label}</span>
+                        )}
+                      </td>
+                    ) : null}
                     <td className="px-4 py-3 align-top">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
@@ -155,13 +228,17 @@ export const PicksPlayersTable = ({
                         </p>
                       </div>
                     </td>
-                    <td className="px-4 py-3 align-top text-sm text-slate-200">
-                      {changes}
-                    </td>
-                    <td className="px-4 py-3 align-top text-xs text-slate-300">
-                      <div>Created: {formatDateTimeNy(row.created_at)}</div>
-                      <div>Updated: {formatDateTimeNy(row.updated_at)}</div>
-                    </td>
+                    {showChangesColumn ? (
+                      <td className="px-4 py-3 align-top text-sm text-slate-200">
+                        {changes}
+                      </td>
+                    ) : null}
+                    {showTimestampsColumn ? (
+                      <td className="px-4 py-3 align-top text-xs text-slate-300">
+                        <div>Created: {formatDateTimeNy(row.created_at)}</div>
+                        <div>Updated: {formatDateTimeNy(row.updated_at)}</div>
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })}

@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { getSlateBoundsUtc } from '@/lib/date-us-eastern';
 import type { Database } from '@/lib/supabase.types';
 import {
   PlayerResult,
@@ -21,11 +20,20 @@ type DB = SupabaseClient<Database>;
 const unique = <T>(values: (T | null | undefined)[]) =>
   Array.from(new Set(values.filter(Boolean) as T[]));
 
+const utcRangeForDate = (date: SlateDate) => {
+  const startDate = new Date(`${date}T00:00:00Z`);
+  const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+  return {
+    start: startDate.toISOString(),
+    end: endDate.toISOString(),
+  };
+};
+
 export const getWinnersByDate = async (
   client: DB,
   date: SlateDate,
 ): Promise<{ teams: TeamWinner[]; players: PlayerResult[] }> => {
-  const { start, end } = getSlateBoundsUtc(date);
+  const { start, end } = utcRangeForDate(date);
 
   const { data: games, error: gamesError } = await client
     .from('games')
@@ -111,7 +119,7 @@ export const getWinnersByDate = async (
   const { data: playersLookup, error: playersLookupError } = playerIds.length
     ? await client
         .from('player')
-        .select('id, first_name, last_name, team_id')
+        .select('id, first_name, last_name, team_id, provider_player_id')
         .in('id', playerIds)
     : { data: [], error: null };
 
@@ -131,6 +139,7 @@ export const getWinnersByDate = async (
       won: true,
       first_name: meta?.first_name ?? '',
       last_name: meta?.last_name ?? '',
+      provider_player_id: meta?.provider_player_id ?? null,
     });
   });
 
@@ -189,7 +198,8 @@ export const getUserPicksByDate = async (
           first_name,
           last_name,
           team_id,
-          position
+          position,
+          provider_player_id
         ),
         game:game_id (
           id,
@@ -242,6 +252,7 @@ export const getUserPicksByDate = async (
         last_name?: string | null;
         team_id?: string | null;
         position?: string | null;
+        provider_player_id?: string | null;
       };
     }).player;
     const parsed = UserPlayerPickSchema.parse({
@@ -249,6 +260,7 @@ export const getUserPicksByDate = async (
       category: row.category,
       player_id: row.player_id,
       team_id: meta?.team_id ?? null,
+      provider_player_id: meta?.provider_player_id ?? null,
       first_name: meta?.first_name ?? null,
       last_name: meta?.last_name ?? null,
       position: meta?.position ?? null,
@@ -288,13 +300,12 @@ export const getPointsByDate = async (
   userId: string,
   date: SlateDate,
 ): Promise<PointsByDate> => {
-  const { start, end } = getSlateBoundsUtc(date);
+  const reason = `settlement:${date}`;
   const { data, error } = await client
     .from('anima_points_ledger')
-    .select('delta, created_at')
+    .select('delta')
     .eq('user_id', userId)
-    .gte('created_at', start)
-    .lt('created_at', end);
+    .eq('reason', reason);
 
   if (error) {
     throw error;

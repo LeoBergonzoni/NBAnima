@@ -674,6 +674,7 @@ export async function GET(request: NextRequest) {
         last_name: pick.last_name ?? null,
         position: pick.position ?? null,
         team_id: pick.team_id ?? null,
+        provider_player_id: pick.provider_player_id ?? null,
       },
       game: pick.game ?? null,
     }));

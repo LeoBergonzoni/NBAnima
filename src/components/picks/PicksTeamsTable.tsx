@@ -83,6 +83,9 @@ export interface PicksTeamsTableProps {
   title?: string;
   emptyMessage?: string;
   className?: string;
+  showDateColumn?: boolean;
+  showChangesColumn?: boolean;
+  showTimestampsColumn?: boolean;
 }
 
 export const PicksTeamsTable = ({
@@ -90,6 +93,9 @@ export const PicksTeamsTable = ({
   title = 'Teams',
   emptyMessage = 'No team picks.',
   className,
+  showDateColumn = true,
+  showChangesColumn = true,
+  showTimestampsColumn = true,
 }: PicksTeamsTableProps) => {
   const sortedRows = useMemo(() => sortRows(rows), [rows]);
 
@@ -108,9 +114,11 @@ export const PicksTeamsTable = ({
           <table className="min-w-full divide-y divide-white/10 text-sm">
             <thead className="bg-navy-900/80 text-[11px] uppercase tracking-wide text-slate-400">
               <tr>
-                <th scope="col" className="px-4 py-3 text-left">
-                  Data (NY)
-                </th>
+                {showDateColumn ? (
+                  <th scope="col" className="px-4 py-3 text-left">
+                    Data (NY)
+                  </th>
+                ) : null}
                 <th scope="col" className="px-4 py-3 text-left">
                   Matchup
                 </th>
@@ -120,12 +128,16 @@ export const PicksTeamsTable = ({
                 <th scope="col" className="px-4 py-3 text-left">
                   Esito
                 </th>
-                <th scope="col" className="px-4 py-3 text-left">
-                  Changes
-                </th>
-                <th scope="col" className="px-4 py-3 text-left">
-                  Created / Updated
-                </th>
+                {showChangesColumn ? (
+                  <th scope="col" className="px-4 py-3 text-left">
+                    Changes
+                  </th>
+                ) : null}
+                {showTimestampsColumn ? (
+                  <th scope="col" className="px-4 py-3 text-left">
+                    Created / Updated
+                  </th>
+                ) : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10 text-[13px] text-slate-200">
@@ -150,8 +162,11 @@ export const PicksTeamsTable = ({
                 const isAwayPick = matchesTeamIdentity(selected, away);
                 const selectedAbbr =
                   selected.abbr ?? (isHomePick ? home.abbr : isAwayPick ? away.abbr : null);
+                const normalizedSelectedName =
+                  selected.name && selected.name !== selected.id ? selected.name : null;
                 const selectedName =
-                  selected.name ?? (isHomePick ? home.name : isAwayPick ? away.name : null);
+                  normalizedSelectedName ??
+                  (isHomePick ? home.name : isAwayPick ? away.name : null);
                 const selectedLabel = selectedName ?? row.selected_team_id ?? '—';
 
                 const homeLabel = combineName(home.name, null, home.abbr ?? 'HOME');
@@ -164,9 +179,11 @@ export const PicksTeamsTable = ({
 
                 return (
                   <tr key={`${row.game_id}-${row.selected_team_id}`}>
-                    <td className="whitespace-nowrap px-4 py-3 align-top text-xs text-slate-300">
-                      {formatDateNy(row.pick_date)}
-                    </td>
+                    {showDateColumn ? (
+                      <td className="whitespace-nowrap px-4 py-3 align-top text-xs text-slate-300">
+                        {formatDateNy(row.pick_date)}
+                      </td>
+                    ) : null}
                     <td className="px-4 py-3 align-top">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
@@ -196,11 +213,15 @@ export const PicksTeamsTable = ({
                         <span className={outcome.className}>{outcome.label}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 align-top text-sm text-slate-200">{changes}</td>
-                    <td className="px-4 py-3 align-top text-xs text-slate-300">
-                      <div>Created: {created}</div>
-                      <div>Updated: {updated}</div>
-                    </td>
+                    {showChangesColumn ? (
+                      <td className="px-4 py-3 align-top text-sm text-slate-200">{changes}</td>
+                    ) : null}
+                    {showTimestampsColumn ? (
+                      <td className="px-4 py-3 align-top text-xs text-slate-300">
+                        <div>Created: {created}</div>
+                        <div>Updated: {updated}</div>
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })}

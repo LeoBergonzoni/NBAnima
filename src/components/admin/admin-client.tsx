@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { Loader2, Pencil, Trash2 } from 'lucide-react';
 import { subDays } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import useSWR from 'swr';
 
 import {
@@ -28,6 +28,7 @@ import {
 import { ADMIN_POINT_STEP } from '@/lib/admin';
 import { TIMEZONES, type Locale } from '@/lib/constants';
 import type { Dictionary } from '@/locales/dictionaries';
+import { formatDateNy, formatDateTimeNy } from '@/components/picks/cells';
 
 const fetcher = async (url: string) => {
   const response = await fetch(url, { cache: 'no-store' });
@@ -154,6 +155,44 @@ type PlayerWinnerOverridesState = Record<
   string,
   Record<string, PlayerSelectResult | null>
 >;
+
+function ResponsiveTable({
+  headers,
+  children,
+}: {
+  headers: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="hidden md:block overflow-x-auto rounded-xl border border-white/10 bg-navy-900/60 touch-scroll">
+      <table className="min-w-full text-sm text-left text-slate-200">
+        {headers}
+        {children}
+      </table>
+    </div>
+  );
+}
+
+function MobileList({ children }: { children: ReactNode }) {
+  return <ul className="md:hidden flex flex-col gap-3">{children}</ul>;
+}
+
+const resolveOutcomeDisplay = (value?: string | null) => {
+  const normalized = (value ?? '').trim().toLowerCase();
+  if (normalized === 'win' || normalized === 'won') {
+    return { label: '✓ Win', className: 'text-emerald-300' };
+  }
+  if (normalized === 'loss' || normalized === 'lost') {
+    return { label: '✗ Loss', className: 'text-rose-300' };
+  }
+  if (normalized === 'pending') {
+    return { label: '• Pending', className: 'text-amber-300' };
+  }
+  if (normalized === 'push') {
+    return { label: 'Push', className: 'text-slate-200' };
+  }
+  return { label: '—', className: 'text-slate-400' };
+};
 
 export const AdminClient = ({
   locale,
@@ -396,6 +435,7 @@ export const AdminClient = ({
       changes_count: record.changes_count ?? null,
       created_at: record.created_at ?? null,
       updated_at: record.updated_at ?? null,
+      result: (record as { result?: string | null }).result ?? null,
       player: record.player ?? null,
       game,
     };
@@ -661,65 +701,85 @@ export const AdminClient = ({
   };
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-center gap-4">
-        {ADMIN_TABS.map((tab) => {
-          const label =
-            tab === 'users'
-              ? dictionary.admin.usersTab
-              : tab === 'picks'
-                ? dictionary.admin.picksTab
-                : tab === 'winnersTeams'
-                  ? 'Winners Teams'
-                  : tab === 'winnersPlayers'
-                    ? 'Winners Players'
-                    : dictionary.admin.highlightsTab;
-          return (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={clsx(
-                'rounded-full border px-4 py-2 text-sm font-semibold transition',
-                activeTab === tab
-                  ? 'border-accent-gold bg-accent-gold/20 text-accent-gold'
-                  : 'border-white/10 bg-navy-800/70 text-slate-300 hover:border-accent-gold/30',
-              )}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </header>
+    <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 py-4 md:py-6">
+      <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 md:mx-0 bg-navy-950/80 backdrop-blur supports-[backdrop-filter]:bg-navy-950/60">
+        <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 py-3">
+          <header className="flex gap-2 overflow-x-auto pb-1 text-sm text-white touch-scroll">
+            {ADMIN_TABS.map((tab) => {
+              const label =
+                tab === 'users'
+                  ? dictionary.admin.usersTab
+                  : tab === 'picks'
+                    ? dictionary.admin.picksTab
+                    : tab === 'winnersTeams'
+                      ? 'Winners Teams'
+                      : tab === 'winnersPlayers'
+                        ? 'Winners Players'
+                        : dictionary.admin.highlightsTab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={clsx(
+                    'flex-none whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition min-h-[44px]',
+                    activeTab === tab
+                      ? 'border-accent-gold bg-accent-gold/20 text-accent-gold'
+                      : 'border-white/10 bg-navy-800/70 text-slate-300 hover:border-accent-gold/40',
+                  )}
+                  aria-pressed={activeTab === tab}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </header>
+        </div>
+      </div>
+
+      <div className="space-y-6 pt-4 md:pt-6">
 
       {activeTab === 'users' ? (
         <section className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
             <h2 className="text-2xl font-semibold text-white">
               {dictionary.admin.usersTab}
             </h2>
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={dictionary.admin.searchPlaceholder}
-              className="w-full max-w-xs rounded-full border border-white/10 bg-navy-800/70 px-4 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
-            />
+            <div className="w-full md:w-auto">
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={dictionary.admin.searchPlaceholder}
+                className="h-10 w-full max-w-md rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white placeholder:text-slate-400 focus:border-accent-gold focus:outline-none"
+              />
+            </div>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-white/10">
-            <table className="min-w-full divide-y divide-white/5">
+
+          <ResponsiveTable
+            headers={
               <thead className="bg-navy-900/80 text-xs uppercase tracking-wide text-slate-400">
                 <tr>
-                  <th className="px-4 py-3 text-left">{dictionary.admin.usersTab}</th>
-                  <th className="px-4 py-3 text-left">Email</th>
-                  <th className="px-4 py-3 text-left">{dictionary.admin.balance}</th>
-                  <th className="px-4 py-3 text-left">{dictionary.admin.cards}</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left">
+                    {dictionary.admin.usersTab}
+                  </th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left">Email</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left">
+                    {dictionary.admin.balance}
+                  </th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left">
+                    {dictionary.admin.cards}
+                  </th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5 text-sm text-slate-200">
-                {filteredUsers.map((user) => (
+            }
+          >
+            <tbody className="divide-y divide-white/5 text-sm text-slate-200">
+              {filteredUsers.map((user) => {
+                const userCards = user.user_cards ?? [];
+                return (
                   <tr key={user.id}>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-top">
                       <div className="flex flex-col">
                         <span className="font-semibold text-white">
                           {user.full_name ?? '—'}
@@ -729,56 +789,61 @@ export const AdminClient = ({
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">{user.email}</td>
-                    <td className="px-4 py-3">
+                    <td className="whitespace-nowrap px-4 py-3 align-top">
+                      {user.email}
+                    </td>
+                    <td className="px-4 py-3 align-top">
                       <div className="flex items-center gap-3">
-                        <span>{user.anima_points_balance}</span>
+                        <span className="text-base font-semibold text-white">
+                          {user.anima_points_balance}
+                        </span>
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={() =>
-                              handleBalanceAdjust(user.id, ADMIN_POINT_STEP)
-                            }
-                            className="inline-flex h-8 w-14 items-center justify-center rounded-full border border-accent-gold/40 text-accent-gold hover:bg-accent-gold/10"
+                            onClick={() => handleBalanceAdjust(user.id, ADMIN_POINT_STEP)}
+                            className="inline-flex h-10 items-center justify-center rounded-xl border border-accent-gold/60 bg-accent-gold/10 px-4 text-sm font-semibold text-accent-gold transition hover:border-accent-gold"
+                            aria-label={`Aggiungi ${ADMIN_POINT_STEP} punti`}
                           >
                             {`+${ADMIN_POINT_STEP}`}
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
-                              handleBalanceAdjust(user.id, -ADMIN_POINT_STEP)
-                            }
-                            className="inline-flex h-8 w-14 items-center justify-center rounded-full border border-white/10 text-slate-300 hover:border-accent-gold/40"
+                            onClick={() => handleBalanceAdjust(user.id, -ADMIN_POINT_STEP)}
+                            className="inline-flex h-10 items-center justify-center rounded-xl border border-white/15 px-4 text-sm font-semibold text-slate-200 transition hover:border-accent-gold/40"
+                            aria-label={`Rimuovi ${ADMIN_POINT_STEP} punti`}
                           >
                             {`-${ADMIN_POINT_STEP}`}
                           </button>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-top">
                       <div className="flex flex-wrap gap-2">
-                        {(user.user_cards ?? [])
-                          .map((record) => record.card)
-                          .filter(Boolean)
-                          .map((card) => (
+                        {userCards.map((entry) =>
+                          entry.card ? (
                             <span
-                              key={`${user.id}-${card!.id}`}
-                              className="flex items-center gap-2 rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 text-xs"
+                              key={entry.card.id}
+                              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 text-xs text-slate-200"
                             >
-                              {card!.name}
+                              {entry.card.name} · {entry.card.rarity}
                               <button
                                 type="button"
-                                onClick={() => handleRevokeCard(user.id, card!.id)}
-                                className="text-slate-400 hover:text-red-400"
+                                onClick={() => handleRevokeCard(user.id, entry.card!.id)}
+                                className="text-slate-400 transition hover:text-rose-300"
+                                aria-label={`Rimuovi ${entry.card.name}`}
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             </span>
-                          ))}
+                          ) : null,
+                        )}
+                        {userCards.length === 0 ? (
+                          <span className="text-xs text-slate-400">Nessuna card</span>
+                        ) : null}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex flex-col gap-2">
                         <select
                           value={selectedCard[user.id] ?? ''}
                           onChange={(event) =>
@@ -787,7 +852,7 @@ export const AdminClient = ({
                               [user.id]: event.target.value,
                             }))
                           }
-                          className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 text-xs text-white focus:border-accent-gold focus:outline-none"
+                          className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
                         >
                           <option value="">{dictionary.shop.title}</option>
                           {shopCards.map((card) => (
@@ -799,18 +864,129 @@ export const AdminClient = ({
                         <button
                           type="button"
                           onClick={() => handleAssignCard(user.id)}
-                          className="inline-flex items-center gap-2 rounded-full border border-accent-gold/40 px-3 py-1 text-xs font-semibold text-accent-gold hover:border-accent-gold"
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-accent-gold/60 bg-accent-gold/10 px-4 text-sm font-semibold text-accent-gold transition hover:border-accent-gold"
                         >
-                          <Pencil className="h-3 w-3" />
+                          <Pencil className="h-4 w-4" />
                           {dictionary.shop.buy}
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </ResponsiveTable>
+
+          <MobileList>
+            {filteredUsers.map((user) => {
+              const userCards = user.user_cards ?? [];
+              return (
+                <li
+                  key={user.id}
+                  className="rounded-xl border border-white/10 bg-white/5 p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-white">
+                        {user.full_name ?? '—'}
+                      </div>
+                      <div className="truncate text-xs text-slate-400">
+                        {user.email}
+                      </div>
+                      <div className="text-xs uppercase tracking-wide text-slate-500">
+                        {user.role}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-xs uppercase tracking-wide text-slate-400">
+                        Balance
+                      </span>
+                      <span className="text-base font-semibold text-white">
+                        {user.anima_points_balance}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleBalanceAdjust(user.id, ADMIN_POINT_STEP)}
+                        className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-accent-gold/60 bg-accent-gold/10 px-4 text-sm font-semibold text-accent-gold transition hover:border-accent-gold"
+                        aria-label={`Aggiungi ${ADMIN_POINT_STEP} punti`}
+                      >
+                        {`+${ADMIN_POINT_STEP}`}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBalanceAdjust(user.id, -ADMIN_POINT_STEP)}
+                        className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-white/15 px-4 text-sm font-semibold text-slate-200 transition hover:border-accent-gold/40"
+                        aria-label={`Rimuovi ${ADMIN_POINT_STEP} punti`}
+                      >
+                        {`-${ADMIN_POINT_STEP}`}
+                      </button>
+                    </div>
+                    <select
+                      value={selectedCard[user.id] ?? ''}
+                      onChange={(event) =>
+                        setSelectedCard((previous) => ({
+                          ...previous,
+                          [user.id]: event.target.value,
+                        }))
+                      }
+                      className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
+                    >
+                      <option value="">{dictionary.shop.title}</option>
+                      {shopCards.map((card) => (
+                        <option key={card.id} value={card.id}>
+                          {card.name} · {card.rarity}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => handleAssignCard(user.id)}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-accent-gold/60 bg-accent-gold/10 px-4 text-sm font-semibold text-accent-gold transition hover:border-accent-gold"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      {dictionary.shop.buy}
+                    </button>
+                  </div>
+                  <div className="mt-3">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      {dictionary.admin.cards}
+                    </span>
+                    {userCards.length > 0 ? (
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {userCards.map((entry) =>
+                          entry.card ? (
+                            <span
+                              key={entry.card.id}
+                              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-navy-900/60 px-3 py-1 text-xs text-slate-200"
+                            >
+                              {entry.card.name} · {entry.card.rarity}
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeCard(user.id, entry.card!.id)}
+                                className="text-slate-400 transition hover:text-rose-300"
+                                aria-label={`Rimuovi ${entry.card.name}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </span>
+                          ) : null,
+                        )}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-xs text-slate-400">
+                        Nessuna card assegnata.
+                      </p>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </MobileList>
+
           {adjustPending || cardPending ? (
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -822,12 +998,12 @@ export const AdminClient = ({
 
       {activeTab === 'picks' ? (
         <section className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 md:gap-3">
               <select
                 value={selectedUser}
                 onChange={(event) => setSelectedUser(event.target.value)}
-                className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+                className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
               >
                 {users.map((user) => (
                   <option key={user.id} value={user.id}>
@@ -839,7 +1015,7 @@ export const AdminClient = ({
                 type="date"
                 value={picksDate}
                 onChange={(event) => setPicksDate(event.target.value)}
-                className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+                className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
               />
             </div>
           </div>
@@ -850,7 +1026,7 @@ export const AdminClient = ({
             </div>
           ) : picksPreview ? (
             <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="hidden gap-4 md:grid md:grid-cols-2">
                 <PicksTeamsTable
                   className="h-full"
                   title={dictionary.play.teams.title}
@@ -865,6 +1041,141 @@ export const AdminClient = ({
                   formatCategory={formatCategoryLabel}
                 />
               </div>
+
+              <div className="space-y-4 md:hidden">
+                <div className="space-y-2">
+                  <h3 className="text-base font-semibold text-white">
+                    {dictionary.play.teams.title}
+                  </h3>
+                  <MobileList>
+                    {teamTableRows.map((row, index) => {
+                      const homeAbbr = (row.game?.home_team_abbr ?? 'HOME').toUpperCase();
+                      const awayAbbr = (row.game?.away_team_abbr ?? 'AWY').toUpperCase();
+                      const homeName = row.game?.home_team_name ?? 'Home Team';
+                      const awayName = row.game?.away_team_name ?? 'Away Team';
+                      const selectionLabel =
+                        row.selected_team_name ??
+                        row.selected_team_abbr ??
+                        row.selected_team_id ??
+                        '—';
+                      const outcome = resolveOutcomeDisplay(row.result);
+                      return (
+                        <li
+                          key={`team-mobile-${row.game_id ?? 'unknown'}-${row.selected_team_id ?? index}-${index}`}
+                          className="rounded-xl border border-white/10 bg-white/5 p-3"
+                        >
+                          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
+                            <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
+                              {awayAbbr}
+                            </span>
+                            <span className="text-[11px] uppercase text-slate-500">
+                              vs
+                            </span>
+                            <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
+                              {homeAbbr}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-400">
+                            {awayName} @ {homeName}
+                          </p>
+                          <div className="mt-3 space-y-1 text-sm text-slate-200">
+                            <p>
+                              <span className="text-xs uppercase tracking-wide text-slate-400">
+                                Scelta:
+                              </span>{' '}
+                              <span className="font-semibold text-white">
+                                {selectionLabel}
+                              </span>
+                            </p>
+                            <p>
+                              <span className="text-xs uppercase tracking-wide text-slate-400">
+                                Esito:
+                              </span>{' '}
+                              <span className={clsx('font-semibold', outcome.className)}>
+                                {outcome.label}
+                              </span>
+                            </p>
+                          </div>
+                          <p className="mt-2 text-xs text-slate-400">
+                            {formatDateNy(row.pick_date)} · Changes: {row.changes_count ?? 0} · Updated:{' '}
+                            {formatDateTimeNy(row.updated_at)}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </MobileList>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-base font-semibold text-white">
+                    {dictionary.play.players.title}
+                  </h3>
+                  <MobileList>
+                    {playerTableRows.map((row, index) => {
+                      const homeAbbr = (row.game?.home_team_abbr ?? 'HOME').toUpperCase();
+                      const awayAbbr = (row.game?.away_team_abbr ?? 'AWY').toUpperCase();
+                      const homeName = row.game?.home_team_name ?? 'Home Team';
+                      const awayName = row.game?.away_team_name ?? 'Away Team';
+                      const displayName = (() => {
+                        const computed = fullName(row.player ?? null);
+                        if (computed && computed !== '—') {
+                          return computed;
+                        }
+                        return row.player_id ?? '—';
+                      })();
+                      const categoryLabel = formatCategoryLabel(row.category);
+                      const outcome = resolveOutcomeDisplay(row.result);
+                      return (
+                        <li
+                          key={`player-mobile-${row.game_id ?? 'unknown'}-${row.category}-${index}`}
+                          className="rounded-xl border border-white/10 bg-white/5 p-3"
+                        >
+                          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
+                            <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
+                              {awayAbbr}
+                            </span>
+                            <span className="text-[11px] uppercase text-slate-500">
+                              vs
+                            </span>
+                            <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
+                              {homeAbbr}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-400">
+                            {awayName} @ {homeName}
+                          </p>
+                          <div className="mt-3 space-y-1 text-sm text-slate-200">
+                            <p>
+                              <span className="text-xs uppercase tracking-wide text-slate-400">
+                                Scelta:
+                              </span>{' '}
+                              <span className="font-semibold text-white">
+                                {displayName}
+                              </span>
+                              <span className="ml-2 text-xs text-slate-400">
+                                {categoryLabel}
+                              </span>
+                            </p>
+                            <p>
+                              <span className="text-xs uppercase tracking-wide text-slate-400">
+                                Esito:
+                              </span>{' '}
+                              <span className={clsx('font-semibold', outcome.className)}>
+                                {outcome.label}
+                              </span>
+                            </p>
+                          </div>
+                          <p className="mt-2 text-xs text-slate-400">
+                            {formatDateNy(row.pick_date)} · Changes: {row.changes_count ?? 0} · Updated:{' '}
+                            {formatDateTimeNy(row.updated_at)}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </MobileList>
+                </div>
+              </div>
+
               <div className="space-y-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4">
                 <section>
                   <h3 className="mb-2 text-sm font-semibold text-white">
@@ -909,18 +1220,18 @@ export const AdminClient = ({
 
       {activeTab === 'winnersTeams' ? (
         <section className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 md:gap-3">
               <input
                 type="date"
                 value={winnersDate}
                 onChange={(event) => handleWinnersDateChange(event.target.value)}
-                className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+                className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
               />
               <select
                 value={winnersDate}
                 onChange={(event) => handleWinnersDateChange(event.target.value)}
-                className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+                className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
               >
                 {winnersDateOptions.map((option) => (
                   <option key={option} value={option}>
@@ -953,16 +1264,21 @@ export const AdminClient = ({
             </p>
           ) : teamWinnersData ? (
             teamWinnersData.games.length > 0 ? (
-              <div className="overflow-hidden rounded-2xl border border-white/10">
-                <table className="min-w-full divide-y divide-white/10 text-sm">
-                  <thead className="bg-navy-900/80 text-[11px] uppercase tracking-wide text-slate-400">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Matchup</th>
-                      <th className="px-4 py-3 text-left">Status</th>
-                      <th className="px-4 py-3 text-left">Vincitore</th>
-                      <th className="px-4 py-3 text-left">Pubblicazione</th>
-                    </tr>
-                  </thead>
+              <>
+                <ResponsiveTable
+                  headers={
+                    <thead className="bg-navy-900/80 text-[11px] uppercase tracking-wide text-slate-400">
+                      <tr>
+                        <th className="whitespace-nowrap px-4 py-3 text-left">Matchup</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-left">Status</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-left">Vincitore</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-left">
+                          Pubblicazione
+                        </th>
+                      </tr>
+                    </thead>
+                  }
+                >
                   <tbody className="divide-y divide-white/10 text-[13px] text-slate-200">
                     {teamWinnersData.games.map((game) => {
                       const baseSelection = baseTeamSelections[game.id] ?? '';
@@ -991,7 +1307,7 @@ export const AdminClient = ({
                               onChange={(event) =>
                                 handleTeamWinnerChange(game.id, event.target.value)
                               }
-                              className="w-full rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+                              className="w-full h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
                             >
                               <option value="">—</option>
                               <option value={game.homeTeam.id}>
@@ -1019,8 +1335,74 @@ export const AdminClient = ({
                       );
                     })}
                   </tbody>
-                </table>
-              </div>
+                </ResponsiveTable>
+
+                <MobileList>
+                  {teamWinnersData.games.map((game) => {
+                    const baseSelection = baseTeamSelections[game.id] ?? '';
+                    const selection =
+                      teamWinnerOverrides[game.id] ?? baseSelection;
+                    const homeAbbr = (game.homeTeam.abbr ?? 'HOME').toUpperCase();
+                    const awayAbbr = (game.awayTeam.abbr ?? 'AWY').toUpperCase();
+                    const homeName = game.homeTeam.name ?? 'Home Team';
+                    const awayName = game.awayTeam.name ?? 'Away Team';
+                    const published = Boolean(game.winnerTeamId);
+                    return (
+                      <li
+                        key={`mobile-${game.id}`}
+                        className="rounded-xl border border-white/10 bg-white/5 p-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                              <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
+                                {awayAbbr}
+                              </span>
+                              <span className="text-[11px] uppercase text-slate-500">
+                                vs
+                              </span>
+                              <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
+                                {homeAbbr}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {awayName} @ {homeName}
+                            </p>
+                          </div>
+                          <span className="text-[11px] uppercase tracking-wide text-slate-400">
+                            {game.status}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex flex-col gap-2">
+                          <select
+                            value={selection}
+                            onChange={(event) =>
+                              handleTeamWinnerChange(game.id, event.target.value)
+                            }
+                            className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
+                          >
+                            <option value="">—</option>
+                            <option value={game.homeTeam.id}>
+                              {homeAbbr} · {homeName}
+                            </option>
+                            <option value={game.awayTeam.id}>
+                              {awayAbbr} · {awayName}
+                            </option>
+                          </select>
+                          <span
+                            className={clsx(
+                              'text-xs font-semibold',
+                              published ? 'text-emerald-300' : 'text-slate-400',
+                            )}
+                          >
+                            {published ? 'Pubblicato' : 'In attesa'}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </MobileList>
+              </>
             ) : (
               <p className="text-sm text-slate-300">
                 Nessuna partita trovata per la data selezionata.
@@ -1040,7 +1422,7 @@ export const AdminClient = ({
                 !teamWinnersData
               }
               className={clsx(
-                'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold',
+                'inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold transition md:w-auto',
                 publishTeamsPending
                   ? 'border-white/10 bg-navy-800/70 text-slate-400'
                   : 'border-accent-gold/40 text-accent-gold hover:border-accent-gold',
@@ -1057,18 +1439,18 @@ export const AdminClient = ({
 
       {activeTab === 'winnersPlayers' ? (
         <section className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 md:gap-3">
               <input
                 type="date"
                 value={winnersDate}
                 onChange={(event) => handleWinnersDateChange(event.target.value)}
-                className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+                className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
               />
               <select
                 value={winnersDate}
                 onChange={(event) => handleWinnersDateChange(event.target.value)}
-                className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+                className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
               >
                 {winnersDateOptions.map((option) => (
                   <option key={option} value={option}>
@@ -1205,7 +1587,7 @@ export const AdminClient = ({
                 !playerWinnersData
               }
               className={clsx(
-                'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold',
+                'inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold transition md:w-auto',
                 publishPlayersPending
                   ? 'border-white/10 bg-navy-800/70 text-slate-400'
                   : 'border-accent-gold/40 text-accent-gold hover:border-accent-gold',
@@ -1222,12 +1604,12 @@ export const AdminClient = ({
 
       {activeTab === 'highlights' ? (
         <section className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <input
               type="date"
               value={highlightDate}
               onChange={(event) => setHighlightDate(event.target.value)}
-              className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-2 text-sm text-white focus:border-accent-gold focus:outline-none"
+              className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
             />
           </div>
           <div className="grid gap-3 md:grid-cols-2">
@@ -1240,8 +1622,13 @@ export const AdminClient = ({
                 entry?.playerId ??
                 '';
               return (
-                <label key={rank} className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4 text-xs text-slate-300">
-                  <span className="font-semibold text-white">#{rank}</span>
+                <label
+                  key={rank}
+                  className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-navy-900/60 p-4 text-sm text-slate-300"
+                >
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Rank #{rank}
+                  </span>
                   <div className="flex flex-col gap-2">
                     <PlayerSelect
                       value={selected || undefined}
@@ -1265,7 +1652,7 @@ export const AdminClient = ({
           <button
             type="button"
             onClick={handleHighlightsSave}
-            className="inline-flex items-center gap-2 rounded-full border border-accent-gold/40 px-4 py-2 text-sm font-semibold text-accent-gold hover:border-accent-gold"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-accent-gold/60 bg-accent-gold/10 px-4 text-sm font-semibold text-accent-gold transition hover:border-accent-gold md:w-auto"
             disabled={highlightPending}
           >
             {highlightPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -1273,6 +1660,7 @@ export const AdminClient = ({
           </button>
         </section>
       ) : null}
+    </div>
     </div>
   );
 };

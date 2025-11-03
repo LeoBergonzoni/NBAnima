@@ -27,6 +27,7 @@ export const PlayerResultSchema = z.object({
   won: z.boolean(),
   first_name: z.string(),
   last_name: z.string(),
+  provider_player_id: z.string().nullable().optional(),
 });
 export type PlayerResult = z.infer<typeof PlayerResultSchema>;
 
@@ -55,6 +56,7 @@ export const UserPlayerPickSchema = z.object({
   category: z.string(),
   player_id: z.string(),
   team_id: z.string().nullable(),
+  provider_player_id: z.string().nullable().optional(),
   first_name: z.string().nullable().optional(),
   last_name: z.string().nullable().optional(),
   position: z.string().nullable().optional(),
