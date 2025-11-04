@@ -14,7 +14,7 @@ import {
   toEasternYYYYMMDD,
   yesterdayInEastern,
 } from '@/lib/date-us-eastern';
-import type { Locale } from '@/lib/constants';
+import { SCORING, type Locale } from '@/lib/constants';
 import type {
   PointsByDate,
   SlateDate,
@@ -114,6 +114,15 @@ const formatSlateLabel = (locale: Locale, slate: SlateDate) => {
   } catch {
     return slate;
   }
+};
+
+const resolveMultiplierRule = (wins: number) => {
+  for (const rule of SCORING.MULTIPLIERS) {
+    if (wins >= rule.threshold) {
+      return rule;
+    }
+  }
+  return SCORING.MULTIPLIERS[SCORING.MULTIPLIERS.length - 1];
 };
 
 type TeamDisplay = {
@@ -693,6 +702,44 @@ export const WinnersClient = ({
     });
   }, [playerSelections, pickDate, changeCount, resolveTeamDisplay, playerOutcomes, resolvePlayerName]);
 
+  const teamWins = useMemo(() => {
+    let wins = 0;
+    teamOutcomes.forEach((result) => {
+      if (result === 'win') {
+        wins += 1;
+      }
+    });
+    return wins;
+  }, [teamOutcomes]);
+
+  const playerWins = useMemo(() => {
+    let wins = 0;
+    playerOutcomes.forEach((result) => {
+      if (result === 'win') {
+        wins += 1;
+      }
+    });
+    return wins;
+  }, [playerOutcomes]);
+
+  const baseTeamPoints = teamWins * SCORING.TEAMS_HIT;
+  const basePlayerPoints = playerWins * SCORING.PLAYER_HIT;
+  const totalWins = teamWins + playerWins;
+  const multiplierRule = useMemo(() => resolveMultiplierRule(totalWins), [totalWins]);
+  const appliedMultiplier = multiplierRule.multiplier;
+  const basePointsTotal = baseTeamPoints + basePlayerPoints;
+  const multipliedPoints = basePointsTotal * appliedMultiplier;
+  const multiplierDescription =
+    multiplierRule.threshold > 0
+      ? dictionary.dashboard.winners.breakdown.multiplierUnlocked.replace(
+          '{threshold}',
+          String(multiplierRule.threshold),
+        )
+      : dictionary.dashboard.winners.breakdown.multiplierBase;
+
+  const breakdownLoading = winnersLoading || picksLoading;
+  const breakdownError = winnersError ?? picksError ?? null;
+
   const pointsValue = points?.total_points ?? (points as { total?: number } | undefined)?.total ?? 0;
   const slateDisplay = formatSlateLabel(locale, selectedDate);
 
@@ -1226,26 +1273,132 @@ export const WinnersClient = ({
         ) : null}
 
         {showPointsFooter ? (
-          <footer className="rounded-2xl border border-accent-gold/30 bg-navy-900/60 p-4 shadow-card">
-            {pointsLoading ? (
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>{dictionary.common.loading}</span>
+          <>
+            <section className="rounded-2xl border border-accent-gold/20 bg-navy-900/60 p-5 shadow-card">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">
+                    {dictionary.dashboard.winners.breakdown.title}
+                  </h3>
+                  <p className="text-sm text-slate-300">
+                    {dictionary.dashboard.winners.breakdown.subtitle}
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-accent-gold/30 bg-accent-gold/10 px-4 py-2 text-sm font-semibold text-accent-gold">
+                  <span>{dictionary.dashboard.winners.breakdown.totalWins}</span>
+                  <span className="text-white">{totalWins}</span>
+                </div>
               </div>
-            ) : pointsError ? (
-              <ErrorBanner
-                message={(pointsError as Error).message ?? 'Failed to load points.'}
-                onRetry={() => {
-                  void reloadPoints();
-                }}
-              />
-            ) : (
-              <p className="text-sm text-slate-300">
-                {dictionary.dashboard.winners.pointsOfDay}:{' '}
-                <span className="font-semibold text-white">{pointsValue}</span>
-              </p>
-            )}
-          </footer>
+              <div className="mt-4">
+                {breakdownLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>{dictionary.common.loading}</span>
+                  </div>
+                ) : breakdownError ? (
+                  <ErrorBanner
+                    message={(breakdownError as Error).message ?? 'Failed to load winners breakdown.'}
+                    onRetry={() => {
+                      void reloadWinners();
+                      void reloadPicks();
+                    }}
+                  />
+                ) : (
+                  <>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4">
+                        <div className="text-xs uppercase tracking-wide text-slate-400">
+                          {dictionary.dashboard.winners.breakdown.teamsLabel}
+                        </div>
+                        <div className="mt-2 flex items-baseline justify-between text-white">
+                          <span className="text-2xl font-semibold">{teamWins}</span>
+                          <span className="text-sm text-slate-300">
+                            × {SCORING.TEAMS_HIT} {dictionary.dashboard.winners.breakdown.pointsUnit}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-300">
+                          {dictionary.dashboard.winners.breakdown.pointsLabel}{' '}
+                          <span className="font-semibold text-white">{baseTeamPoints}</span>
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4">
+                        <div className="text-xs uppercase tracking-wide text-slate-400">
+                          {dictionary.dashboard.winners.breakdown.playersLabel}
+                        </div>
+                        <div className="mt-2 flex items-baseline justify-between text-white">
+                          <span className="text-2xl font-semibold">{playerWins}</span>
+                          <span className="text-sm text-slate-300">
+                            × {SCORING.PLAYER_HIT} {dictionary.dashboard.winners.breakdown.pointsUnit}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-300">
+                          {dictionary.dashboard.winners.breakdown.pointsLabel}{' '}
+                          <span className="font-semibold text-white">{basePlayerPoints}</span>
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-accent-gold/30 bg-accent-gold/10 p-4">
+                        <div className="text-xs uppercase tracking-wide text-accent-gold">
+                          {dictionary.dashboard.winners.breakdown.multiplierLabel}
+                        </div>
+                        <div className="mt-2 flex items-baseline justify-between text-white">
+                          <span className="text-2xl font-semibold">×{appliedMultiplier}</span>
+                          <span className="text-sm text-accent-gold/80">{multiplierDescription}</span>
+                        </div>
+                        <p className="mt-1 text-sm text-accent-gold/80">
+                          {dictionary.dashboard.winners.breakdown.totalPointsLabel}:{' '}
+                          <span className="font-semibold text-white">{multipliedPoints}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.06] p-4 text-sm text-slate-300">
+                      <div className="text-xs uppercase tracking-wide text-slate-400">
+                        {dictionary.dashboard.winners.breakdown.formulaLabel}
+                      </div>
+                      <p className="mt-2 text-sm text-slate-300">
+                        (
+                        <span className="font-semibold text-white">{teamWins}</span> × {SCORING.TEAMS_HIT}) + (
+                        <span className="font-semibold text-white">{playerWins}</span> × {SCORING.PLAYER_HIT}) ={' '}
+                        <span className="font-semibold text-white">{basePointsTotal}</span>
+                      </p>
+                      <p className="mt-1 text-sm text-slate-300">
+                        {dictionary.dashboard.winners.breakdown.basePointsLabel}{' '}
+                        <span className="font-semibold text-white">{basePointsTotal}</span> ·{' '}
+                        {dictionary.dashboard.winners.breakdown.multiplierShort}{' '}
+                        <span className="font-semibold text-white">×{appliedMultiplier}</span> →{' '}
+                        {dictionary.dashboard.winners.breakdown.totalPointsLabel}{' '}
+                        <span className="font-semibold text-white">{multipliedPoints}</span>
+                      </p>
+                      {totalWins === 0 ? (
+                        <p className="mt-2 text-sm text-slate-400">
+                          {dictionary.dashboard.winners.breakdown.noWins}
+                        </p>
+                      ) : null}
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
+            <footer className="mt-4 rounded-2xl border border-accent-gold/30 bg-navy-900/60 p-4 shadow-card">
+              {pointsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>{dictionary.common.loading}</span>
+                </div>
+              ) : pointsError ? (
+                <ErrorBanner
+                  message={(pointsError as Error).message ?? 'Failed to load points.'}
+                  onRetry={() => {
+                    void reloadPoints();
+                  }}
+                />
+              ) : (
+                <p className="text-sm text-slate-300">
+                  {dictionary.dashboard.winners.pointsOfDay}:{' '}
+                  <span className="font-semibold text-white">{pointsValue}</span>
+                </p>
+              )}
+            </footer>
+          </>
         ) : null}
       </div>
     </div>

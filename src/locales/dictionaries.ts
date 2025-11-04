@@ -94,6 +94,23 @@ export interface Dictionary {
       pointsOfDay: string;
       myPick: string;
       empty: string;
+      breakdown: {
+        title: string;
+        subtitle: string;
+        teamsLabel: string;
+        playersLabel: string;
+        multiplierLabel: string;
+        multiplierBase: string;
+        multiplierUnlocked: string;
+        pointsLabel: string;
+        pointsUnit: string;
+        basePointsLabel: string;
+        totalPointsLabel: string;
+        formulaLabel: string;
+        totalWins: string;
+        multiplierShort: string;
+        noWins: string;
+      };
     };
     toasts: {
       cardPurchased: string;
@@ -319,6 +336,23 @@ const it: Dictionary = {
       pointsOfDay: 'Anima Points ottenuti in questa giornata',
       myPick: 'My Pick',
       empty: 'Nessun risultato disponibile per questa data.',
+      breakdown: {
+        title: 'Come abbiamo calcolato i tuoi Anima Points',
+        subtitle: 'Riepilogo delle scommesse vinte e del moltiplicatore attivo.',
+        teamsLabel: 'Teams azzeccati',
+        playersLabel: 'Players azzeccati',
+        multiplierLabel: 'Moltiplicatore',
+        multiplierBase: 'Moltiplicatore base attivo',
+        multiplierUnlocked: 'Attivo con {threshold}+ successi',
+        pointsLabel: 'Punti:',
+        pointsUnit: 'Anima Points',
+        basePointsLabel: 'Punti base:',
+        totalPointsLabel: 'Totale',
+        formulaLabel: 'Calcolo',
+        totalWins: 'Successi totali',
+        multiplierShort: 'Moltiplicatore',
+        noWins: 'Nessuna scommessa vincente registrata per questa giornata.',
+      },
     },
     toasts: {
       cardPurchased: 'Card acquistata!',
@@ -546,6 +580,23 @@ const en: Dictionary = {
       pointsOfDay: 'Anima Points earned this date',
       myPick: 'My Pick',
       empty: 'No results available for this date.',
+      breakdown: {
+        title: 'How your Anima Points were calculated',
+        subtitle: 'Breakdown of winning picks and the active multiplier.',
+        teamsLabel: 'Team hits',
+        playersLabel: 'Player hits',
+        multiplierLabel: 'Multiplier',
+        multiplierBase: 'Base multiplier active',
+        multiplierUnlocked: 'Unlocked at {threshold}+ hits',
+        pointsLabel: 'Points:',
+        pointsUnit: 'Anima Points',
+        basePointsLabel: 'Base points:',
+        totalPointsLabel: 'Total',
+        formulaLabel: 'Formula',
+        totalWins: 'Total hits',
+        multiplierShort: 'Multiplier',
+        noWins: 'No winning picks recorded for this date yet.',
+      },
     },
     toasts: {
       cardPurchased: 'Card purchased!',
