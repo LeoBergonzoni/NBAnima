@@ -80,6 +80,7 @@ export interface Dictionary {
     welcome: string;
     animaPoints: string;
     playTab: string;
+    myPicksTab: string;
     winnersTab: string;
     collectionTab: string;
     shopTab: string;
@@ -304,6 +305,7 @@ const it: Dictionary = {
     welcome: 'Bentornato su NBAnima!',
     animaPoints: 'Saldo Anima Points',
     playTab: 'Gioca',
+    myPicksTab: 'Le mie scelte',
     winnersTab: 'Vincenti',
     collectionTab: 'Collezione',
     shopTab: 'Acquista Cards',
@@ -530,6 +532,7 @@ const en: Dictionary = {
     welcome: 'Welcome back to NBAnima!',
     animaPoints: 'Anima Points balance',
     playTab: 'Play',
+    myPicksTab: 'My Picks',
     winnersTab: 'Winners',
     collectionTab: 'Collection',
     shopTab: 'Shop Cards',

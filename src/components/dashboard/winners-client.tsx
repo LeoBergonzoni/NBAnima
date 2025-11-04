@@ -10,6 +10,7 @@ import { PicksTeamsTable, type TeamPickRow } from '@/components/picks/PicksTeams
 import { matchesTeamIdentity, formatDateNy, formatDateTimeNy } from '@/components/picks/cells';
 import {
   buildLastNDatesEastern,
+  getEasternNow,
   toEasternYYYYMMDD,
   yesterdayInEastern,
 } from '@/lib/date-us-eastern';
@@ -34,6 +35,8 @@ type RostersMap = Record<
 interface WinnersClientProps {
   locale: Locale;
   dictionary: Dictionary;
+  mode?: 'full' | 'picksOnly';
+  title?: string;
 }
 
 function ResponsiveTable({
@@ -210,13 +213,37 @@ const getCategoryLabel = (
     category as keyof Dictionary['play']['players']['categories']
   ] ?? category;
 
-export const WinnersClient = ({ locale, dictionary }: WinnersClientProps) => {
-  const fallbackDate = useMemo(() => toEasternYYYYMMDD(yesterdayInEastern()), []);
+export const WinnersClient = ({
+  locale,
+  dictionary,
+  mode = 'full',
+  title,
+}: WinnersClientProps) => {
+  const headerTitle = title ?? dictionary.dashboard.winners.title;
+  const showWinnersSummary = mode !== 'picksOnly';
+  const showMyPicksSection = mode !== 'full';
+  const showPointsFooter = mode !== 'picksOnly';
+  const fallbackDate = useMemo(
+    () =>
+      toEasternYYYYMMDD(mode === 'picksOnly' ? getEasternNow() : yesterdayInEastern()),
+    [mode],
+  );
 
   const dateOptions = useMemo(() => {
     const base = buildLastNDatesEastern(14);
-    return base.includes(fallbackDate) ? base : [fallbackDate, ...base];
-  }, [fallbackDate]);
+    const today = toEasternYYYYMMDD(getEasternNow());
+    const extras = mode === 'picksOnly' ? [today] : [];
+    extras.push(fallbackDate);
+    const ordered = [...extras, ...base];
+    const seen = new Set<string>();
+    return ordered.filter((date) => {
+      if (seen.has(date)) {
+        return false;
+      }
+      seen.add(date);
+      return true;
+    });
+  }, [fallbackDate, mode]);
 
   const [selectedDate, setSelectedDate] = useState<SlateDate>(dateOptions[0] ?? fallbackDate);
 
@@ -675,7 +702,7 @@ export const WinnersClient = ({ locale, dictionary }: WinnersClientProps) => {
         <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 py-3">
           <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-2xl font-semibold text-white">
-              {dictionary.dashboard.winners.title}
+              {headerTitle}
             </h2>
             <label className="flex items-center gap-2 text-sm text-slate-300">
               <span>{dictionary.dashboard.winners.dateLabel}</span>
@@ -702,16 +729,17 @@ export const WinnersClient = ({ locale, dictionary }: WinnersClientProps) => {
       </div>
 
       <div className="space-y-6 pt-4 md:pt-6">
-        {winnersLoading ? (
-          <LoadingGrid count={4} />
-        ) : winnersError ? (
-          <ErrorBanner
-            message={(winnersError as Error).message ?? 'Failed to load winners.'}
-            onRetry={() => {
-              void reloadWinners();
-            }}
-          />
-        ) : hasResults ? (
+        {showWinnersSummary &&
+          (winnersLoading ? (
+            <LoadingGrid count={4} />
+          ) : winnersError ? (
+            <ErrorBanner
+              message={(winnersError as Error).message ?? 'Failed to load winners.'}
+              onRetry={() => {
+                void reloadWinners();
+              }}
+            />
+          ) : hasResults ? (
           <div className="space-y-6">
             <section className="space-y-3">
               <h3 className="text-lg font-semibold text-white">
@@ -1025,13 +1053,14 @@ export const WinnersClient = ({ locale, dictionary }: WinnersClientProps) => {
           </div>
         ) : (
           <p className="text-sm text-slate-300">{dictionary.dashboard.winners.empty}</p>
-        )}
+        ))}
 
-        <section className="space-y-3">
-          <h3 className="text-lg font-semibold text-white">
-            {dictionary.dashboard.winners.myPick}
-          </h3>
-          {picksLoading ? (
+        {showMyPicksSection ? (
+          <section className="space-y-3">
+            <h3 className="text-lg font-semibold text-white">
+              {dictionary.dashboard.myPicksTab}
+            </h3>
+            {picksLoading ? (
             <LoadingTable />
           ) : picksError ? (
             <ErrorBanner
@@ -1193,28 +1222,31 @@ export const WinnersClient = ({ locale, dictionary }: WinnersClientProps) => {
               </div>
             </div>
           )}
-        </section>
+          </section>
+        ) : null}
 
-        <footer className="rounded-2xl border border-accent-gold/30 bg-navy-900/60 p-4 shadow-card">
-          {pointsLoading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-400">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>{dictionary.common.loading}</span>
-            </div>
-          ) : pointsError ? (
-            <ErrorBanner
-              message={(pointsError as Error).message ?? 'Failed to load points.'}
-              onRetry={() => {
-                void reloadPoints();
-              }}
-            />
-          ) : (
-            <p className="text-sm text-slate-300">
-              {dictionary.dashboard.winners.pointsOfDay}:{' '}
-              <span className="font-semibold text-white">{pointsValue}</span>
-            </p>
-          )}
-        </footer>
+        {showPointsFooter ? (
+          <footer className="rounded-2xl border border-accent-gold/30 bg-navy-900/60 p-4 shadow-card">
+            {pointsLoading ? (
+              <div className="flex items-center gap-2 text-sm text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{dictionary.common.loading}</span>
+              </div>
+            ) : pointsError ? (
+              <ErrorBanner
+                message={(pointsError as Error).message ?? 'Failed to load points.'}
+                onRetry={() => {
+                  void reloadPoints();
+                }}
+              />
+            ) : (
+              <p className="text-sm text-slate-300">
+                {dictionary.dashboard.winners.pointsOfDay}:{' '}
+                <span className="font-semibold text-white">{pointsValue}</span>
+              </p>
+            )}
+          </footer>
+        ) : null}
       </div>
     </div>
   );

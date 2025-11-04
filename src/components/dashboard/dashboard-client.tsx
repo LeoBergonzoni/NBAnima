@@ -945,7 +945,7 @@ export function DashboardClient({
   const { dictionary } = useLocale();
   const router = useRouter();
   const supabase = useMemo(() => createBrowserSupabase(), []);
-  const [activeTab, setActiveTab] = useState<'play' | 'winners' | 'collection' | 'shop'>('play');
+  const [activeTab, setActiveTab] = useState<'play' | 'myPicks' | 'winners' | 'collection' | 'shop'>('play');
   const [teamSelections, setTeamSelections] = useState<Record<string, string>>({});
   const [playerSelections, setPlayerSelections] = useState<PlayerSelections>({});
   const [highlightSelections, setHighlightSelections] = useState<string[]>(() =>
@@ -1217,10 +1217,11 @@ export function DashboardClient({
   };
 
   const tabs: Array<{
-    key: 'play' | 'winners' | 'collection' | 'shop';
+    key: 'play' | 'myPicks' | 'winners' | 'collection' | 'shop';
     label: string;
   }> = [
     { key: 'play', label: dictionary.dashboard.playTab },
+    { key: 'myPicks', label: dictionary.dashboard.myPicksTab },
     { key: 'winners', label: dictionary.dashboard.winnersTab },
     { key: 'collection', label: dictionary.dashboard.collectionTab },
     { key: 'shop', label: dictionary.dashboard.shopTab },
@@ -1286,7 +1287,9 @@ export function DashboardClient({
             <p className="text-xs uppercase tracking-wide text-slate-400">
               {dictionary.dashboard.animaPoints}
             </p>
-            <p className="text-3xl font-semibold text-white">{balance.toLocaleString()}</p>
+            <p className="text-3xl font-semibold text-white">
+              {balance.toLocaleString(locale === 'it' ? 'it-IT' : 'en-US')}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300">
@@ -1479,6 +1482,15 @@ export function DashboardClient({
                 </button>
               </footer>
             </div>
+          ) : null}
+
+          {activeTab === 'myPicks' ? (
+            <WinnersClient
+              locale={locale}
+              dictionary={dictionary}
+              mode="picksOnly"
+              title={dictionary.dashboard.myPicksTab}
+            />
           ) : null}
 
           {activeTab === 'winners' ? (
