@@ -56,7 +56,6 @@ export const playerPickSchema = z.object({
 
 export const highlightPickSchema = z.object({
   playerId: z.string().min(1),
-  rank: z.number().int().min(1).max(10),
 });
 
 const gameMetaTeamSchema = z
@@ -106,15 +105,6 @@ export const picksPayloadSchema = z.object({
     }
     categories.add(key);
   });
-
-  const ranks = val.highlights.map((h) => h.rank);
-  const uniqueRanks = new Set(ranks);
-  if (uniqueRanks.size !== val.highlights.length) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Highlight ranks must be unique.',
-    });
-  }
 
   const highlightPlayers = new Set<string>();
   val.highlights.forEach((highlight) => {

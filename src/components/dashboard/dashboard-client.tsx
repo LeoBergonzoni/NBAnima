@@ -34,6 +34,9 @@ import { buyCardAction } from '@/app/[locale]/dashboard/(shop)/actions';
 import { WinnersClient } from './winners-client';
 
 const PLAYER_CATEGORIES = ['top_scorer', 'top_assist', 'top_rebound'] as const;
+const HIGHLIGHT_SLOT_COUNT = 5;
+const buildEmptyHighlightSlots = () =>
+  Array.from({ length: HIGHLIGHT_SLOT_COUNT }, () => '');
 
 interface ShopCard {
   id: string;
@@ -531,20 +534,12 @@ const HighlightsSelector = ({
   players,
 }: {
   dictionary: Dictionary;
-  highlightSelections: HighlightPick[];
-  onChange: (rank: number, playerId: string) => void;
+  highlightSelections: string[];
+  onChange: (slotIndex: number, playerId: string) => void;
   players: PlayerSummary[];
 }) => {
-  const selectedByRank = useMemo(() => {
-    const map = new Map<number, string>();
-    highlightSelections.forEach((entry) => {
-      map.set(entry.rank, entry.playerId);
-    });
-    return map;
-  }, [highlightSelections]);
-
   const selectedPlayerIds = useMemo(
-    () => new Set(highlightSelections.map((entry) => entry.playerId)),
+    () => new Set(highlightSelections.filter((value) => value)),
     [highlightSelections],
   );
 
@@ -574,32 +569,31 @@ const HighlightsSelector = ({
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {Array.from({ length: 5 }).map((_, index) => {
-        const rank = index + 1;
-        const selectedPlayer = selectedByRank.get(rank) ?? '';
+        const currentSelection = highlightSelections[index] ?? '';
+        const disabledIds = new Set(selectedPlayerIds);
+        if (currentSelection) {
+          disabledIds.delete(currentSelection);
+        }
         const options = sortedPlayers.map((player) => ({
           value: player.id,
           label: createOptionLabel(player),
           meta: {
             altNames: [player.fullName, player.firstName, player.lastName].filter(Boolean),
-            disabled: player.id !== selectedPlayer && selectedPlayerIds.has(player.id),
+            disabled: disabledIds.has(player.id),
           },
         }));
-        const normalizedValue =
-          selectedPlayer === undefined ||
-          selectedPlayer === null ||
-          selectedPlayer === ''
-            ? null
-            : selectedPlayer;
+        const normalizedValue = currentSelection ? currentSelection : null;
 
         return (
-          <label key={rank} className="flex flex-col gap-2">
+          <label key={index} className="flex flex-col gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              {dictionary.admin.rank} #{rank}
+              {dictionary.play.highlights.selectionLabel}
+              <span className="sr-only"> {index + 1}</span>
             </span>
             <PlayerSelect
               options={options}
               value={normalizedValue ?? undefined}
-              onChange={(playerId) => onChange(rank, playerId ?? '')}
+              onChange={(playerId) => onChange(index, playerId ?? '')}
               placeholder="-"
             />
           </label>
@@ -954,7 +948,9 @@ export function DashboardClient({
   const [activeTab, setActiveTab] = useState<'play' | 'winners' | 'collection' | 'shop'>('play');
   const [teamSelections, setTeamSelections] = useState<Record<string, string>>({});
   const [playerSelections, setPlayerSelections] = useState<PlayerSelections>({});
-  const [highlightSelections, setHighlightSelections] = useState<HighlightPick[]>([]);
+  const [highlightSelections, setHighlightSelections] = useState<string[]>(() =>
+    buildEmptyHighlightSlots(),
+  );
   const [playersManuallyCompleted, setPlayersManuallyCompleted] = useState(false);
   const [highlightsManuallyCompleted, setHighlightsManuallyCompleted] = useState(false);
   const [playersByGame, setPlayersByGame] = useState<Record<string, PlayerSummary[]>>({});
@@ -1011,14 +1007,14 @@ export function DashboardClient({
       }, {}),
     );
 
-    setHighlightSelections(
-      picks.highlights
-        .map((highlight) => ({
-          playerId: highlight.player_id,
-          rank: highlight.rank,
-        }))
-        .sort((a, b) => a.rank - b.rank),
-    );
+    const sortedHighlights = [...(picks.highlights ?? [])]
+      .filter((highlight) => highlight?.player_id)
+      .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+    const slots = buildEmptyHighlightSlots();
+    sortedHighlights.slice(0, HIGHLIGHT_SLOT_COUNT).forEach((highlight, index) => {
+      slots[index] = highlight.player_id;
+    });
+    setHighlightSelections(slots);
     setPlayersManuallyCompleted(false);
     setHighlightsManuallyCompleted(false);
   }, [picks]);
@@ -1059,8 +1055,10 @@ export function DashboardClient({
   );
 
   const highlightsComplete = useMemo(
-    () => highlightsManuallyCompleted || highlightSelections.length === 5,
-    [highlightsManuallyCompleted, highlightSelections.length],
+    () =>
+      highlightsManuallyCompleted ||
+      highlightSelections.filter((playerId) => playerId).length === HIGHLIGHT_SLOT_COUNT,
+    [highlightsManuallyCompleted, highlightSelections],
   );
 
   const handleTeamsSelect = (gameId: string, teamId: string) => {
@@ -1077,14 +1075,26 @@ export function DashboardClient({
     }));
   };
 
-  const handleHighlightSelect = (rank: number, playerId: string) => {
+  const handleHighlightSelect = (slotIndex: number, playerId: string) => {
     setHighlightSelections((previous) => {
-      const filtered = previous.filter((entry) => entry.rank !== rank);
-      if (!playerId) {
-        return filtered;
+      const next = [...previous];
+      while (next.length < HIGHLIGHT_SLOT_COUNT) {
+        next.push('');
       }
-      filtered.push({ rank, playerId });
-      return filtered.sort((a, b) => a.rank - b.rank);
+
+      if (!playerId) {
+        next[slotIndex] = '';
+        return next;
+      }
+
+      for (let i = 0; i < next.length; i += 1) {
+        if (i !== slotIndex && next[i] === playerId) {
+          next[i] = '';
+        }
+      }
+
+      next[slotIndex] = playerId;
+      return next;
     });
   };
 
@@ -1182,10 +1192,11 @@ export function DashboardClient({
             playerId,
           })),
       ),
-      highlights: highlightSelections.map<HighlightPick>((entry) => ({
-        playerId: entry.playerId,
-        rank: entry.rank,
-      })),
+      highlights: highlightSelections
+        .filter((playerId) => playerId)
+        .map<HighlightPick>((playerId) => ({
+          playerId,
+        })),
       gamesMeta,
       gameUuids,
     };

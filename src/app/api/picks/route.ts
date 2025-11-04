@@ -514,8 +514,6 @@ function splitName(full: string) {
   };
 }
 
-const formatDate = (date: Date) => date.toISOString().slice(0, 10);
-
 const resolveSlateDate = (request: NextRequest) => {
   const fallback = toEasternYYYYMMDD(yesterdayInEastern());
   const input = request.nextUrl.searchParams.get('date') ?? fallback;
@@ -1002,7 +1000,7 @@ export async function POST(request: NextRequest) {
     );
 
     const highlightInsert: PicksHighlightsInsert[] = await Promise.all(
-      payload.highlights.map(async (pick) => {
+      payload.highlights.map(async (pick, index) => {
         const directMatch = findPlayerContext(pick.playerId, gameList, rosters);
         const fallbackMatch =
           directMatch ??
@@ -1032,7 +1030,7 @@ export async function POST(request: NextRequest) {
         return {
           user_id: userId,
           player_id: playerUuid,
-          rank: pick.rank,
+          rank: index + 1,
           pick_date: payload.pickDate,
           changes_count: 0,
           created_at: now,
@@ -1232,7 +1230,7 @@ export async function PUT(request: NextRequest) {
     );
 
     const highlightUpsert: PicksHighlightsInsert[] = await Promise.all(
-      payload.highlights.map(async (pick) => {
+      payload.highlights.map(async (pick, index) => {
         const directMatch = findPlayerContext(pick.playerId, gameList, rosters);
         const fallbackMatch =
           directMatch ??
@@ -1262,7 +1260,7 @@ export async function PUT(request: NextRequest) {
         return {
           user_id: userId,
           player_id: playerUuid,
-          rank: pick.rank,
+          rank: index + 1,
           pick_date: payload.pickDate,
           changes_count: nextChangeCount,
           created_at: now,

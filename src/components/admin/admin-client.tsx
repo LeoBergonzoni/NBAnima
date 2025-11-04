@@ -237,20 +237,6 @@ export const AdminClient = ({
     [],
   );
 
-  const winnersDateOptions = useMemo(() => {
-    const base = Array.from({ length: 14 }, (_, index) =>
-      formatInTimeZone(
-        subDays(new Date(), index + 1),
-        TIMEZONES.US_EASTERN,
-        'yyyy-MM-dd',
-      ),
-    );
-    if (!base.includes(defaultWinnersDate)) {
-      base.unshift(defaultWinnersDate);
-    }
-    return Array.from(new Set(base));
-  }, [defaultWinnersDate]);
-
   const [winnersDate, setWinnersDate] = useState(defaultWinnersDate);
   const [teamWinnerOverrides, setTeamWinnerOverrides] = useState<
     Record<string, string>
@@ -401,6 +387,64 @@ export const AdminClient = ({
 
   const defaultPickDate = picksPreview?.pickDate ?? picksDate;
 
+  const picksTeamWinnersKey = useMemo(
+    () =>
+      activeTab === 'picks' && selectedUser && defaultPickDate
+        ? (['admin-picks-team-winners', defaultPickDate] as const)
+        : null,
+    [activeTab, selectedUser, defaultPickDate],
+  );
+
+  const picksPlayerWinnersKey = useMemo(
+    () =>
+      activeTab === 'picks' && selectedUser && defaultPickDate
+        ? (['admin-picks-player-winners', defaultPickDate] as const)
+        : null,
+    [activeTab, selectedUser, defaultPickDate],
+  );
+
+  const { data: picksTeamWinnersData } = useSWR<
+    LoadTeamWinnersResult,
+    Error,
+    readonly ['admin-picks-team-winners', string] | null
+  >(
+    picksTeamWinnersKey,
+    ([, date]) => loadTeamWinners(date),
+    { revalidateOnFocus: false },
+  );
+
+  const { data: picksPlayerWinnersData } = useSWR<
+    LoadPlayerWinnersResult,
+    Error,
+    readonly ['admin-picks-player-winners', string] | null
+  >(
+    picksPlayerWinnersKey,
+    ([, date]) => loadPlayerWinners(date),
+    { revalidateOnFocus: false },
+  );
+
+  const teamWinnersByGameIdForPicks = useMemo<Record<string, string | null> | null>(() => {
+    if (!picksTeamWinnersData) {
+      return null;
+    }
+    return picksTeamWinnersData.games.reduce<Record<string, string | null>>((acc, game) => {
+      acc[game.id] = game.winnerTeamId ?? null;
+      return acc;
+    }, {});
+  }, [picksTeamWinnersData]);
+
+  const playerWinnersByKeyForPicks = useMemo<Record<string, string | null> | null>(() => {
+    if (!picksPlayerWinnersData) {
+      return null;
+    }
+    return picksPlayerWinnersData.games.reduce<Record<string, string | null>>((acc, game) => {
+      game.categories.forEach((category) => {
+        acc[`${game.id}:${category.category}`] = category.winnerPlayerId ?? null;
+      });
+      return acc;
+    }, {});
+  }, [picksPlayerWinnersData]);
+
   const teamTableRows = (picksPreview?.teams ?? []).map((team) => {
     const record = team as PicksPreviewTeam;
     const game =
@@ -413,7 +457,27 @@ export const AdminClient = ({
       selected_team_abbr: record.selected_team_abbr ?? null,
       selected_team_name: record.selected_team_name ?? null,
       pick_date: record.pick_date ?? defaultPickDate,
-      result: record.result ?? null,
+      result: (() => {
+        const fallbackResult = record.result ?? null;
+        if (!record.game_id) {
+          return fallbackResult;
+        }
+        const winnerId = teamWinnersByGameIdForPicks
+          ? teamWinnersByGameIdForPicks[record.game_id]
+          : undefined;
+        if (winnerId === undefined) {
+          return fallbackResult;
+        }
+        if (!winnerId) {
+          return 'pending';
+        }
+        if (!record.selected_team_id) {
+          return fallbackResult;
+        }
+        return winnerId.trim().toLowerCase() === record.selected_team_id.trim().toLowerCase()
+          ? 'win'
+          : 'loss';
+      })(),
       changes_count: record.changes_count ?? null,
       created_at: record.created_at ?? null,
       updated_at: record.updated_at ?? null,
@@ -435,7 +499,23 @@ export const AdminClient = ({
       changes_count: record.changes_count ?? null,
       created_at: record.created_at ?? null,
       updated_at: record.updated_at ?? null,
-      result: (record as { result?: string | null }).result ?? null,
+      result: (() => {
+        const key = record.game_id ? `${record.game_id}:${record.category}` : undefined;
+        const winnerId = key && playerWinnersByKeyForPicks ? playerWinnersByKeyForPicks[key] : undefined;
+        const fallback = (record as { result?: string | null }).result ?? null;
+        if (winnerId === undefined) {
+          return fallback;
+        }
+        if (!winnerId) {
+          return 'pending';
+        }
+        if (!record.player_id) {
+          return fallback;
+        }
+        return winnerId.trim().toLowerCase() === record.player_id.trim().toLowerCase()
+          ? 'win'
+          : 'loss';
+      })(),
       player: record.player ?? null,
       game,
     };
@@ -1032,6 +1112,9 @@ export const AdminClient = ({
                   title={dictionary.play.teams.title}
                   rows={teamTableRows}
                   emptyMessage="No team picks."
+                  showDateColumn={false}
+                  showChangesColumn={false}
+                  showTimestampsColumn={false}
                 />
                 <PicksPlayersTable
                   className="h-full"
@@ -1039,6 +1122,10 @@ export const AdminClient = ({
                   rows={playerTableRows}
                   emptyMessage="No player picks."
                   formatCategory={formatCategoryLabel}
+                  showDateColumn={false}
+                  showChangesColumn={false}
+                  showTimestampsColumn={false}
+                  showOutcomeColumn
                 />
               </div>
 
@@ -1228,17 +1315,6 @@ export const AdminClient = ({
                 onChange={(event) => handleWinnersDateChange(event.target.value)}
                 className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
               />
-              <select
-                value={winnersDate}
-                onChange={(event) => handleWinnersDateChange(event.target.value)}
-                className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
-              >
-                {winnersDateOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
             </div>
             {statusMessage ? (
               <div
@@ -1447,17 +1523,6 @@ export const AdminClient = ({
                 onChange={(event) => handleWinnersDateChange(event.target.value)}
                 className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
               />
-              <select
-                value={winnersDate}
-                onChange={(event) => handleWinnersDateChange(event.target.value)}
-                className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
-              >
-                {winnersDateOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
             </div>
             {statusMessage ? (
               <div

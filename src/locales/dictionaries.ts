@@ -123,6 +123,7 @@ export interface Dictionary {
       title: string;
       description: string;
       endPicks: string;
+      selectionLabel: string;
     };
     submit: string;
     update: string;
@@ -348,6 +349,7 @@ const it: Dictionary = {
       title: 'Highlights',
       description: 'Scegli fino a 5 giocatori che finiranno nella Top 10 della notte.',
       endPicks: 'Termina scelte',
+      selectionLabel: 'Giocatore',
     },
     submit: 'Salva picks',
     update: 'Aggiorna picks',
@@ -573,6 +575,7 @@ const en: Dictionary = {
       title: 'Highlights',
       description: 'Lock in up to 5 players you expect to shine in the nightly Top 10.',
       endPicks: 'End picks',
+      selectionLabel: 'Player',
     },
     submit: 'Save picks',
     update: 'Update picks',
@@ -598,7 +601,7 @@ const en: Dictionary = {
     title: 'Admin console',
     usersTab: 'Users',
     picksTab: 'Picks',
-    highlightsTab: 'Highlights',
+    highlightsTab: 'Winners Highlights',
     searchPlaceholder: 'Search user…',
     balance: 'Balance',
     cards: 'Cards',

@@ -18,7 +18,6 @@ export interface PlayerPick {
 
 export interface HighlightPick {
   playerId: string;
-  rank: number;
 }
 
 export interface GameMetaTeam {
@@ -272,9 +271,9 @@ export const usePicks = (pickDate: string) => {
             changes_count:
               method === 'PUT' ? Math.min((data?.changesCount ?? 0) + 1, 1) : 0,
           })),
-          highlights: sanitizedPayload.highlights.map((pick) => ({
+          highlights: sanitizedPayload.highlights.map((pick, index) => ({
             player_id: pick.playerId,
-            rank: pick.rank,
+            rank: index + 1,
             changes_count:
               method === 'PUT' ? Math.min((data?.changesCount ?? 0) + 1, 1) : 0,
           })),
