@@ -1318,10 +1318,13 @@ export const WinnersClient = ({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-white">
-                    {dictionary.dashboard.winners.breakdown.title}
+                    {dictionary.dashboard.howCalculatedBoth}
                   </h3>
                   <p className="text-sm text-slate-300">
                     {dictionary.dashboard.winners.breakdown.subtitle}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {dictionary.dashboard.weeklyXpExplainer}
                   </p>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-accent-gold/30 bg-accent-gold/10 px-4 py-2 text-sm font-semibold text-accent-gold">

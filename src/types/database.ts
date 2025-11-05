@@ -7,6 +7,19 @@ export type PlayerCategory =
   | 'top_dunk'
   | 'top_threes';
 
+export type WeeklyXPTotal = {
+  user_id: string;
+  week_start_sunday: string;
+  weekly_xp: number;
+};
+
+export type WeeklyRankingRow = {
+  user_id: string;
+  full_name: string;
+  week_start_sunday: string;
+  weekly_xp: number;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -379,7 +392,30 @@ export interface Database {
         Relationships: [];
       };
     };
-    Views: Record<string, never>;
+    Views: {
+      weekly_xp_totals: {
+        Row: WeeklyXPTotal;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      weekly_xp_ranking_current: {
+        Row: WeeklyRankingRow;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      v_results_team_with_names: {
+        Row: {
+          game_id: string;
+          winner_team_id: string | null;
+          slate_date: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+    };
     Functions: Record<string, never>;
     Enums: {
       role_enum: Role;

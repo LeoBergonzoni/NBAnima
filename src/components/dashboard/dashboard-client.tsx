@@ -8,6 +8,7 @@ import {
   Coins,
   Loader2,
   LogOut,
+  Sparkles,
   UserCircle2,
   X,
 } from 'lucide-react';
@@ -15,10 +16,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
 
 import { PlayerSelect } from '@/components/ui/PlayerSelect';
 import { useLocale } from '@/components/providers/locale-provider';
-import type { Locale } from '@/lib/constants';
+import { FEATURES, type Locale } from '@/lib/constants';
 import { createBrowserSupabase } from '@/lib/supabase-browser';
 import type { Dictionary } from '@/locales/dictionaries';
 import { useGames } from '@/hooks/useGames';
@@ -32,11 +34,34 @@ import {
 import { useTeamPlayers } from '@/hooks/useTeamPlayers';
 import { buyCardAction } from '@/app/[locale]/dashboard/(shop)/actions';
 import { WinnersClient } from './winners-client';
+import type { WeeklyRankingRow } from '@/types/database';
 
 const PLAYER_CATEGORIES = ['top_scorer', 'top_assist', 'top_rebound'] as const;
 const HIGHLIGHT_SLOT_COUNT = 5;
 const buildEmptyHighlightSlots = () =>
   Array.from({ length: HIGHLIGHT_SLOT_COUNT }, () => '');
+
+type WeeklyXpResponse = {
+  weekStart: string;
+  xp: number;
+};
+
+type WeeklyRankingResponse = {
+  weekStart: string;
+  ranking: WeeklyRankingRow[];
+};
+
+const fetchJson = async <T,>(url: string): Promise<T> => {
+  const response = await fetch(url, {
+    cache: 'no-store',
+    credentials: 'include',
+  });
+  const payload = (await response.json().catch(() => ({}))) as { error?: string };
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'Request failed');
+  }
+  return payload as unknown as T;
+};
 
 interface ShopCard {
   id: string;
@@ -943,9 +968,16 @@ export function DashboardClient({
   role,
 }: DashboardClientProps) {
   const { dictionary } = useLocale();
+  const highlightsEnabled = FEATURES.HIGHLIGHTS_ENABLED;
   const router = useRouter();
   const supabase = useMemo(() => createBrowserSupabase(), []);
-  const [activeTab, setActiveTab] = useState<'play' | 'myPicks' | 'winners' | 'collection' | 'shop'>('play');
+  const numberFormatter = useMemo(
+    () => new Intl.NumberFormat(locale === 'it' ? 'it-IT' : 'en-US'),
+    [locale],
+  );
+  const [activeTab, setActiveTab] = useState<
+    'play' | 'myPicks' | 'winners' | 'collection' | 'shop' | 'weekly'
+  >('play');
   const [teamSelections, setTeamSelections] = useState<Record<string, string>>({});
   const [playerSelections, setPlayerSelections] = useState<PlayerSelections>({});
   const [highlightSelections, setHighlightSelections] = useState<string[]>(() =>
@@ -962,6 +994,22 @@ export function DashboardClient({
     () => new Date().toISOString().slice(0, 10),
     [],
   );
+
+  const {
+    data: weeklyXpData,
+    error: weeklyXpError,
+    isLoading: weeklyXpLoading,
+  } = useSWR<WeeklyXpResponse>('/api/me/weekly-xp', fetchJson, {
+    revalidateOnFocus: false,
+  });
+
+  const {
+    data: weeklyRankingData,
+    error: weeklyRankingError,
+    isLoading: weeklyRankingLoading,
+  } = useSWR<WeeklyRankingResponse>('/api/leaderboard/weekly', fetchJson, {
+    revalidateOnFocus: false,
+  });
 
   const { games, isLoading: gamesLoading } = useGames(locale);
   const {
@@ -1037,6 +1085,34 @@ export function DashboardClient({
     [playersByGame],
   );
 
+  const weeklyXpValue = weeklyXpData?.xp ?? 0;
+  const weeklyXpWeekStart = weeklyXpData?.weekStart ?? null;
+  const weeklyRanking = weeklyRankingData?.ranking ?? [];
+  const weeklyRankingWeekStart =
+    weeklyRankingData?.weekStart ?? weeklyXpWeekStart ?? null;
+  const weeklyXpCaption = dictionary.dashboard.weeklyRangeCaption.replace(
+    '{date}',
+    weeklyXpWeekStart ?? '—',
+  );
+  const weeklyRankingCaption = dictionary.dashboard.weeklyRangeCaption.replace(
+    '{date}',
+    weeklyRankingWeekStart ?? '—',
+  );
+  const weeklyXpErrorMessage = weeklyXpError
+    ? locale === 'it'
+      ? 'Impossibile caricare i Weekly XP.'
+      : 'Unable to load Weekly XP.'
+    : null;
+  const weeklyRankingErrorMessage = weeklyRankingError
+    ? locale === 'it'
+      ? 'Impossibile caricare la classifica settimanale.'
+      : 'Unable to load the weekly ranking.'
+    : null;
+  const weeklyRankingEmptyMessage =
+    locale === 'it'
+      ? 'Nessun dato settimanale disponibile al momento.'
+      : 'No weekly data available yet.';
+
   const teamsComplete = useMemo(
     () => games.length > 0 && games.every((game) => !!teamSelections[game.id]),
     [games, teamSelections],
@@ -1054,12 +1130,15 @@ export function DashboardClient({
     [games, playerSelections, playersManuallyCompleted],
   );
 
-  const highlightsComplete = useMemo(
-    () =>
+  const highlightsComplete = useMemo(() => {
+    if (!highlightsEnabled) {
+      return true;
+    }
+    return (
       highlightsManuallyCompleted ||
-      highlightSelections.filter((playerId) => playerId).length === HIGHLIGHT_SLOT_COUNT,
-    [highlightsManuallyCompleted, highlightSelections],
-  );
+      highlightSelections.filter((playerId) => playerId).length === HIGHLIGHT_SLOT_COUNT
+    );
+  }, [highlightsEnabled, highlightsManuallyCompleted, highlightSelections]);
 
   const handleTeamsSelect = (gameId: string, teamId: string) => {
     setTeamSelections((previous) => ({ ...previous, [gameId]: teamId }));
@@ -1104,7 +1183,11 @@ export function DashboardClient({
     '{count}',
     String(dailyChanges),
   );
-  const canSubmit = teamsComplete && playersComplete && highlightsComplete && !isSaving;
+  const canSubmit =
+    teamsComplete &&
+    playersComplete &&
+    (highlightsEnabled ? highlightsComplete : true) &&
+    !isSaving;
 
   const handleSave = async () => {
     if (!canSubmit) {
@@ -1212,7 +1295,7 @@ export function DashboardClient({
   };
 
   const tabs: Array<{
-    key: 'play' | 'myPicks' | 'winners' | 'collection' | 'shop';
+    key: 'play' | 'myPicks' | 'winners' | 'collection' | 'shop' | 'weekly';
     label: string;
   }> = [
     { key: 'play', label: dictionary.dashboard.playTab },
@@ -1220,6 +1303,7 @@ export function DashboardClient({
     { key: 'winners', label: dictionary.dashboard.winnersTab },
     { key: 'collection', label: dictionary.dashboard.collectionTab },
     { key: 'shop', label: dictionary.dashboard.shopTab },
+    { key: 'weekly', label: dictionary.dashboard.weeklyRanking },
   ];
 
   const ownedCardIds = useMemo(
@@ -1273,21 +1357,47 @@ export function DashboardClient({
         </div>
       </header>
 
-      <section className="flex flex-col gap-6 rounded-[2rem] border border-accent-gold/40 bg-navy-900/70 p-6 shadow-card lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-gold/40 bg-navy-800/70">
-            <Coins className="h-7 w-7 text-accent-gold" />
+      <section className="rounded-[2rem] border border-accent-gold/40 bg-navy-900/70 p-6 shadow-card">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-gold/40 bg-navy-800/70">
+              <Coins className="h-7 w-7 text-accent-gold" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                {dictionary.dashboard.animaPoints}
+              </p>
+              <p className="text-3xl font-semibold text-white">
+                {numberFormatter.format(balance)}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">
-              {dictionary.dashboard.animaPoints}
-            </p>
-            <p className="text-3xl font-semibold text-white">
-              {balance.toLocaleString(locale === 'it' ? 'it-IT' : 'en-US')}
-            </p>
+          <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-gold/40 bg-navy-800/70">
+              <Sparkles className="h-7 w-7 text-accent-gold" />
+            </div>
+            <div className="space-y-1 text-center sm:text-left">
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                {dictionary.dashboard.weeklyXpBalance}
+              </p>
+              <div className="flex min-h-[2.25rem] items-center justify-center gap-2 text-3xl font-semibold text-white sm:justify-start">
+                {weeklyXpLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" aria-label={dictionary.common.loading} />
+                ) : (
+                  <span>{weeklyXpError ? '—' : numberFormatter.format(weeklyXpValue)}</span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400">{weeklyXpCaption}</p>
+              <p className="text-xs text-slate-400">
+                {dictionary.dashboard.weeklyXpExplainer}
+              </p>
+              {weeklyXpErrorMessage ? (
+                <p className="text-xs text-rose-300">{weeklyXpErrorMessage}</p>
+              ) : null}
+            </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300">
+        <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-slate-300">
           <span>{dictionary.dashboard.lastUpdated}:</span>
           <code className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 font-mono text-xs">
             {pickDate}
@@ -1409,45 +1519,49 @@ export function DashboardClient({
                     onPlayersLoaded={onPlayersLoaded}
                   />
                 ))}
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={() => setPlayersManuallyCompleted(true)}
-                    className="rounded-lg border border-accent-gold bg-gradient-to-r from-accent-gold/90 to-accent-coral/90 px-4 py-2 text-sm font-semibold text-navy-900 shadow-card hover:brightness-105"
-                  >
-                    {dictionary?.play?.players?.endPicks ?? 'Termina scelte'}
-                  </button>
-                </div>
+                {highlightsEnabled ? (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setPlayersManuallyCompleted(true)}
+                      className="rounded-lg border border-accent-gold bg-gradient-to-r from-accent-gold/90 to-accent-coral/90 px-4 py-2 text-sm font-semibold text-navy-900 shadow-card hover:brightness-105"
+                    >
+                      {dictionary?.play?.players?.endPicks ?? 'Termina scelte'}
+                    </button>
+                  </div>
+                ) : null}
               </section>
 
-              <section className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <SectionStatus complete={highlightsComplete} />
-                  <div>
-                    <h3 className="text-lg font-semibold text-white">
-                      {dictionary.play.highlights.title}
-                    </h3>
-                    <p className="text-sm text-slate-300">
-                      {dictionary.play.highlights.description}
-                    </p>
+              {highlightsEnabled ? (
+                <section className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <SectionStatus complete={highlightsComplete} />
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">
+                        {dictionary.play.highlights.title}
+                      </h3>
+                      <p className="text-sm text-slate-300">
+                        {dictionary.play.highlights.description}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <HighlightsSelector
-                  dictionary={dictionary}
-                  highlightSelections={highlightSelections}
-                  onChange={handleHighlightSelect}
-                  players={highlightPlayerPool}
-                />
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={() => setHighlightsManuallyCompleted(true)}
-                    className="rounded-lg border border-accent-gold bg-gradient-to-r from-accent-gold/90 to-accent-coral/90 px-4 py-2 text-sm font-semibold text-navy-900 shadow-card hover:brightness-105"
-                  >
-                    {dictionary?.play?.highlights?.endPicks ?? 'Termina scelte'}
-                  </button>
-                </div>
-              </section>
+                  <HighlightsSelector
+                    dictionary={dictionary}
+                    highlightSelections={highlightSelections}
+                    onChange={handleHighlightSelect}
+                    players={highlightPlayerPool}
+                  />
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setHighlightsManuallyCompleted(true)}
+                      className="rounded-lg border border-accent-gold bg-gradient-to-r from-accent-gold/90 to-accent-coral/90 px-4 py-2 text-sm font-semibold text-navy-900 shadow-card hover:brightness-105"
+                    >
+                      {dictionary?.play?.highlights?.endPicks ?? 'Termina scelte'}
+                    </button>
+                  </div>
+                </section>
+              ) : null}
 
               <footer className="space-y-4">
                 <p className="text-sm text-slate-300">{changeHintMessage}</p>
@@ -1520,6 +1634,68 @@ export function DashboardClient({
                 ownedCardIds={ownedCardIds}
                 onPurchaseSuccess={() => router.refresh()}
               />
+            </div>
+          ) : null}
+
+          {activeTab === 'weekly' ? (
+            <div className="space-y-4">
+              <h2 className="text-2xl font-semibold text-white">
+                {dictionary.dashboard.weeklyRanking}
+              </h2>
+              <p className="text-sm text-slate-300">{weeklyRankingCaption}</p>
+              <p className="text-xs text-slate-400">
+                {dictionary.dashboard.weeklyXpExplainer}
+              </p>
+              <section className="rounded-2xl border border-white/10 bg-navy-900/60 p-6 shadow-card">
+                <div className="overflow-x-auto">
+                  {weeklyRankingLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>{dictionary.common.loading}</span>
+                    </div>
+                  ) : weeklyRankingErrorMessage ? (
+                    <p className="rounded-xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                      {weeklyRankingErrorMessage}
+                    </p>
+                  ) : weeklyRanking.length === 0 ? (
+                    <p className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm text-slate-300">
+                      {weeklyRankingEmptyMessage}
+                    </p>
+                  ) : (
+                    <table
+                      className="min-w-full divide-y divide-white/5 text-left text-sm text-slate-200"
+                      aria-label={dictionary.dashboard.weeklyRanking}
+                    >
+                      <thead>
+                        <tr className="text-xs uppercase tracking-wide text-slate-400">
+                          <th scope="col" className="px-4 py-2">
+                            {locale === 'it' ? 'Pos' : 'Pos'}
+                          </th>
+                          <th scope="col" className="px-4 py-2">
+                            {locale === 'it' ? 'Giocatore' : 'Player'}
+                          </th>
+                          <th scope="col" className="px-4 py-2 text-right">
+                            XP
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {weeklyRanking.map((row, index) => (
+                          <tr key={row.user_id}>
+                            <td className="px-4 py-2 text-slate-300">#{index + 1}</td>
+                            <td className="px-4 py-2">
+                              {row.full_name?.trim()?.length ? row.full_name : '—'}
+                            </td>
+                            <td className="px-4 py-2 text-right font-semibold text-white">
+                              {numberFormatter.format(row.weekly_xp)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </section>
             </div>
           ) : null}
         </div>

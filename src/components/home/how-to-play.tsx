@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
+import { FEATURES } from '@/lib/constants';
 import type { Dictionary } from '@/locales/dictionaries';
 
 type HowToPlayProps = {
@@ -12,6 +13,7 @@ type HowToPlayProps = {
 
 export default function HowToPlay({ content, signupHref }: HowToPlayProps) {
   const { title, subtitle, play, cards, cta } = content;
+  const highlightsEnabled = FEATURES.HIGHLIGHTS_ENABLED;
 
   return (
     <section
@@ -96,36 +98,50 @@ export default function HowToPlay({ content, signupHref }: HowToPlayProps) {
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-950/60 p-5 shadow-inner">
-              <div>
-                <p className="text-xs uppercase tracking-[0.4em] text-accent-gold">
-                  {play.label}
-                </p>
-                <h4 className="text-lg font-semibold">{play.highlights.title}</h4>
+          {highlightsEnabled ? (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-950/60 p-5 shadow-inner">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.4em] text-accent-gold">
+                    {play.label}
+                  </p>
+                  <h4 className="text-lg font-semibold">{play.highlights.title}</h4>
+                </div>
+                <p className="text-sm text-slate-200">{play.highlights.description}</p>
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-100 shadow-inner">
+                  <p className="mb-2 font-medium">{play.highlights.scoreTitle}</p>
+                  <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5 sm:text-sm">
+                    {play.highlights.scores.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <p className="text-xs text-slate-400">{play.highlights.note}</p>
               </div>
-              <p className="text-sm text-slate-200">{play.highlights.description}</p>
-              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-100 shadow-inner">
-                <p className="mb-2 font-medium">{play.highlights.scoreTitle}</p>
-                <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5 sm:text-sm">
-                  {play.highlights.scores.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-              <p className="text-xs text-slate-400">{play.highlights.note}</p>
-            </div>
 
-            <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-950/60 p-5 shadow-inner">
-              <div>
-                <p className="text-xs uppercase tracking-[0.4em] text-accent-gold">
-                  {play.label}
-                </p>
-                <h4 className="text-lg font-semibold">{play.multipliers.title}</h4>
+              <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-950/60 p-5 shadow-inner">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.4em] text-accent-gold">
+                    {play.label}
+                  </p>
+                  <h4 className="text-lg font-semibold">{play.multipliers.title}</h4>
+                </div>
+                <p className="text-sm text-slate-200">{play.multipliers.description}</p>
               </div>
-              <p className="text-sm text-slate-200">{play.multipliers.description}</p>
             </div>
-          </div>
+          ) : (
+            <div className="grid gap-6">
+              <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-950/60 p-5 shadow-inner">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.4em] text-accent-gold">
+                    {play.label}
+                  </p>
+                  <h4 className="text-lg font-semibold">{play.multipliers.title}</h4>
+                </div>
+                <p className="text-sm text-slate-200">{play.multipliers.description}</p>
+              </div>
+            </div>
+          )}
         </article>
 
         <article className="space-y-6 rounded-3xl border border-accent-coral/30 bg-gradient-to-br from-accent-coral/10 via-accent-gold/10 to-transparent p-6 shadow-card">

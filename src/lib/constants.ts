@@ -28,6 +28,10 @@ export const TIMEZONES = {
   US_EASTERN: 'America/New_York',
 };
 
+export const FEATURES = {
+  HIGHLIGHTS_ENABLED: false,
+} as const;
+
 export const ROUTES = {
   HOME: '/',
   DASHBOARD: '/dashboard',

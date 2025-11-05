@@ -8,6 +8,7 @@ import {
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 
 import { LOCK_WINDOW_BUFFER_MINUTES, TIMEZONES } from './constants';
+import { getEasternOffsetMinutes } from './date-us-eastern';
 
 export interface NightWindow {
   start: Date;
@@ -42,3 +43,40 @@ export const isWithinLockWindow = (
 export const isBetween = (date: Date, [start, end]: [Date, Date]) =>
   (isAfter(date, start) || date.getTime() === start.getTime()) &&
   (isBefore(date, end) || date.getTime() === end.getTime());
+
+const MILLISECONDS_PER_MINUTE = 60_000;
+
+const formatEtDate = (date: Date): string => {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const toET = (date: Date): Date => {
+  const offsetMinutes = getEasternOffsetMinutes(date);
+  return new Date(date.getTime() + offsetMinutes * MILLISECONDS_PER_MINUTE);
+};
+
+const startOfDayET = (date: Date): Date => {
+  const start = new Date(date);
+  start.setUTCHours(0, 0, 0, 0);
+  return start;
+};
+
+export const weekStartSundayET = (date: Date): string => {
+  const easternDate = toET(date);
+  const start = startOfDayET(easternDate);
+  const dayOfWeek = easternDate.getUTCDay();
+  start.setUTCDate(start.getUTCDate() - dayOfWeek);
+  return formatEtDate(start);
+};
+
+export const visibleWeekStartET = (now = new Date()): string => {
+  const easternNow = toET(now);
+  const start = startOfDayET(easternNow);
+  const dayOfWeek = easternNow.getUTCDay();
+  const offsetDays = dayOfWeek === 0 ? 7 : dayOfWeek;
+  start.setUTCDate(start.getUTCDate() - offsetDays);
+  return formatEtDate(start);
+};

@@ -84,6 +84,11 @@ export interface Dictionary {
     winnersTab: string;
     collectionTab: string;
     shopTab: string;
+    weeklyXpBalance: string;
+    weeklyRanking: string;
+    weeklyRangeCaption: string;
+    weeklyXpExplainer: string;
+    howCalculatedBoth: string;
     statusCompleted: string;
     statusPending: string;
     lockWindowActive: string;
@@ -325,6 +330,12 @@ const it: Dictionary = {
     winnersTab: 'Vincenti',
     collectionTab: 'Collezione',
     shopTab: 'Acquista Cards',
+    weeklyXpBalance: 'Saldo Weekly XP',
+    weeklyRanking: 'Classifica settimanale',
+    weeklyRangeCaption: 'Settimana del {date} (Dom–Sab, ET)',
+    weeklyXpExplainer:
+      'I Weekly XP rispecchiano solo i punti da settlement e si azzerano il lunedì. La domenica mostra la classifica finale della settimana precedente.',
+    howCalculatedBoth: 'Come sono stati calcolati i tuoi Anima Points e i Weekly XP',
     statusCompleted: 'Completato',
     statusPending: 'Da completare',
     lockWindowActive: 'Window di gioco attiva, non puoi modificare le scelte.',
@@ -336,7 +347,7 @@ const it: Dictionary = {
       myPick: 'My Pick',
       empty: 'Nessun risultato disponibile per questa data.',
       breakdown: {
-        title: 'Come abbiamo calcolato i tuoi Anima Points',
+        title: 'Come sono stati calcolati i tuoi Anima Points e i Weekly XP',
         subtitle: 'Riepilogo delle scommesse vinte e del moltiplicatore attivo.',
         teamsLabel: 'Teams azzeccati',
         playersLabel: 'Players azzeccati',
@@ -569,6 +580,12 @@ const en: Dictionary = {
     winnersTab: 'Winners',
     collectionTab: 'Collection',
     shopTab: 'Shop Cards',
+    weeklyXpBalance: 'Weekly XP balance',
+    weeklyRanking: 'Weekly Ranking',
+    weeklyRangeCaption: 'Week of {date} (Sun–Sat, ET)',
+    weeklyXpExplainer:
+      'Weekly XP mirror settlement-only points and reset on Monday. Sunday shows last week’s final ranking.',
+    howCalculatedBoth: 'How your Anima Points and Weekly XP were calculated',
     statusCompleted: 'Completed',
     statusPending: 'To-do',
     lockWindowActive: 'Game window locked. Picks cannot be edited now.',
@@ -580,7 +597,7 @@ const en: Dictionary = {
       myPick: 'My Pick',
       empty: 'No results available for this date.',
       breakdown: {
-        title: 'How your Anima Points were calculated',
+        title: 'How your Anima Points and Weekly XP were calculated',
         subtitle: 'Breakdown of winning picks and the active multiplier.',
         teamsLabel: 'Team hits',
         playersLabel: 'Player hits',
