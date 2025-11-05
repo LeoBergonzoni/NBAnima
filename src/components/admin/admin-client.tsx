@@ -153,7 +153,7 @@ type HighlightFormEntry = {
 
 type PlayerWinnerOverridesState = Record<
   string,
-  Record<string, PlayerSelectResult | null>
+  Record<string, Array<PlayerSelectResult | null>>
 >;
 
 function ResponsiveTable({
@@ -331,16 +331,14 @@ export const AdminClient = ({
 
   const basePlayerSelections = useMemo(() => {
     if (!playerWinnersData) {
-      return {} as Record<string, Record<string, string>>;
+      return {} as Record<string, Record<string, string[]>>;
     }
     return playerWinnersData.games.reduce<
-      Record<string, Record<string, string>>
+      Record<string, Record<string, string[]>>
     >((acc, game) => {
-      const categories: Record<string, string> = {};
+      const categories: Record<string, string[]> = {};
       game.categories.forEach((category) => {
-        if (category.winnerPlayerId) {
-          categories[category.category] = category.winnerPlayerId;
-        }
+        categories[category.category] = category.winnerPlayerIds ?? [];
       });
       acc[game.id] = categories;
       return acc;
@@ -433,13 +431,13 @@ export const AdminClient = ({
     }, {});
   }, [picksTeamWinnersData]);
 
-  const playerWinnersByKeyForPicks = useMemo<Record<string, string | null> | null>(() => {
+  const playerWinnersByKeyForPicks = useMemo<Record<string, string[]> | null>(() => {
     if (!picksPlayerWinnersData) {
       return null;
     }
-    return picksPlayerWinnersData.games.reduce<Record<string, string | null>>((acc, game) => {
+    return picksPlayerWinnersData.games.reduce<Record<string, string[]>>((acc, game) => {
       game.categories.forEach((category) => {
-        acc[`${game.id}:${category.category}`] = category.winnerPlayerId ?? null;
+        acc[`${game.id}:${category.category}`] = category.winnerPlayerIds ?? [];
       });
       return acc;
     }, {});
@@ -501,18 +499,25 @@ export const AdminClient = ({
       updated_at: record.updated_at ?? null,
       result: (() => {
         const key = record.game_id ? `${record.game_id}:${record.category}` : undefined;
-        const winnerId = key && playerWinnersByKeyForPicks ? playerWinnersByKeyForPicks[key] : undefined;
+        const winnerIds =
+          key && playerWinnersByKeyForPicks
+            ? playerWinnersByKeyForPicks[key]
+            : undefined;
         const fallback = (record as { result?: string | null }).result ?? null;
-        if (winnerId === undefined) {
+        if (winnerIds === undefined) {
           return fallback;
         }
-        if (!winnerId) {
+        if (!winnerIds || winnerIds.length === 0) {
           return 'pending';
         }
         if (!record.player_id) {
           return fallback;
         }
-        return winnerId.trim().toLowerCase() === record.player_id.trim().toLowerCase()
+        const normalizedPick = record.player_id.trim().toLowerCase();
+        const isWinner = winnerIds.some(
+          (winner) => winner.trim().toLowerCase() === normalizedPick,
+        );
+        return isWinner
           ? 'win'
           : 'loss';
       })(),
@@ -527,6 +532,26 @@ export const AdminClient = ({
       return categories[category] ?? category;
     },
     [dictionary.play.players.categories],
+  );
+
+  const resolvePlayerOptionLabel = useCallback(
+    (gameId: string, categoryId: string, playerId: string) => {
+      const game = playerWinnersData?.games.find((entry) => entry.id === gameId);
+      const category = game?.categories.find((entry) => entry.category === categoryId);
+      const option = category?.options.find((entry) => entry.value === playerId);
+      return option?.label ?? playerId;
+    },
+    [playerWinnersData],
+  );
+
+  const buildSelectionFromBase = useCallback(
+    (gameId: string, categoryId: string, playerId: string): PlayerSelectResult => ({
+      id: playerId,
+      supabaseId: playerId,
+      source: 'supabase',
+      label: resolvePlayerOptionLabel(gameId, categoryId, playerId),
+    }),
+    [resolvePlayerOptionLabel],
   );
 
   const handleTeamWinnerChange = useCallback(
@@ -551,35 +576,159 @@ export const AdminClient = ({
     (
       gameId: string,
       category: string,
+      index: number,
       selection: PlayerSelectResult | null,
     ) => {
       setPlayerWinnerOverrides((previous) => {
-        const baseSelection = basePlayerSelections[gameId]?.[category] ?? '';
         const next = { ...previous };
-        const current = { ...(next[gameId] ?? {}) };
+        const perGame = { ...(next[gameId] ?? {}) };
+        const baseIds = basePlayerSelections[gameId]?.[category] ?? [];
+        const existing = perGame[category]
+          ? [...perGame[category]!]
+          : baseIds.map((playerId) =>
+              buildSelectionFromBase(gameId, category, playerId),
+            );
 
-        const selectedId = selection?.supabaseId ?? selection?.id ?? '';
-
-        if (
-          !selection ||
-          !selectedId ||
-          (selection.source === 'supabase' && selectedId === baseSelection)
-        ) {
-          delete current[category];
-        } else {
-          current[category] = { ...selection };
+        while (existing.length <= index) {
+          existing.push(null);
         }
 
-        if (Object.keys(current).length === 0) {
+        existing[index] = selection;
+
+        const normalized = existing
+          .filter(
+            (entry): entry is PlayerSelectResult =>
+              Boolean(entry && (entry.supabaseId ?? entry.id)),
+          )
+          .map((entry) => (entry.supabaseId ?? entry.id)!)
+          .sort();
+
+        const baseNormalized = baseIds.slice().sort();
+        const hasPlaceholders = existing.some(
+          (entry) => !entry || !(entry.supabaseId ?? entry.id),
+        );
+
+        if (
+          !hasPlaceholders &&
+          normalized.length === baseNormalized.length &&
+          normalized.every((value, idx) => value === baseNormalized[idx])
+        ) {
+          delete perGame[category];
+        } else {
+          perGame[category] = existing;
+        }
+
+        if (Object.keys(perGame).length === 0) {
           delete next[gameId];
         } else {
-          next[gameId] = current;
+          next[gameId] = perGame;
         }
 
         return next;
       });
     },
-    [basePlayerSelections],
+    [basePlayerSelections, buildSelectionFromBase],
+  );
+
+  const handleAddPlayerWinner = useCallback(
+    (gameId: string, category: string) => {
+      setPlayerWinnerOverrides((previous) => {
+        const next = { ...previous };
+        const perGame = { ...(next[gameId] ?? {}) };
+        const baseIds = basePlayerSelections[gameId]?.[category] ?? [];
+        const existing = perGame[category]
+          ? [...perGame[category]!]
+          : baseIds.map((playerId) =>
+              buildSelectionFromBase(gameId, category, playerId),
+            );
+
+        existing.push(null);
+        perGame[category] = existing;
+        next[gameId] = perGame;
+        return next;
+      });
+    },
+    [basePlayerSelections, buildSelectionFromBase],
+  );
+
+  const handleRemovePlayerWinner = useCallback(
+    (gameId: string, category: string, index: number) => {
+      setPlayerWinnerOverrides((previous) => {
+        const next = { ...previous };
+        const perGame = { ...(next[gameId] ?? {}) };
+        const baseIds = basePlayerSelections[gameId]?.[category] ?? [];
+        const existing = perGame[category]
+          ? [...perGame[category]!]
+          : baseIds.map((playerId) =>
+              buildSelectionFromBase(gameId, category, playerId),
+            );
+
+        if (index < 0 || index >= existing.length) {
+          return previous;
+        }
+
+        existing.splice(index, 1);
+
+        const hasNonNull = existing.some(
+          (entry) => entry && (entry.supabaseId ?? entry.id),
+        );
+        if (!hasNonNull) {
+          existing.length = 0;
+        }
+
+        const normalized = existing
+          .filter(
+            (entry): entry is PlayerSelectResult =>
+              Boolean(entry && (entry.supabaseId ?? entry.id)),
+          )
+          .map((entry) => (entry.supabaseId ?? entry.id)!)
+          .sort();
+
+        const baseNormalized = baseIds.slice().sort();
+
+        if (existing.length === 0 && baseNormalized.length === 0) {
+          delete perGame[category];
+        } else if (
+          existing.length > 0 &&
+          normalized.length === baseNormalized.length &&
+          normalized.every((value, idx) => value === baseNormalized[idx])
+        ) {
+          delete perGame[category];
+        } else {
+          perGame[category] = existing;
+        }
+
+        if (Object.keys(perGame).length === 0) {
+          delete next[gameId];
+        } else {
+          next[gameId] = perGame;
+        }
+
+        return next;
+      });
+    },
+    [basePlayerSelections, buildSelectionFromBase],
+  );
+
+  const handleResetPlayerWinnerCategory = useCallback(
+    (gameId: string, category: string) => {
+      setPlayerWinnerOverrides((previous) => {
+        const existing = previous[gameId]?.[category];
+        if (!existing) {
+          return previous;
+        }
+        const next = { ...previous };
+        const perGame = { ...next[gameId] };
+        delete perGame[category];
+        if (Object.keys(perGame).length === 0) {
+          delete next[gameId];
+        } else {
+          next[gameId] = perGame;
+        }
+        return next;
+      });
+    },
+    [],
   );
 
   const handleWinnersDateChange = useCallback((value: string) => {
@@ -639,36 +788,47 @@ export const AdminClient = ({
     if (!playerWinnersData) {
       return;
     }
-    const payload = playerWinnersData.games
-      .flatMap((game) =>
-        game.categories.map((category) => {
-          const override =
-            playerWinnerOverrides[game.id]?.[category.category] ?? null;
-          if (override) {
-            return {
-              gameId: game.id,
-              category: category.category,
-              player: override,
-            };
+    const payload = Object.entries(playerWinnerOverrides)
+      .flatMap(([gameId, categories]) =>
+        Object.entries(categories).map(([categoryId, selections]) => {
+          const entries = (selections ?? []).filter(
+            (selection): selection is PlayerSelectResult =>
+              Boolean(selection && (selection.supabaseId ?? selection.id)),
+          );
+
+          const normalized = entries
+            .map((selection) => (selection.supabaseId ?? selection.id)!)
+            .sort();
+          const baseNormalized = (basePlayerSelections[gameId]?.[categoryId] ?? [])
+            .slice()
+            .sort();
+          const hasPlaceholders = (selections ?? []).some(
+            (selection) => !selection || !(selection.supabaseId ?? selection.id),
+          );
+
+          if (
+            !hasPlaceholders &&
+            normalized.length === baseNormalized.length &&
+            normalized.every((value, idx) => value === baseNormalized[idx])
+          ) {
+            return null;
           }
-          const baseId =
-            basePlayerSelections[game.id]?.[category.category] ?? '';
-          if (baseId) {
-            const label =
-              category.options.find((option) => option.value === baseId)?.label ??
-              baseId;
-            return {
-              gameId: game.id,
-              category: category.category,
-              player: {
-                id: baseId,
-                label,
-                source: 'supabase',
-                supabaseId: baseId,
-              } satisfies PlayerSelectResult,
-            };
-          }
-          return null;
+
+          const seen = new Set<string>();
+          const deduped: PlayerSelectResult[] = [];
+          entries.forEach((entry) => {
+            const id = entry.supabaseId ?? entry.id;
+            if (id && !seen.has(id)) {
+              seen.add(id);
+              deduped.push(entry);
+            }
+          });
+
+          return {
+            gameId,
+            category: categoryId,
+            players: deduped,
+          };
         }),
       )
       .filter(
@@ -677,9 +837,18 @@ export const AdminClient = ({
         ): entry is {
           gameId: string;
           category: string;
-          player: PlayerSelectResult;
+          players: PlayerSelectResult[];
         } => entry !== null,
       );
+
+    if (payload.length === 0) {
+      setStatusMessage({
+        kind: 'success',
+        message: 'Nessuna modifica da pubblicare.',
+      });
+      return;
+    }
+
     startPublishPlayers(async () => {
       try {
         await publishPlayerWinners(winnersDate, payload, locale);
@@ -1572,59 +1741,120 @@ export const AdminClient = ({
                     </header>
                     <div className="space-y-3">
                       {game.categories.map((category) => {
-                        const baseSelectionId =
-                          basePlayerSelections[game.id]?.[category.category] ?? '';
-                        const overrideSelection =
-                          playerWinnerOverrides[game.id]?.[category.category] ??
-                          null;
-                        const selectionValue = overrideSelection
-                          ? overrideSelection.supabaseId ?? overrideSelection.id
-                          : baseSelectionId;
-                        const published = Boolean(baseSelectionId);
+                        const baseIds =
+                          basePlayerSelections[game.id]?.[category.category] ?? [];
+                        const overrideSelections =
+                          playerWinnerOverrides[game.id]?.[category.category] ?? null;
+                        const baseSelections = baseIds.map((playerId) =>
+                          buildSelectionFromBase(game.id, category.category, playerId),
+                        );
+                        const selections =
+                          overrideSelections ?? baseSelections;
+                        const displaySelections =
+                          selections.length > 0 ? selections : [null];
+                        const published = baseIds.length > 0;
                         return (
                           <div
                             key={`${game.id}-${category.category}`}
-                            className="flex flex-col gap-2 rounded-xl border border-white/10 bg-navy-800/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                            className="flex flex-col gap-3 rounded-xl border border-white/10 bg-navy-800/60 p-3"
                           >
-                            <div className="flex flex-col gap-1">
-                              <span className="text-sm font-semibold text-white">
-                                {formatCategoryLabel(category.category)}
+                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-sm font-semibold text-white">
+                                  {formatCategoryLabel(category.category)}
+                                </span>
+                                {published ? (
+                                  <span className="inline-flex w-fit items-center rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-200">
+                                    Pubblicato
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex w-fit items-center rounded-full border border-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-slate-400">
+                                    In attesa
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] uppercase tracking-wide text-slate-500">
+                                {category.settledAt ? 'Settled' : 'Draft'}
                               </span>
-                              {published ? (
-                                <span className="inline-flex w-fit items-center rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-200">
-                                  Pubblicato
-                                </span>
-                              ) : (
-                                <span className="inline-flex w-fit items-center rounded-full border border-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-slate-400">
-                                  In attesa
-                                </span>
-                              )}
                             </div>
-                            <div className="flex w-full flex-col gap-2 sm:w-64">
-                              <PlayerSelect
-                                value={selectionValue || undefined}
-                                onChange={(selection) =>
-                                  handlePlayerWinnerChange(
-                                    game.id,
-                                    category.category,
-                                    selection,
-                                  )
-                                }
-                                placeholder="Seleziona giocatore"
-                              />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handlePlayerWinnerChange(
-                                    game.id,
-                                    category.category,
-                                    null,
-                                  )
-                                }
-                                className="self-start text-[11px] text-slate-400 hover:text-slate-200"
-                              >
-                                Reset
-                              </button>
+                            <div className="flex w-full flex-col gap-2">
+                              {displaySelections.map((selection, index) => {
+                                const value = selection
+                                  ? selection.supabaseId ?? selection.id
+                                  : '';
+                                const canRemove =
+                                  displaySelections.length > 1 ||
+                                  baseIds.length > 0 ||
+                                  Boolean(overrideSelections);
+                                return (
+                                  <div
+                                    key={`${game.id}-${category.category}-${index}`}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <div className="flex-1">
+                                      <PlayerSelect
+                                        value={value || undefined}
+                                        onChange={(nextSelection) =>
+                                          handlePlayerWinnerChange(
+                                            game.id,
+                                            category.category,
+                                            index,
+                                            nextSelection,
+                                          )
+                                        }
+                                        placeholder="Seleziona giocatore"
+                                      />
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleRemovePlayerWinner(
+                                          game.id,
+                                          category.category,
+                                          index,
+                                        )
+                                      }
+                                      disabled={!canRemove}
+                                      className={clsx(
+                                        'flex h-10 w-10 items-center justify-center rounded-lg border text-lg font-semibold transition',
+                                        canRemove
+                                          ? 'border-white/20 text-slate-100 hover:border-rose-400 hover:text-rose-200'
+                                          : 'cursor-not-allowed border-white/10 text-slate-600',
+                                      )}
+                                      aria-label="Rimuovi vincitore"
+                                    >
+                                      –
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleAddPlayerWinner(
+                                      game.id,
+                                      category.category,
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 rounded-lg border border-accent-gold/40 px-3 py-1 text-xs font-semibold text-accent-gold transition hover:border-accent-gold"
+                                >
+                                  +
+                                  <span>Aggiungi vincitore</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleResetPlayerWinnerCategory(
+                                      game.id,
+                                      category.category,
+                                    )
+                                  }
+                                  className="text-xs font-semibold text-slate-400 transition hover:text-slate-200"
+                                >
+                                  Reset
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );

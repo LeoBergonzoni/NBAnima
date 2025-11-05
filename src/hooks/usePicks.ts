@@ -262,25 +262,25 @@ export const usePicks = (pickDate: string) => {
             game_id: pick.gameId,
             selected_team_id: pick.teamId,
             changes_count:
-              method === 'PUT' ? Math.min((data?.changesCount ?? 0) + 1, 1) : 0,
+              method === 'PUT' ? (data?.changesCount ?? 0) + 1 : 0,
           })),
           players: sanitizedPayload.players.map((pick) => ({
             game_id: pick.gameId,
             category: pick.category,
             player_id: pick.playerId,
             changes_count:
-              method === 'PUT' ? Math.min((data?.changesCount ?? 0) + 1, 1) : 0,
+              method === 'PUT' ? (data?.changesCount ?? 0) + 1 : 0,
           })),
           highlights: sanitizedPayload.highlights.map((pick, index) => ({
             player_id: pick.playerId,
             rank: index + 1,
             changes_count:
-              method === 'PUT' ? Math.min((data?.changesCount ?? 0) + 1, 1) : 0,
+              method === 'PUT' ? (data?.changesCount ?? 0) + 1 : 0,
           })),
           changesCount:
             method === 'PUT'
-              ? Math.min((data?.changesCount ?? 0) + 1, 1)
-              : data?.changesCount ?? 0,
+              ? (data?.changesCount ?? 0) + 1
+              : 0,
         },
         rollbackOnError: true,
         revalidate: true,

@@ -301,12 +301,29 @@ export const WinnersClient = ({
   }, [winners?.teams]);
 
   const playerWinnersByKey = useMemo(() => {
-    const map = new Map<string, WinnersResponse['players'][number]>();
+    const map = new Map<string, WinnersResponse['players'][number][]>();
     (winners?.players ?? []).forEach((player) => {
-      map.set(`${player.game_id}:${player.category}`, player);
+      const key = `${player.game_id}:${player.category}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.push(player);
+      } else {
+        map.set(key, [player]);
+      }
     });
     return map;
   }, [winners?.players]);
+
+  const playerWinnerIdsByKey = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    playerWinnersByKey.forEach((list, key) => {
+      map.set(
+        key,
+        new Set(list.map((winner) => winner.player_id)),
+      );
+    });
+    return map;
+  }, [playerWinnersByKey]);
 
   const teamSelections = useMemo(() => picks?.teamPicks ?? [], [picks]);
   const playerSelections = useMemo(() => picks?.playerPicks ?? [], [picks]);
@@ -519,15 +536,15 @@ export const WinnersClient = ({
     const map = new Map<string, 'win' | 'loss' | 'pending'>();
     playerSelections.forEach((pick) => {
       const key = `${pick.game_id}:${pick.category}`;
-      const winner = playerWinnersByKey.get(key);
-      if (!winner) {
+      const winners = playerWinnerIdsByKey.get(key);
+      if (!winners || winners.size === 0) {
         map.set(key, 'pending');
         return;
       }
-      map.set(key, winner.player_id === pick.player_id ? 'win' : 'loss');
+      map.set(key, winners.has(pick.player_id) ? 'win' : 'loss');
     });
     return map;
-  }, [playerSelections, playerWinnersByKey]);
+  }, [playerSelections, playerWinnerIdsByKey]);
 
   const teamSummaryCards = useMemo(() => {
     return (winners?.teams ?? []).map((team) => {
@@ -570,27 +587,44 @@ export const WinnersClient = ({
   }, [winners?.teams, teamSelectionsByGameId, teamOutcomes, resolveTeamDisplay]);
 
   const playerSummaryCards = useMemo(() => {
-    return (winners?.players ?? []).map((player) => {
+    const grouped = new Map<string, WinnersResponse['players'][number][]>();
+    (winners?.players ?? []).forEach((player) => {
       const key = `${player.game_id}:${player.category}`;
+      const list = grouped.get(key);
+      if (list) {
+        list.push(player);
+      } else {
+        grouped.set(key, [player]);
+      }
+    });
+
+    return Array.from(grouped.entries()).map(([key, group]) => {
       const userPick = playerSelectionsByKey.get(key);
       const status = userPick ? playerOutcomes.get(key) ?? 'pending' : 'pending';
-      const winnerTeamMeta = player.team_id ? getTeamMetadata(player.team_id) : undefined;
+
+      const winnersWithMeta = group.map((player) => {
+        const teamMeta = player.team_id ? getTeamMetadata(player.team_id) : undefined;
+        return {
+          player,
+          teamDisplay: resolveTeamDisplay(
+            player.team_id ?? null,
+            teamMeta?.name ?? null,
+            teamMeta?.abbreviation ?? null,
+          ),
+          nameInfo: resolvePlayerName(
+            player.player_id,
+            player.first_name,
+            player.last_name,
+            player.provider_player_id ?? null,
+          ),
+        };
+      });
+
       const userPickTeamMeta = userPick?.team_id ? getTeamMetadata(userPick.team_id) : undefined;
-      const winnerTeamDisplay = resolveTeamDisplay(
-        player.team_id ?? null,
-        winnerTeamMeta?.name ?? null,
-        winnerTeamMeta?.abbreviation ?? null,
-      );
       const userPickTeamDisplay = resolveTeamDisplay(
         userPick?.team_id ?? null,
         userPickTeamMeta?.name ?? null,
         userPickTeamMeta?.abbreviation ?? null,
-      );
-      const winnerNameInfo = resolvePlayerName(
-        player.player_id,
-        player.first_name,
-        player.last_name,
-        player.provider_player_id ?? null,
       );
       const userPickNameInfo = userPick
         ? resolvePlayerName(
@@ -602,12 +636,13 @@ export const WinnersClient = ({
         : null;
 
       return {
-        player,
+        key,
+        category: group[0]?.category ?? '',
+        gameId: group[0]?.game_id ?? '',
+        winners: winnersWithMeta,
         status,
         userPick,
-        winnerTeamDisplay,
         userPickTeamDisplay,
-        winnerNameInfo,
         userPickNameInfo,
       };
     });
@@ -951,41 +986,28 @@ export const WinnersClient = ({
                 <tbody className="divide-y divide-white/10 text-sm text-slate-200">
                   {playerSummaryCards.map((summary) => {
                     const userGame = summary.userPick?.game ?? null;
+                    const teamMeta = teamWinnersByGameId.get(summary.gameId);
                     const homeAbbr =
-                      userGame?.home_team_abbr ??
-                      summary.userPickTeamDisplay.abbreviation ??
-                      summary.winnerTeamDisplay.abbreviation ??
-                      'HOME';
+                      (userGame?.home_team_abbr ?? teamMeta?.home_team_abbr ?? 'HOME')?.toUpperCase();
                     const awayAbbr =
-                      userGame?.away_team_abbr ??
-                      summary.userPickTeamDisplay.abbreviation ??
-                      'AWY';
+                      (userGame?.away_team_abbr ?? teamMeta?.away_team_abbr ?? 'AWY')?.toUpperCase();
                     const homeName =
-                      userGame?.home_team_name ??
-                      summary.userPickTeamDisplay.name ??
-                      summary.winnerTeamDisplay.name ??
-                      'Home Team';
+                      userGame?.home_team_name ?? teamMeta?.home_team_name ?? 'Home Team';
                     const awayName =
-                      userGame?.away_team_name ??
-                      summary.userPickTeamDisplay.name ??
-                      'Away Team';
-                    const winnerName =
-                      summary.winnerNameInfo?.fullName ?? summary.player.player_id;
-                    const winnerTeam =
-                      summary.winnerTeamDisplay.abbreviation ?? summary.winnerTeamDisplay.name ?? '—';
+                      userGame?.away_team_name ?? teamMeta?.away_team_name ?? 'Away Team';
+                    const outcome = resolveOutcomeDisplay(summary.status);
                     const pickName =
                       summary.userPickNameInfo?.fullName ?? summary.userPick?.player_id ?? '—';
                     const pickTeam =
                       summary.userPickTeamDisplay.abbreviation ??
                       summary.userPickTeamDisplay.name ??
                       '—';
-                    const outcome = resolveOutcomeDisplay(summary.status);
                     return (
-                      <tr key={`${summary.player.game_id}-${summary.player.category}`}>
+                      <tr key={summary.key}>
                         <td className="px-4 py-3 align-top">
                           <div className="flex flex-col">
                             <span className="font-semibold text-white">
-                              {awayAbbr?.toUpperCase()} @ {homeAbbr?.toUpperCase()}
+                              {awayAbbr} @ {homeAbbr}
                             </span>
                             <span className="text-xs text-slate-400">
                               {awayName} · {homeName}
@@ -993,11 +1015,23 @@ export const WinnersClient = ({
                           </div>
                         </td>
                         <td className="px-4 py-3 align-top text-xs uppercase tracking-wide text-slate-400">
-                          {getCategoryLabel(dictionary, summary.player.category)}
+                          {getCategoryLabel(dictionary, summary.category)}
                         </td>
                         <td className="px-4 py-3 align-top">
-                          <div className="font-semibold text-white">{winnerName}</div>
-                          <div className="text-xs text-slate-400">{winnerTeam}</div>
+                          <div className="flex flex-col gap-1">
+                            {summary.winners.map((winner) => {
+                              const winnerTeam =
+                                winner.teamDisplay.abbreviation ?? winner.teamDisplay.name ?? '—';
+                              const winnerName =
+                                winner.nameInfo.fullName ?? winner.player.player_id;
+                              return (
+                                <div key={winner.player.player_id} className="flex items-center gap-2">
+                                  <span className="font-semibold text-white">{winnerName}</span>
+                                  <span className="text-xs text-slate-400">{winnerTeam}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </td>
                         <td className="px-4 py-3 align-top">
                           <div className="font-semibold text-white">{pickName}</div>
@@ -1016,52 +1050,37 @@ export const WinnersClient = ({
               <MobileList>
                 {playerSummaryCards.map((summary, index) => {
                   const userGame = summary.userPick?.game ?? null;
+                  const teamMeta = teamWinnersByGameId.get(summary.gameId);
                   const homeAbbr =
-                    userGame?.home_team_abbr ??
-                    summary.userPickTeamDisplay.abbreviation ??
-                    summary.winnerTeamDisplay.abbreviation ??
-                    'HOME';
+                    (userGame?.home_team_abbr ?? teamMeta?.home_team_abbr ?? 'HOME').toUpperCase();
                   const awayAbbr =
-                    userGame?.away_team_abbr ??
-                    summary.userPickTeamDisplay.abbreviation ??
-                    'AWY';
+                    (userGame?.away_team_abbr ?? teamMeta?.away_team_abbr ?? 'AWY').toUpperCase();
                   const homeName =
-                    userGame?.home_team_name ??
-                    summary.userPickTeamDisplay.name ??
-                    summary.winnerTeamDisplay.name ??
-                    'Home Team';
+                    userGame?.home_team_name ?? teamMeta?.home_team_name ?? 'Home Team';
                   const awayName =
-                    userGame?.away_team_name ??
-                    summary.userPickTeamDisplay.name ??
-                    'Away Team';
-                  const winnerName =
-                    summary.winnerNameInfo?.fullName ?? summary.player.player_id;
-                  const winnerTeam =
-                    summary.winnerTeamDisplay.abbreviation ?? summary.winnerTeamDisplay.name ?? '—';
+                    userGame?.away_team_name ?? teamMeta?.away_team_name ?? 'Away Team';
+                  const categoryLabel = getCategoryLabel(dictionary, summary.category);
+                  const outcome = resolveOutcomeDisplay(summary.status);
                   const pickName =
                     summary.userPickNameInfo?.fullName ?? summary.userPick?.player_id ?? '—';
                   const pickTeam =
                     summary.userPickTeamDisplay.abbreviation ??
                     summary.userPickTeamDisplay.name ??
                     '—';
-                  const categoryLabel = getCategoryLabel(dictionary, summary.player.category);
-                  const outcome = resolveOutcomeDisplay(summary.status);
                   return (
                     <li
-                      key={`player-winner-${summary.player.game_id}-${summary.player.category}-${index}`}
+                      key={`player-winner-${summary.key}-${index}`}
                       className="rounded-xl border border-white/10 bg-white/5 p-3"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 text-sm font-semibold text-white">
                             <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
-                              {awayAbbr?.toUpperCase()}
+                              {awayAbbr}
                             </span>
-                            <span className="text-[11px] uppercase text-slate-500">
-                              vs
-                            </span>
+                            <span className="text-[11px] uppercase text-slate-500">vs</span>
                             <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
-                              {homeAbbr?.toUpperCase()}
+                              {homeAbbr}
                             </span>
                           </div>
                           <p className="mt-1 text-xs text-slate-400">
@@ -1072,25 +1091,46 @@ export const WinnersClient = ({
                           {categoryLabel}
                         </span>
                       </div>
-                      <div className="mt-3 space-y-1 text-sm text-slate-200">
-                        <p>
+                      <div className="mt-3 space-y-2 text-sm text-slate-200">
+                        <div>
                           <span className="text-xs uppercase tracking-wide text-slate-400">
-                            Scelta:
-                          </span>{' '}
-                          <span className="font-semibold text-white">{pickName}</span>
-                          <span className="ml-2 text-xs text-slate-400">{pickTeam}</span>
-                        </p>
-                        <p>
-                          <span className="text-xs uppercase tracking-wide text-slate-400">
-                            Esito:
-                          </span>{' '}
-                          <span className={clsx('font-semibold', outcome.className)}>
-                            {outcome.label}
+                            Winners
                           </span>
-                        </p>
+                          <div className="mt-1 space-y-1">
+                            {summary.winners.map((winner) => {
+                              const winnerTeam =
+                                winner.teamDisplay.abbreviation ?? winner.teamDisplay.name ?? '—';
+                              const winnerName =
+                                winner.nameInfo.fullName ?? winner.player.player_id;
+                              return (
+                                <div key={winner.player.player_id} className="flex items-center gap-2">
+                                  <span className="font-semibold text-white">{winnerName}</span>
+                                  <span className="text-xs text-slate-400">{winnerTeam}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-xs uppercase tracking-wide text-slate-400">
+                            {dictionary.dashboard.winners.myPick}
+                          </span>
+                          <div className="mt-1 text-sm font-semibold text-white">
+                            {pickName}
+                          </div>
+                          <div className="text-xs text-slate-400">{pickTeam}</div>
+                        </div>
+                        <div>
+                          <span className="text-xs uppercase tracking-wide text-slate-400">
+                            Esito
+                          </span>
+                          <div className={clsx('text-sm font-semibold', outcome.className)}>
+                            {outcome.label}
+                          </div>
+                        </div>
                       </div>
                       <p className="mt-2 text-xs text-slate-400">
-                        {slateDisplay} · Changes: {changeCount ?? 0} · Winner: {winnerTeam} · {winnerName}
+                        {slateDisplay} · Changes: {changeCount ?? 0}
                       </p>
                     </li>
                   );

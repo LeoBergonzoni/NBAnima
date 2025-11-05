@@ -1100,19 +1100,14 @@ export function DashboardClient({
 
   const hasExistingPicks = Boolean(picks && picks.teams.length > 0);
   const dailyChanges = picks?.changesCount ?? 0;
-  const changeLimitReached = dailyChanges >= 1;
+  const changeHintMessage = dictionary.play.changesHint.replace(
+    '{count}',
+    String(dailyChanges),
+  );
   const canSubmit = teamsComplete && playersComplete && highlightsComplete && !isSaving;
-
-  const dictionaryChangeHint = changeLimitReached
-    ? dictionary.play.changesHintExhausted
-    : dictionary.play.changesHintAvailable;
 
   const handleSave = async () => {
     if (!canSubmit) {
-      return;
-    }
-    if (hasExistingPicks && changeLimitReached) {
-      setErrorMessage(dictionary.play.changesHintExhausted);
       return;
     }
 
@@ -1455,7 +1450,7 @@ export function DashboardClient({
               </section>
 
               <footer className="space-y-4">
-                <p className="text-sm text-slate-300">{dictionaryChangeHint}</p>
+                <p className="text-sm text-slate-300">{changeHintMessage}</p>
                 <div
                   role="status"
                   aria-live="polite"
@@ -1469,7 +1464,7 @@ export function DashboardClient({
                   disabled={!canSubmit || picksLoading || gamesLoading || isSaving}
                   className={clsx(
                     'inline-flex w-full items-center justify-center gap-2 rounded-full border px-6 py-3 text-sm font-semibold transition min-h-[48px]',
-                    canSubmit && !changeLimitReached
+                    canSubmit
                       ? 'border-lime-400/80 bg-lime-400/20 text-lime-300 hover:bg-lime-400/30'
                       : 'border-white/10 bg-navy-800/70 text-slate-400',
                   )}

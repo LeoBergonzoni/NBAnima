@@ -1121,14 +1121,8 @@ export async function PUT(request: NextRequest) {
       userId,
       payload.pickDate,
     );
-    if (currentChanges >= 1 && role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Daily change limit reached for this date.' },
-        { status: 403 },
-      );
-    }
 
-    const nextChangeCount = role === 'admin' ? currentChanges : currentChanges + 1;
+    const nextChangeCount = currentChanges + 1;
     const now = new Date().toISOString();
     const gameList = Array.from(gamesMap.values());
     const rosters = await getRosters();
@@ -1178,7 +1172,7 @@ export async function PUT(request: NextRequest) {
         selected_team_abbr: sel.abbr ?? null,
         selected_team_name: sel.name ?? null,
         pick_date: payload.pickDate,
-        changes_count: nextChangeCount ?? 0,
+        changes_count: nextChangeCount,
         created_at: now,
         updated_at: now,
       } satisfies PicksTeamsInsert;

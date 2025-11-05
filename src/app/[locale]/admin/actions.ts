@@ -103,7 +103,7 @@ export type PlayerWinnerOption = {
 
 export type PlayerWinnerCategoryRow = {
   category: string;
-  winnerPlayerId: string | null;
+  winnerPlayerIds: string[];
   settledAt: string | null;
   options: PlayerWinnerOption[];
 };
@@ -956,9 +956,15 @@ export const loadPlayerWinners = async (
     }
   });
 
-  const resultMap = new Map<string, PlayerResultRow>();
+  const resultMap = new Map<string, PlayerResultRow[]>();
   playerResults.forEach((result) => {
-    resultMap.set(`${result.game_id}:${result.category}`, result);
+    const key = `${result.game_id}:${result.category}`;
+    const existing = resultMap.get(key);
+    if (existing) {
+      existing.push(result);
+    } else {
+      resultMap.set(key, [result]);
+    }
     const set =
       categoriesByGame.get(result.game_id) ??
       (() => {
@@ -990,27 +996,40 @@ export const loadPlayerWinners = async (
 
     const perCategory: PlayerWinnerCategoryRow[] = categories.map((category) => {
       const key = `${game.id}:${category}`;
-      const winner = resultMap.get(key);
+      const winners = resultMap.get(key) ?? [];
       const options =
         optionsByGameCategory.get(game.id)?.get(category)?.slice() ?? [];
 
-      if (winner && !options.some((option) => option.value === winner.player_id)) {
-        const info = playerInfoMap.get(winner.player_id) ?? null;
-        options.push({
-          value: winner.player_id,
-          label: buildPlayerLabel(info ?? undefined, winner.player_id),
-          meta: {
-            position: info?.position ?? null,
-          },
-        });
-      }
+      winners.forEach((winner) => {
+        if (!options.some((option) => option.value === winner.player_id)) {
+          const info = playerInfoMap.get(winner.player_id) ?? null;
+          options.push({
+            value: winner.player_id,
+            label: buildPlayerLabel(info ?? undefined, winner.player_id),
+            meta: {
+              position: info?.position ?? null,
+            },
+          });
+        }
+      });
 
       options.sort((a, b) => a.label.localeCompare(b.label));
 
+      const winnerIds = winners.map((winner) => winner.player_id).sort((a, b) => a.localeCompare(b));
+      const settledAt = winners.reduce<string | null>((latest, entry) => {
+        if (!entry.settled_at) {
+          return latest;
+        }
+        if (!latest || entry.settled_at > latest) {
+          return entry.settled_at;
+        }
+        return latest;
+      }, null);
+
       return {
         category,
-        winnerPlayerId: winner?.player_id ?? null,
-        settledAt: winner?.settled_at ?? null,
+        winnerPlayerIds: winnerIds,
+        settledAt,
         options,
       };
     });
@@ -1083,42 +1102,62 @@ export const publishPlayerWinners = async (
   dateNY: string,
   winners: Array<{
     gameId: string;
-    player: AdminPlayerSelection;
     category: string;
+    players: AdminPlayerSelection[];
   }>,
   locale?: Locale,
 ) => {
   await ensureAdminUser();
   const pickDate = DATE_SCHEMA.parse(dateNY);
 
-  const validWinners = winners.filter(
-    (entry) => entry.gameId && entry.category && entry.player,
-  );
+  const normalized = winners
+    .filter((entry) => entry.gameId && entry.category)
+    .map((entry) => ({
+      gameId: entry.gameId,
+      category: entry.category as PlayerCategoryEnum,
+      players: (entry.players ?? []).filter(
+        (player): player is AdminPlayerSelection => Boolean(player),
+      ),
+    }));
 
-  if (validWinners.length > 0) {
-    const now = new Date().toISOString();
-    const resolved = await Promise.all(
-      validWinners.map(async (entry) => ({
-        gameId: entry.gameId,
-        category: entry.category as PlayerCategoryEnum,
-        playerId: await ensurePlayerUuid(entry.player),
-      })),
+  const now = new Date().toISOString();
+
+  for (const entry of normalized) {
+    const deleteResult = await supabaseAdmin
+      .from('results_players')
+      .delete()
+      .eq('game_id', entry.gameId)
+      .eq('category', entry.category);
+
+    if (deleteResult.error) {
+      throw deleteResult.error;
+    }
+
+    if (entry.players.length === 0) {
+      continue;
+    }
+
+    const resolvedIds = await Promise.all(
+      entry.players.map(async (player) => ensurePlayerUuid(player)),
     );
-    const upsertPayload = resolved.map((entry) => ({
+    const uniqueIds = Array.from(new Set(resolvedIds));
+    if (uniqueIds.length === 0) {
+      continue;
+    }
+
+    const insertPayload = uniqueIds.map((playerId) => ({
       game_id: entry.gameId,
       category: entry.category,
-      player_id: entry.playerId,
+      player_id: playerId,
       settled_at: now,
     }));
 
-    const { error } = await supabaseAdmin
+    const insertResult = await supabaseAdmin
       .from('results_players')
-      .upsert(upsertPayload, {
-        onConflict: 'game_id,category',
-      });
+      .insert(insertPayload);
 
-    if (error) {
-      throw error;
+    if (insertResult.error) {
+      throw insertResult.error;
     }
   }
 

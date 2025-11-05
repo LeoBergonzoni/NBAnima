@@ -145,8 +145,7 @@ export interface Dictionary {
     };
     submit: string;
     update: string;
-    changesHintAvailable: string;
-    changesHintExhausted: string;
+    changesHint: string;
   };
   collection: {
     empty: string;
@@ -389,8 +388,8 @@ const it: Dictionary = {
     },
     submit: 'Salva picks',
     update: 'Aggiorna picks',
-    changesHintAvailable: 'Hai ancora 1 modifica disponibile oggi.',
-    changesHintExhausted: 'Hai esaurito la modifica disponibile per oggi.',
+    changesHint:
+      'Modifiche effettuate oggi: {count}. Puoi aggiornare le tue picks tutte le volte che vuoi fino all’inizio delle partite.',
   },
   collection: {
     empty: 'Non hai ancora alcuna card. Completa le sfide per guadagnare punti e acquistare la tua prima carta.',
@@ -633,8 +632,8 @@ const en: Dictionary = {
     },
     submit: 'Save picks',
     update: 'Update picks',
-    changesHintAvailable: 'You can still tweak your picks once today.',
-    changesHintExhausted: 'Change limit reached for today.',
+    changesHint:
+      'Changes made today: {count}. You can keep updating your picks freely until tip-off.',
   },
   collection: {
     empty: 'Your collection is empty. Play challenges to earn points and redeem your first card.',

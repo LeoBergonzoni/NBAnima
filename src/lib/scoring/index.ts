@@ -61,6 +61,11 @@ const determineMultiplier = (totalHits: number) => {
   return 1;
 };
 
+type GameCategoryKey = `${string}:${string}`;
+
+const keyFor = (gameId: string, category: string): GameCategoryKey =>
+  `${gameId}:${category}`;
+
 export const computeDailyScore = ({
   teamPicks,
   teamResults,
@@ -78,14 +83,17 @@ export const computeDailyScore = ({
     (pick) => teamResultMap.get(pick.gameId) === pick.selectedTeamId,
   );
 
-  const playerResultMap = new Map<string, string>();
-  playerResults.forEach((result) =>
-    playerResultMap.set(`${result.gameId}:${result.category}`, result.playerId),
-  );
+  const winnersByKey = new Map<GameCategoryKey, Set<string>>();
+  playerResults.forEach((result) => {
+    const key = keyFor(result.gameId, result.category);
+    if (!winnersByKey.has(key)) {
+      winnersByKey.set(key, new Set<string>());
+    }
+    winnersByKey.get(key)!.add(result.playerId);
+  });
 
   const playerHits = playerPicks.filter(
-    (pick) =>
-      playerResultMap.get(`${pick.gameId}:${pick.category}`) === pick.playerId,
+    (pick) => winnersByKey.get(keyFor(pick.gameId, pick.category))?.has(pick.playerId) ?? false,
   );
 
   const highlightPointsMap = new Map<string, number>();
