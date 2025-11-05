@@ -1,0 +1,21 @@
+{
+    "name": "NBAnima",
+    "short_name": "NBAnima",
+    "description": "Gioca ogni giorno, vinci Anima Points e scala la classifica NBA in stile anime!",
+    "start_url": "/it/dashboard",
+    "display": "standalone",
+    "background_color": "#0a0430",
+    "theme_color": "#0a0430",
+    "icons": [
+      {
+        "src": "/Icon-1922.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      },
+      {
+        "src": "/Icon-5122.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      }
+    ]
+  }

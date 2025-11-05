@@ -1,8 +1,9 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import { AuthForm } from '@/components/auth/AuthForm';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { getDictionary } from '@/locales/dictionaries';
+import { createServerSupabase } from '@/lib/supabase';
 
 export default async function LoginPage({
   params,
@@ -16,6 +17,15 @@ export default async function LoginPage({
 
   if (!locale) {
     notFound();
+  }
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    redirect(`/${locale}/dashboard`);
   }
 
   const dictionary = await getDictionary(locale);

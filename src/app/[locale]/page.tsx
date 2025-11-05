@@ -1,12 +1,13 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import HowToPlay from '@/components/home/how-to-play';
 import { OnboardingShowcase } from '@/components/home/onboarding-showcase';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { ONBOARDING_STEPS } from '@/config/onboarding';
 import { getDictionary } from '@/locales/dictionaries';
+import { createServerSupabase } from '@/lib/supabase';
 
 export default async function LocaleHomePage({
   params,
@@ -20,6 +21,15 @@ export default async function LocaleHomePage({
 
   if (!locale) {
     notFound();
+  }
+
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    redirect(`/${locale}/dashboard`);
   }
 
   const dictionary = await getDictionary(locale);

@@ -3,6 +3,7 @@ import localFont from 'next/font/local';
 
 import './globals.css';
 import { RosterPreload } from '@/components/providers/roster-preload';
+import { ServiceWorkerRegister } from '@/components/providers/service-worker-register';
 import { APP_TITLE } from '@/lib/constants';
 
 const geist = localFont({
@@ -35,6 +36,7 @@ export const metadata: Metadata = {
   title: `${APP_TITLE} · NBA picks & cards platform`,
   description:
     'Gioca con le notti NBA, ottieni Anima Points e colleziona carte esclusive.',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -48,6 +50,7 @@ export default function RootLayout({
         className="antialiased bg-navy-950 text-slate-100"
       >
         <RosterPreload />
+        <ServiceWorkerRegister />
         {children}
       </body>
     </html>
