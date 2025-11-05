@@ -25,10 +25,22 @@ export const createServerSupabase = async (): Promise<SupabaseClient<Database>> 
         return cookieStore.get(name)?.value;
       },
       set(name, value, options) {
-        cookieStore.set({ name, value, ...options });
+        try {
+          cookieStore.set({ name, value, ...options });
+        } catch (error) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[supabase] cookies.set skipped', error);
+          }
+        }
       },
       remove(name, options) {
-        cookieStore.delete({ name, ...options });
+        try {
+          cookieStore.delete({ name, ...options });
+        } catch (error) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[supabase] cookies.delete skipped', error);
+          }
+        }
       },
     },
   });

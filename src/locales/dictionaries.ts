@@ -131,11 +131,13 @@ export interface Dictionary {
     teams: {
       title: string;
       description: string;
+      reward: string;
     };
     players: {
       title: string;
       description: string;
       endPicks: string;
+      reward: string;
       categories: {
         top_scorer: string;
         top_assist: string;
@@ -379,12 +381,14 @@ const it: Dictionary = {
     teams: {
       title: 'Teams',
       description: 'Scegli la squadra vincente per ogni partita della prossima notte. 30 Anima Points ogni scelta azzeccata.',
+      reward: '30 Anima Points ogni scelta azzeccata.',
     },
     players: {
       title: 'Players',
       description:
         'Seleziona i protagonisti per punti, assist e rimbalzi. 50 Anima Points ogni scelta azzeccata.',
       endPicks: 'Termina scelte',
+      reward: '50 Anima Points ogni scelta azzeccata.',
       categories: {
         top_scorer: 'Top Scorer',
         top_assist: 'Top Assist',
@@ -629,12 +633,14 @@ const en: Dictionary = {
     teams: {
       title: 'Teams',
       description: 'Pick the winner for every game in the upcoming slate. 30 Anima Points for each correct choice.',
+      reward: '30 Anima Points for each correct choice.',
     },
     players: {
       title: 'Players',
       description:
         'Select the standout performers for points, assists, and rebounds. 50 Anima Points for each correct choice.',
       endPicks: 'End picks',
+      reward: '50 Anima Points for each correct choice.',
       categories: {
         top_scorer: 'Top Scorer',
         top_assist: 'Top Assists',

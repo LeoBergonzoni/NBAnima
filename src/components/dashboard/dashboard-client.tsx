@@ -989,6 +989,8 @@ export function DashboardClient({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isTeamsOpen, setIsTeamsOpen] = useState(true);
+  const [isPlayersOpen, setIsPlayersOpen] = useState(false);
 
   const pickDate = useMemo(
     () => new Date().toISOString().slice(0, 10),
@@ -1183,11 +1185,7 @@ export function DashboardClient({
     '{count}',
     String(dailyChanges),
   );
-  const canSubmit =
-    teamsComplete &&
-    playersComplete &&
-    (highlightsEnabled ? highlightsComplete : true) &&
-    !isSaving;
+  const canSubmit = teamsComplete && !isSaving;
 
   const handleSave = async () => {
     if (!canSubmit) {
@@ -1326,36 +1324,27 @@ export function DashboardClient({
 
   return (
     <div className="space-y-8 pb-16 pt-2 sm:pt-4 lg:pb-24">
-      <section>
-        <h1 className="mb-2 text-xl font-bold">Dashboard NBAnima</h1>
-        <p className="text-sm text-gray-500">
-          Benvenuto! Bilancio attuale: {balance} Anima Points
-        </p>
-      </section>
-
-      <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-navy-900/60 p-6 shadow-card sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-400">
-            {dictionary.dashboard.welcome}
-          </p>
-          <h1 className="text-2xl font-semibold text-white">NBAnima</h1>
-        </div>
-        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 text-xs text-slate-300">
-            <UserCircle2 className="h-4 w-4 text-accent-gold" />
-            <span>{locale.toUpperCase()}</span>
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-2xl font-semibold text-white">NBAnima</span>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 text-xs text-slate-300">
+              <UserCircle2 className="h-4 w-4 text-accent-gold" />
+              <span>{locale.toUpperCase()}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-navy-900/70 px-3 py-1 text-xs font-medium text-slate-200 transition hover:border-accent-gold/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <LogOut className="h-3 w-3" />
+              {isLoggingOut ? '…' : dictionary.common.logout}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-accent-gold/40 bg-navy-800/80 px-5 py-2 text-sm font-semibold text-accent-gold transition hover:border-accent-gold hover:bg-navy-800/60 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <LogOut className="h-4 w-4" />
-            {isLoggingOut ? '…' : dictionary.common.logout}
-          </button>
         </div>
-      </header>
+        <h1 className="text-3xl font-semibold text-white">Dashboard</h1>
+      </section>
 
       <section className="rounded-[2rem] border border-accent-gold/40 bg-navy-900/70 p-6 shadow-card">
         <div className="grid gap-6 lg:grid-cols-2">
@@ -1462,64 +1451,118 @@ export function DashboardClient({
                 </div>
               </header>
 
-              <section className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                      <SectionStatus complete={teamsComplete} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTeamsOpen((previous) => !previous)}
+                  className={clsx(
+                    'flex flex-col gap-2 rounded-2xl border px-4 py-3 text-left transition',
+                    isTeamsOpen
+                      ? 'border-accent-gold bg-accent-gold/10 text-white shadow-card'
+                      : 'border-white/10 bg-navy-900/40 text-slate-200 hover:border-accent-gold/40',
+                  )}
+                  aria-expanded={isTeamsOpen}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-semibold text-white">
+                      {dictionary.play.teams.title}
+                    </span>
+                    <ArrowRight
+                      className={clsx(
+                        'h-4 w-4 transition-transform',
+                        isTeamsOpen ? 'rotate-90 text-accent-gold' : 'text-slate-300',
+                      )}
+                    />
+                  </div>
+                  <p className="text-sm text-slate-300">
+                    {dictionary.play.teams.description}
+                  </p>
+                  <p className="text-xs font-semibold text-accent-gold">
+                    {dictionary.play.teams.reward}
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPlayersOpen((previous) => !previous)}
+                  className={clsx(
+                    'flex flex-col gap-2 rounded-2xl border px-4 py-3 text-left transition',
+                    isPlayersOpen
+                      ? 'border-accent-gold bg-accent-gold/10 text-white shadow-card'
+                      : 'border-white/10 bg-navy-900/40 text-slate-200 hover:border-accent-gold/40',
+                  )}
+                  aria-expanded={isPlayersOpen}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-semibold text-white">
+                      {dictionary.play.players.title}
+                    </span>
+                    <ArrowRight
+                      className={clsx(
+                        'h-4 w-4 transition-transform',
+                        isPlayersOpen ? 'rotate-90 text-accent-gold' : 'text-slate-300',
+                      )}
+                    />
+                  </div>
+                  <p className="text-sm text-slate-300">
+                    {dictionary.play.players.description}
+                  </p>
+                  <p className="text-xs font-semibold text-accent-gold">
+                    {dictionary.play.players.reward}
+                  </p>
+                </button>
+              </div>
+
+              {isTeamsOpen ? (
+                <section className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <SectionStatus complete={teamsComplete} />
+                    <h3 className="text-lg font-semibold text-white">
                       {dictionary.play.teams.title}
                     </h3>
-                    <p className="text-sm text-slate-300">
-                      {dictionary.play.teams.description}
-                    </p>
                   </div>
-                </div>
-                {gamesLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>{dictionary.common.loading}</span>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {games.map((game) => (
-                      <GameTeamsRow
-                        key={game.id}
-                        locale={locale}
-                        game={game}
-                        selection={teamSelections[game.id]}
-                        onSelect={(teamId) => handleTeamsSelect(game.id, teamId)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
+                  {gamesLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>{dictionary.common.loading}</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {games.map((game) => (
+                        <GameTeamsRow
+                          key={game.id}
+                          locale={locale}
+                          game={game}
+                          selection={teamSelections[game.id]}
+                          onSelect={(teamId) => handleTeamsSelect(game.id, teamId)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ) : null}
 
-              <section className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <SectionStatus complete={playersComplete} />
-                  <div>
+              {isPlayersOpen ? (
+                <section className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <SectionStatus complete={playersComplete} />
                     <h3 className="text-lg font-semibold text-white">
                       {dictionary.play.players.title}
                     </h3>
-                    <p className="text-sm text-slate-300">
-                      {dictionary.play.players.description}
-                    </p>
                   </div>
-                </div>
-                {games.map((game) => (
-                  <GamePlayersCard
-                    key={game.id}
-                    locale={locale}
-                    dictionary={dictionary}
-                    game={game}
-                    playerSelections={playerSelections[game.id] ?? {}}
-                    onChange={(category, playerId) =>
-                      handlePlayerSelect(game.id, category, playerId)
-                    }
-                    onPlayersLoaded={onPlayersLoaded}
-                  />
-                ))}
-                {highlightsEnabled ? (
+                  {games.map((game) => (
+                    <GamePlayersCard
+                      key={game.id}
+                      locale={locale}
+                      dictionary={dictionary}
+                      game={game}
+                      playerSelections={playerSelections[game.id] ?? {}}
+                      onChange={(category, playerId) =>
+                        handlePlayerSelect(game.id, category, playerId)
+                      }
+                      onPlayersLoaded={onPlayersLoaded}
+                    />
+                  ))}
                   <div className="mt-3">
                     <button
                       type="button"
@@ -1529,8 +1572,8 @@ export function DashboardClient({
                       {dictionary?.play?.players?.endPicks ?? 'Termina scelte'}
                     </button>
                   </div>
-                ) : null}
-              </section>
+                </section>
+              ) : null}
 
               {highlightsEnabled ? (
                 <section className="space-y-4">
