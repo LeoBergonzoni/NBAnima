@@ -39,6 +39,7 @@ const computeGameDate = (dto: ClientGameDTO) => {
   if (startIso) {
     return startIso;
   }
+  // Fallback: convert la mezzanotte US/Eastern in UTC, così game_date mantiene origine America/New_York.
   const midnightNy = fromZonedTime(`${dto.dateNY}T00:00:00`, TIMEZONES.US_EASTERN);
   return midnightNy.toISOString();
 };
