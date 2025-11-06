@@ -1,22 +1,6 @@
 [build]
-  command = "npm run build:webpack"
+  command = "next build"
   publish = ".next"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-
-[[redirects]]
-from = "/"
-to = "/it"
-status = 302
-force = true
-
-[[redirects]]
-from = "/it/*"
-to = "/it/index.html"
-status = 200
-
-[[redirects]]
-from = "/en/*"
-to = "/en/index.html"
-status = 200

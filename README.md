@@ -23,7 +23,7 @@ npm run dev
 
 Open `http://localhost:3000` – middleware redirects to `/it` (Italian default). Switch language with the IT/EN toggle (persisted in `localStorage`, reflected in `/it` / `/en` routes).
 
-> Note: accessing the production site via the bare domain (`/`) previously returned `ERR_FAILED` because no static `index.html` lived at the root. Netlify now rewrites `/` to `/it` (see `netlify.toml`) so the localized entrypoint is always served and client-side routing works for `/it/*` and `/en/*`.
+> Su Netlify, i redirect si delegano al plugin Next; non usare rewrites 200 verso `index.html` per gestire le rotte i18n.
 
 ### Environment Variables
 
