@@ -571,9 +571,13 @@ type PicksPlayersInsert = Database['public']['Tables']['picks_players']['Insert'
 type PicksHighlightsInsert =
   Database['public']['Tables']['picks_highlights']['Insert'];
 
+type CommonSupabaseClient = SupabaseClient<Database, 'public', any>;
+type RouteSupabaseClient = ReturnType<typeof createRouteHandlerClient<Database>>;
+type AdminSupabaseClient = ReturnType<typeof createAdminSupabaseClient>;
+
 type AuthSuccess = {
-  supabaseUser: SupabaseClient<Database>;
-  supabaseAdmin: SupabaseClient<Database>;
+  supabaseUser: CommonSupabaseClient;
+  supabaseAdmin: CommonSupabaseClient;
   user: { id: string; email?: string | null };
   role: string;
 };
@@ -583,11 +587,13 @@ const resolveAuthContext = async (context: string): Promise<
   | { ok: false; response: NextResponse }
 > => {
   try {
-    const supabaseUser = createRouteHandlerClient<Database>({ cookies });
+    const supabaseUserClient: RouteSupabaseClient = createRouteHandlerClient<Database>({
+      cookies,
+    });
     const {
       data: { user },
       error: userErr,
-    } = await supabaseUser.auth.getUser();
+    } = await supabaseUserClient.auth.getUser();
 
     if (userErr) {
       console.error(`[api/picks][${context}] auth.getUser error`, {
@@ -608,8 +614,8 @@ const resolveAuthContext = async (context: string): Promise<
       };
     }
 
-    const supabaseAdmin = createAdminSupabaseClient();
-    const { data: profile, error: profileError } = await supabaseAdmin
+    const supabaseAdminClient: AdminSupabaseClient = createAdminSupabaseClient();
+    const { data: profile, error: profileError } = await supabaseAdminClient
       .from('users')
       .select('role')
       .eq('id', user.id)
@@ -634,8 +640,8 @@ const resolveAuthContext = async (context: string): Promise<
     return {
       ok: true,
       value: {
-        supabaseUser,
-        supabaseAdmin,
+        supabaseUser: supabaseUserClient as CommonSupabaseClient,
+        supabaseAdmin: supabaseAdminClient as CommonSupabaseClient,
         user: { id: user.id, email: user.email },
         role: profile?.role ?? 'user',
       },
@@ -794,8 +800,7 @@ export async function POST(request: NextRequest) {
     return authContext.response;
   }
   const { supabaseUser, supabaseAdmin, user, role } = authContext.value;
-  const picksClient: SupabaseClient<Database> =
-    role === 'admin' ? supabaseAdmin : supabaseUser;
+  const picksClient = role === 'admin' ? supabaseAdmin : supabaseUser;
 
   let rawBody: unknown;
   try {
@@ -1222,8 +1227,7 @@ export async function PUT(request: NextRequest) {
     return authContext.response;
   }
   const { supabaseUser, supabaseAdmin, user, role } = authContext.value;
-  const picksClient: SupabaseClient<Database> =
-    role === 'admin' ? supabaseAdmin : supabaseUser;
+  const picksClient = role === 'admin' ? supabaseAdmin : supabaseUser;
   let rawBody: unknown;
   try {
     rawBody = await request.json();
