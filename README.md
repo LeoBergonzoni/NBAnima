@@ -21,9 +21,9 @@ cp .env.example .env
 npm run dev
 ```
 
-Open `http://localhost:3000` – middleware redirects to `/it` (Italian default). Switch language with the IT/EN toggle (persisted in `localStorage`, reflected in `/it` / `/en` routes).
+Open `http://localhost:3000` – la root (`/`) viene reindirizzata lato server a `/it`. Switch language con il toggle IT/EN (persistito in `localStorage`, riflesso in `/it` / `/en`).
 
-> Su Netlify, i redirect si delegano al plugin Next; non usare rewrites 200 verso `index.html` per gestire le rotte i18n.
+> Su Netlify, i redirect si delegano al plugin Next; il service worker non intercetta le navigazioni e il redirect `/ → /it` avviene server-side in `app/page.tsx`.
 
 ### Environment Variables
 

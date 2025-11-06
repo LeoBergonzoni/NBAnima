@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 
-const SERVICE_WORKER_PATH = '/service-worker.js';
+const SERVICE_WORKER_PATH = '/sw-v2.js';
 
 export function ServiceWorkerRegister() {
   useEffect(() => {
