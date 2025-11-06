@@ -51,6 +51,7 @@ export type BLPlayer = {
 export type BLGame = {
   id: number;
   date: string;
+  datetime?: string | null;
   home_team: {
     id: number;
     abbreviation: string;
@@ -138,7 +139,7 @@ const toProviderPlayer = (player: BLPlayer): ProviderPlayer => ({
 
 const toProviderGame = (game: BLGame): ProviderGame => ({
   id: String(game.id),
-  startsAt: game.date,
+  startsAt: game.datetime ?? game.date,
   status: mapStatus(game.status ?? 'scheduled'),
   homeTeam: {
     id: String(game.home_team.id),
