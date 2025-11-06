@@ -23,7 +23,7 @@ npm run dev
 
 Open `http://localhost:3000` – la root (`/`) viene reindirizzata lato server a `/it`. Switch language con il toggle IT/EN (persistito in `localStorage`, riflesso in `/it` / `/en`).
 
-> Su Netlify, i redirect si delegano al plugin Next; il service worker non intercetta le navigazioni e il redirect `/ → /it` avviene server-side in `app/page.tsx`.
+> Su Netlify, i redirect si delegano al plugin Next; il service worker attivo (`public/sw-v3.js`) cache solo asset statici e `public/service-worker.js` viene servito come killer per disregistrare eventuali worker legacy. Il redirect `/ → /it` avviene server-side in `app/page.tsx`.
 
 ### Environment Variables
 
