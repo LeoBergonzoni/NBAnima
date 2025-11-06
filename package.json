@@ -2,18 +2,20 @@
   "name": "nb-anima-app",
   "version": "0.1.0",
   "private": true,
-"scripts": {
-  "dev": "next dev",
-  "dev:webpack": "cross-env NEXT_DISABLE_TURBOPACK=1 next dev",
-  "build": "next build",
-  "prebuild": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/build-rosters.ts || node --loader ts-node/esm scripts/build-rosters.ts || node scripts/build-rosters.js",
-  "start": "next start",
-  "start:webpack": "next start",
-  "lint": "eslint . --ext .ts,.tsx",
-  "test:ts": "tsc -p tsconfig.test.json && tsc-alias -p tsconfig.test.json && node --test \"./.tmp-tests/**/*.test.js\" && node -e \"require('fs').rmSync('.tmp-tests', { recursive: true, force: true })\"",
-  "postinstall": "mkdir -p public/fonts/geist && cp node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2 public/fonts/geist/GeistVF.woff2 && cp node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2 public/fonts/geist/GeistMonoVF.woff2"
-},
+  "scripts": {
+    "dev": "next dev",
+    "dev:webpack": "cross-env NEXT_DISABLE_TURBOPACK=1 next dev",
+    "build": "next build",
+    "prebuild": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/build-rosters.ts || node --loader ts-node/esm scripts/build-rosters.ts || node scripts/build-rosters.js",
+    "start": "next start",
+    "start:webpack": "next start",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test:ts": "tsc -p tsconfig.test.json && tsc-alias -p tsconfig.test.json && node --test \"./.tmp-tests/**/*.test.js\" && node -e \"require('fs').rmSync('.tmp-tests', { recursive: true, force: true })\"",
+    "postinstall": "mkdir -p public/fonts/geist && cp node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2 public/fonts/geist/GeistVF.woff2 && cp node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2 public/fonts/geist/GeistMonoVF.woff2"
+  },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/auth-helpers-react": "^0.5.0",

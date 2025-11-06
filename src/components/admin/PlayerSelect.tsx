@@ -336,7 +336,7 @@ export function PlayerSelect({
   }, []);
 
   const handleChange = useCallback(
-    (nextValue: string | undefined) => {
+    (nextValue: string | null) => {
       if (!nextValue) {
         onChange(null);
         return;
