@@ -1,3 +1,5 @@
+'use client';
+
 import {
   useCallback,
   useEffect,
@@ -15,11 +17,12 @@ type PlayerOption = {
   label: string;
   subtitle?: string;
   disabled?: boolean;
+  keywords?: string[];
 };
 
 type PlayerSelectProps = {
   value?: string | null;
-  onChange: (id: string) => void;
+  onChange: (id: string | undefined) => void;
   options: PlayerOption[];
   placeholder?: string;
   disabled?: boolean;
@@ -100,7 +103,12 @@ export function PlayerSelect({
     return options.filter((option) => {
       const label = normalize(option.label);
       const subtitle = option.subtitle ? normalize(option.subtitle) : '';
-      return label.includes(normalizedQuery) || subtitle.includes(normalizedQuery);
+      const keywords = option.keywords?.map((keyword) => normalize(keyword)) ?? [];
+      return (
+        label.includes(normalizedQuery) ||
+        subtitle.includes(normalizedQuery) ||
+        keywords.some((keyword) => keyword.includes(normalizedQuery))
+      );
     });
   }, [options, normalizedQuery]);
 
@@ -112,7 +120,7 @@ export function PlayerSelect({
 
   const handleSelect = useCallback(
     (nextId: string) => {
-      onChange(nextId);
+      onChange(nextId || undefined);
       setOpen(false);
     },
     [onChange],

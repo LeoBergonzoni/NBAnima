@@ -367,14 +367,20 @@ export function PlayerSelect({
 
   const selectOptions = useMemo(
     () =>
-      options.map((option) => ({
-        value: option.value,
-        label: option.label,
-        meta: {
-          altNames: option.meta.altNames,
+      options.map((option) => {
+        const subtitleTokens = [
+          option.meta.teamAbbr ?? undefined,
+          option.meta.position ?? undefined,
+          option.meta.source === 'roster' ? 'Roster' : 'Supabase',
+        ].filter(Boolean);
+        return {
+          id: option.value,
+          label: option.label,
+          subtitle: subtitleTokens.join(' • '),
           disabled: false,
-        },
-      })),
+          keywords: option.meta.altNames,
+        };
+      }),
     [options],
   );
 

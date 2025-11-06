@@ -377,11 +377,13 @@ const awayKey = useMemo(
   const selectOptions = useMemo(
     () =>
       combinedPlayers.map((player) => ({
-        value: player.id,
+        id: player.id,
         label: createOptionLabel(player),
-        meta: {
-          altNames: [player.fullName, player.firstName, player.lastName].filter(Boolean),
-        },
+        subtitle: [
+          player.jersey ? (player.jersey.startsWith('#') ? player.jersey : `#${player.jersey}`) : undefined,
+          player.position ?? undefined,
+        ].filter(Boolean).join(' • '),
+        keywords: [player.fullName, player.firstName, player.lastName].filter(Boolean),
       })),
     [combinedPlayers, createOptionLabel],
   );
@@ -600,12 +602,14 @@ const HighlightsSelector = ({
           disabledIds.delete(currentSelection);
         }
         const options = sortedPlayers.map((player) => ({
-          value: player.id,
+          id: player.id,
           label: createOptionLabel(player),
-          meta: {
-            altNames: [player.fullName, player.firstName, player.lastName].filter(Boolean),
-            disabled: disabledIds.has(player.id),
-          },
+          subtitle: [
+            player.jersey ? (player.jersey.startsWith('#') ? player.jersey : `#${player.jersey}`) : undefined,
+            player.position ?? undefined,
+          ].filter(Boolean).join(' • '),
+          disabled: disabledIds.has(player.id),
+          keywords: [player.fullName, player.firstName, player.lastName].filter(Boolean),
         }));
         const normalizedValue = currentSelection ? currentSelection : null;
 
