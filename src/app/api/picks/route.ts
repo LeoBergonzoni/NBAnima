@@ -1,6 +1,8 @@
 import { createHash } from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import { ZodError } from 'zod';
 
 import {
@@ -8,10 +10,7 @@ import {
   getDailyChangeCount,
   validatePicksPayload,
 } from '@/lib/picks';
-import {
-  createAdminSupabaseClient,
-  createServerSupabase,
-} from '@/lib/supabase';
+import { createAdminSupabaseClient } from '@/lib/supabase';
 import { resolveOrUpsertGame, type ClientGameDTO } from '@/lib/server/resolveGame';
 import type { Database } from '@/lib/supabase.types';
 import {
@@ -572,31 +571,108 @@ type PicksPlayersInsert = Database['public']['Tables']['picks_players']['Insert'
 type PicksHighlightsInsert =
   Database['public']['Tables']['picks_highlights']['Insert'];
 
-const getUserOrThrow = async (supabaseAdmin: SupabaseClient<Database>) => {
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+type AuthSuccess = {
+  supabaseUser: SupabaseClient<Database>;
+  supabaseAdmin: SupabaseClient<Database>;
+  user: { id: string; email?: string | null };
+  role: string;
+};
 
-  if (error) {
-    throw error;
+const resolveAuthContext = async (context: string): Promise<
+  | { ok: true; value: AuthSuccess }
+  | { ok: false; response: NextResponse }
+> => {
+  try {
+    const supabaseUser = createRouteHandlerClient<Database>({ cookies });
+    const {
+      data: { user },
+      error: userErr,
+    } = await supabaseUser.auth.getUser();
+
+    if (userErr) {
+      console.error(`[api/picks][${context}] auth.getUser error`, {
+        message: userErr.message,
+        status: userErr.status,
+        name: userErr.name,
+      });
+      return {
+        ok: false,
+        response: NextResponse.json({ error: 'Auth error' }, { status: 401 }),
+      };
+    }
+
+    if (!user) {
+      return {
+        ok: false,
+        response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      };
+    }
+
+    const supabaseAdmin = createAdminSupabaseClient();
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error(`[api/picks][${context}] role lookup failed`, {
+        code: profileError.code,
+        message: profileError.message,
+        details: profileError.details,
+        hint: profileError.hint,
+      });
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: 'Failed to resolve user role' },
+          { status: 500 },
+        ),
+      };
+    }
+
+    return {
+      ok: true,
+      value: {
+        supabaseUser,
+        supabaseAdmin,
+        user: { id: user.id, email: user.email },
+        role: profile?.role ?? 'user',
+      },
+    };
+  } catch (error) {
+    console.error(`[api/picks][${context}] unexpected auth error`, error);
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Auth error' },
+        { status: 500 },
+      ),
+    };
   }
-  if (!user) {
-    throw new Error('Unauthorized');
+};
+
+const logPostgrestError = (context: string, error: PostgrestError) => {
+  console.error(context, {
+    code: error.code,
+    message: error.message,
+    details: error.details,
+    hint: error.hint,
+  });
+};
+
+const httpStatusFromPostgrestError = (error: PostgrestError) => {
+  switch (error.code) {
+    case '42501':
+      return 403;
+    case '23505':
+      return 409;
+    case '23503':
+    case '23502':
+      return 400;
+    default:
+      return 500;
   }
-
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  if (profileError) {
-    throw profileError;
-  }
-
-  return { authUser: user, role: profile?.role ?? 'user' };
 };
 
 const fetchPicks = async (
@@ -639,9 +715,12 @@ const fetchPicks = async (
 };
 
 export async function GET(request: NextRequest) {
-  const supabaseAdmin = createAdminSupabaseClient();
+  const authContext = await resolveAuthContext('GET');
+  if (!authContext.ok) {
+    return authContext.response;
+  }
+  const { supabaseAdmin, user, role } = authContext.value;
   try {
-    const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
     const pickDate = resolveSlateDate(request);
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
@@ -710,12 +789,37 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabaseAdmin = createAdminSupabaseClient();
+  const authContext = await resolveAuthContext('POST');
+  if (!authContext.ok) {
+    return authContext.response;
+  }
+  const { supabaseUser, supabaseAdmin, user, role } = authContext.value;
+  const picksClient: SupabaseClient<Database> =
+    role === 'admin' ? supabaseAdmin : supabaseUser;
+
+  let rawBody: unknown;
   try {
-    const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
-    const rawBody = await request.json();
-    const rawPayload = (rawBody ?? {}) as Record<string, unknown>;
-    const payload = validatePicksPayload(rawPayload);
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const rawPayload = (rawBody ?? {}) as Record<string, unknown>;
+
+  let payload;
+  try {
+    payload = validatePicksPayload(rawPayload);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid payload', details: error.issues },
+        { status: 400 },
+      );
+    }
+    console.error('[api/picks][POST] payload validation error', error);
+    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  }
+  try {
     payload.teams = payload.teams.map((pick) => ({ ...pick }));
     payload.players = payload.players.map((pick) => ({ ...pick }));
     payload.highlights = payload.highlights.map((pick) => ({ ...pick }));
@@ -888,7 +992,7 @@ export async function POST(request: NextRequest) {
     }
 
     const currentChanges = await getDailyChangeCount(
-      supabaseAdmin,
+      picksClient,
       userId,
       payload.pickDate,
     );
@@ -903,18 +1007,50 @@ export async function POST(request: NextRequest) {
     const rosters = await getRosters();
     const now = new Date().toISOString();
 
-    await supabaseAdmin.from('picks_teams').delete().match({
-      user_id: userId,
-      pick_date: payload.pickDate,
-    });
-    await supabaseAdmin.from('picks_players').delete().match({
-      user_id: userId,
-      pick_date: payload.pickDate,
-    });
-    await supabaseAdmin.from('picks_highlights').delete().match({
-      user_id: userId,
-      pick_date: payload.pickDate,
-    });
+    const { error: deleteTeamsError } = await picksClient
+      .from('picks_teams')
+      .delete()
+      .match({
+        user_id: userId,
+        pick_date: payload.pickDate,
+      });
+    if (deleteTeamsError) {
+      logPostgrestError('[api/picks][POST] delete picks_teams failed', deleteTeamsError);
+      return NextResponse.json(
+        { error: 'Failed to save picks' },
+        { status: httpStatusFromPostgrestError(deleteTeamsError) },
+      );
+    }
+
+    const { error: deletePlayersError } = await picksClient
+      .from('picks_players')
+      .delete()
+      .match({
+        user_id: userId,
+        pick_date: payload.pickDate,
+      });
+    if (deletePlayersError) {
+      logPostgrestError('[api/picks][POST] delete picks_players failed', deletePlayersError);
+      return NextResponse.json(
+        { error: 'Failed to save picks' },
+        { status: httpStatusFromPostgrestError(deletePlayersError) },
+      );
+    }
+
+    const { error: deleteHighlightsError } = await picksClient
+      .from('picks_highlights')
+      .delete()
+      .match({
+        user_id: userId,
+        pick_date: payload.pickDate,
+      });
+    if (deleteHighlightsError) {
+      logPostgrestError('[api/picks][POST] delete picks_highlights failed', deleteHighlightsError);
+      return NextResponse.json(
+        { error: 'Failed to save picks' },
+        { status: httpStatusFromPostgrestError(deleteHighlightsError) },
+      );
+    }
 
     const teamRecords: PicksTeamsInsert[] = payload.teams.map((pick) => {
       const game = gamesMap.get(pick.gameId);
@@ -1041,22 +1177,29 @@ export async function POST(request: NextRequest) {
 
     const [teamsResult, playersResult, highlightsResult] = await Promise.all([
       teamRecords.length
-        ? supabaseAdmin.from('picks_teams').insert(teamRecords)
+        ? picksClient.from('picks_teams').insert(teamRecords)
         : { error: null },
       playerInsert.length
-        ? supabaseAdmin.from('picks_players').insert(playerInsert)
+        ? picksClient.from('picks_players').insert(playerInsert)
         : { error: null },
       highlightInsert.length
-        ? supabaseAdmin.from('picks_highlights').insert(highlightInsert)
+        ? picksClient.from('picks_highlights').insert(highlightInsert)
         : { error: null },
     ]);
 
     if (teamsResult.error || playersResult.error || highlightsResult.error) {
-      throw (
-        teamsResult.error ??
-        playersResult.error ??
-        highlightsResult.error ??
-        new Error('Failed to save picks')
+      const error =
+        teamsResult.error ?? playersResult.error ?? highlightsResult.error ?? null;
+      if (error) {
+        logPostgrestError('[api/picks][POST] insert failed', error);
+        return NextResponse.json(
+          { error: 'Failed to save picks' },
+          { status: httpStatusFromPostgrestError(error) },
+        );
+      }
+      return NextResponse.json(
+        { error: 'Failed to save picks' },
+        { status: 500 },
       );
     }
 
@@ -1065,35 +1208,54 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
-    if ((error as Error).message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    console.error('[api/picks][POST]', error);
+    console.error('[api/picks][POST] unexpected failure', error);
     return NextResponse.json(
-      { error: (error as Error).message ?? 'Failed to save picks' },
-      { status: 400 },
+      { error: 'Failed to save picks' },
+      { status: 500 },
     );
   }
 }
 
 export async function PUT(request: NextRequest) {
-  const supabaseAdmin = createAdminSupabaseClient();
+  const authContext = await resolveAuthContext('PUT');
+  if (!authContext.ok) {
+    return authContext.response;
+  }
+  const { supabaseUser, supabaseAdmin, user, role } = authContext.value;
+  const picksClient: SupabaseClient<Database> =
+    role === 'admin' ? supabaseAdmin : supabaseUser;
+  let rawBody: unknown;
   try {
-    const { authUser: user, role } = await getUserOrThrow(supabaseAdmin);
-    const rawBody = await request.json();
-    const rawPayload = (rawBody ?? {}) as Record<string, unknown>;
-    const { missingProviderIds } = await normalizePayloadGameIds(rawPayload, supabaseAdmin);
-    if (missingProviderIds.length > 0) {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+  const rawPayload = (rawBody ?? {}) as Record<string, unknown>;
+  const { missingProviderIds } = await normalizePayloadGameIds(rawPayload, supabaseAdmin);
+  if (missingProviderIds.length > 0) {
+    return NextResponse.json(
+      {
+        error: 'Unknown provider game id(s)',
+        missingProviderIds,
+      },
+      { status: 400 },
+    );
+  }
+
+  let payload;
+  try {
+    payload = validatePicksPayload(rawPayload);
+  } catch (error) {
+    if (error instanceof ZodError) {
       return NextResponse.json(
-        {
-          error: 'Unknown provider game id(s)',
-          missingProviderIds,
-        },
+        { error: 'Invalid payload', details: error.issues },
         { status: 400 },
       );
     }
-
-    const payload = validatePicksPayload(rawPayload);
+    console.error('[api/picks][PUT] payload validation error', error);
+    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  }
+  try {
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
@@ -1117,7 +1279,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const currentChanges = await getDailyChangeCount(
-      supabaseAdmin,
+      picksClient,
       userId,
       payload.pickDate,
     );
@@ -1127,18 +1289,50 @@ export async function PUT(request: NextRequest) {
     const gameList = Array.from(gamesMap.values());
     const rosters = await getRosters();
 
-    await supabaseAdmin.from('picks_teams').delete().match({
-      user_id: userId,
-      pick_date: payload.pickDate,
-    });
-    await supabaseAdmin.from('picks_players').delete().match({
-      user_id: userId,
-      pick_date: payload.pickDate,
-    });
-    await supabaseAdmin.from('picks_highlights').delete().match({
-      user_id: userId,
-      pick_date: payload.pickDate,
-    });
+    const { error: deleteTeamsError } = await picksClient
+      .from('picks_teams')
+      .delete()
+      .match({
+        user_id: userId,
+        pick_date: payload.pickDate,
+      });
+    if (deleteTeamsError) {
+      logPostgrestError('[api/picks][PUT] delete picks_teams failed', deleteTeamsError);
+      return NextResponse.json(
+        { error: 'Failed to update picks' },
+        { status: httpStatusFromPostgrestError(deleteTeamsError) },
+      );
+    }
+
+    const { error: deletePlayersError } = await picksClient
+      .from('picks_players')
+      .delete()
+      .match({
+        user_id: userId,
+        pick_date: payload.pickDate,
+      });
+    if (deletePlayersError) {
+      logPostgrestError('[api/picks][PUT] delete picks_players failed', deletePlayersError);
+      return NextResponse.json(
+        { error: 'Failed to update picks' },
+        { status: httpStatusFromPostgrestError(deletePlayersError) },
+      );
+    }
+
+    const { error: deleteHighlightsError } = await picksClient
+      .from('picks_highlights')
+      .delete()
+      .match({
+        user_id: userId,
+        pick_date: payload.pickDate,
+      });
+    if (deleteHighlightsError) {
+      logPostgrestError('[api/picks][PUT] delete picks_highlights failed', deleteHighlightsError);
+      return NextResponse.json(
+        { error: 'Failed to update picks' },
+        { status: httpStatusFromPostgrestError(deleteHighlightsError) },
+      );
+    }
 
     const teamRecords: PicksTeamsInsert[] = payload.teams.map((pick) => {
       const game = gamesMap.get(pick.gameId);
@@ -1265,22 +1459,29 @@ export async function PUT(request: NextRequest) {
 
     const [teamsResult, playersResult, highlightsResult] = await Promise.all([
       teamRecords.length
-        ? supabaseAdmin.from('picks_teams').insert(teamRecords)
+        ? picksClient.from('picks_teams').insert(teamRecords)
         : { error: null },
       playerUpsert.length
-        ? supabaseAdmin.from('picks_players').insert(playerUpsert)
+        ? picksClient.from('picks_players').insert(playerUpsert)
         : { error: null },
       highlightUpsert.length
-        ? supabaseAdmin.from('picks_highlights').insert(highlightUpsert)
+        ? picksClient.from('picks_highlights').insert(highlightUpsert)
         : { error: null },
     ]);
 
     if (teamsResult.error || playersResult.error || highlightsResult.error) {
-      throw (
-        teamsResult.error ??
-        playersResult.error ??
-        highlightsResult.error ??
-        new Error('Failed to update picks')
+      const error =
+        teamsResult.error ?? playersResult.error ?? highlightsResult.error ?? null;
+      if (error) {
+        logPostgrestError('[api/picks][PUT] insert failed', error);
+        return NextResponse.json(
+          { error: 'Failed to update picks' },
+          { status: httpStatusFromPostgrestError(error) },
+        );
+      }
+      return NextResponse.json(
+        { error: 'Failed to update picks' },
+        { status: 500 },
       );
     }
 
@@ -1288,13 +1489,10 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    if ((error as Error).message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    console.error('[api/picks][PUT]', error);
+    console.error('[api/picks][PUT] unexpected failure', error);
     return NextResponse.json(
-      { error: (error as Error).message ?? 'Failed to update picks' },
-      { status: 400 },
+      { error: 'Failed to update picks' },
+      { status: 500 },
     );
   }
 }

@@ -21,7 +21,7 @@ import useSWR from 'swr';
 import { PlayerSelect } from '@/components/ui/PlayerSelect';
 import { useLocale } from '@/components/providers/locale-provider';
 import { FEATURES, type Locale } from '@/lib/constants';
-import { createBrowserSupabase } from '@/lib/supabase-browser';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 import type { Dictionary } from '@/locales/dictionaries';
 import { useGames } from '@/hooks/useGames';
 import {
@@ -970,7 +970,7 @@ export function DashboardClient({
   const { dictionary } = useLocale();
   const highlightsEnabled = FEATURES.HIGHLIGHTS_ENABLED;
   const router = useRouter();
-  const supabase = useMemo(() => createBrowserSupabase(), []);
+  const supabase = useMemo(() => supabaseBrowser(), []);
   const numberFormatter = useMemo(
     () => new Intl.NumberFormat(locale === 'it' ? 'it-IT' : 'en-US'),
     [locale],

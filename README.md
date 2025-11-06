@@ -46,6 +46,8 @@ Open `http://localhost:3000` – la root (`/`) viene reindirizzata lato server a
 
 Tables cover users, games, picks, highlight results, ledgers, and the shop inventory. RLS ensures players only touch their own picks while admins can manage the entire dataset.
 
+> TODO (Supabase): add/verify RLS policies on `picks_teams`, `picks_players`, and `picks_highlights` so authenticated users can `SELECT`, `INSERT`, and `UPDATE` only rows matching `user_id = auth.uid()`, with a separate allowance for admins/service-role operations.
+
 ## Features Overview
 
 - **Localized marketing homepage** (`/[locale]`) with glow cards, CTA buttons, and Italian/English content.
