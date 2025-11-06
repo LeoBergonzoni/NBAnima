@@ -19,7 +19,7 @@ const getDateRange = (pickDate: string) => {
 };
 
 export const getDailyChangeCount = async (
-  supabase: SupabaseClient<Database, 'public', any>,
+  supabase: SupabaseClient<Database>,
   userId: string,
   pickDate: string,
 ) => {
