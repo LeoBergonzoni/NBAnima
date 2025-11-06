@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { supabaseBrowser } from '@/lib/supabase-browser';
+import { createBrowserSupabase } from '@/lib/supabase-browser';
 
 interface AuthFormCopy {
   title: string;
@@ -28,7 +28,7 @@ interface AuthFormProps {
 
 export const AuthForm = ({ mode, locale, copy, switchHref }: AuthFormProps) => {
   const router = useRouter();
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => createBrowserSupabase(), []);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isRedirecting, setIsRedirecting] = useState(false);

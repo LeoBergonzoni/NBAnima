@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { PlayerSelect as BasePlayerSelect } from '@/components/ui/PlayerSelect';
-import { supabaseBrowser } from '@/lib/supabase-browser';
+import { createBrowserSupabase } from '@/lib/supabase-browser';
 
 type SourceTag = 'supabase' | 'roster';
 
@@ -218,7 +218,7 @@ const loadPlayerOptions = async (): Promise<BaseOption[]> => {
   if (!loadPromise) {
     loadPromise = (async () => {
       try {
-        const supabase = supabaseBrowser();
+        const supabase = createBrowserSupabase();
         const [{ data, error }, rosters, aliases] = await Promise.all([
           supabase
             .from('player')

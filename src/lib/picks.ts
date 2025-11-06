@@ -19,24 +19,24 @@ const getDateRange = (pickDate: string) => {
 };
 
 export const getDailyChangeCount = async (
-  supabase: SupabaseClient<Database>,
+  supabaseAdmin: SupabaseClient<Database>,
   userId: string,
   pickDate: string,
 ) => {
   const [team, players, highlights] = await Promise.all([
-    supabase
+    supabaseAdmin
       .from('picks_teams')
       .select('changes_count')
       .eq('user_id', userId)
       .gte('pick_date', pickDate)
       .lte('pick_date', pickDate),
-    supabase
+    supabaseAdmin
       .from('picks_players')
       .select('changes_count')
       .eq('user_id', userId)
       .gte('pick_date', pickDate)
       .lte('pick_date', pickDate),
-    supabase
+    supabaseAdmin
       .from('picks_highlights')
       .select('changes_count')
       .eq('user_id', userId)

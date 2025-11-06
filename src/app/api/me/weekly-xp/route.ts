@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
 import { visibleWeekStartET } from '@/lib/time';
 import { createServerSupabase } from '@/lib/supabase';
 import { getMyWeeklyXPVisible } from '@/server/services/xp.service';
 
-export async function GET() {
+export async function GET(_request: NextRequest) {
   const supabase = await createServerSupabase();
   const {
     data: { user },
