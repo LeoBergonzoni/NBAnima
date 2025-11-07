@@ -57,6 +57,12 @@ export interface PicksResponse {
     game_id: string;
     category: string;
     player_id: string;
+    player?: {
+      provider_player_id?: string | null;
+      first_name?: string | null;
+      last_name?: string | null;
+      position?: string | null;
+    } | null;
     updated_at?: string;
     changes_count?: number;
   }>;

@@ -24,6 +24,39 @@ let aliasesCache: AliasMap | null = null;
 let aliasesPromise: Promise<AliasMap> | null = null;
 let slugToKeyCache: Map<string, string> | null = null;
 
+const BDL_TEAM_ID_MAP: Record<string, string> = {
+  '1': 'AtlantaHawks',
+  '2': 'BostonCeltics',
+  '3': 'BrooklynNets',
+  '4': 'CharlotteHornets',
+  '5': 'ChicagoBulls',
+  '6': 'ClevelandCavaliers',
+  '7': 'DallasMavericks',
+  '8': 'DenverNuggets',
+  '9': 'DetroitPistons',
+  '10': 'GoldenStateWarriors',
+  '11': 'HoustonRockets',
+  '12': 'IndianaPacers',
+  '13': 'LAClippers',
+  '14': 'LosAngelesLakers',
+  '15': 'MemphisGrizzlies',
+  '16': 'MiamiHeat',
+  '17': 'MilwaukeeBucks',
+  '18': 'MinnesotaTimberwolves',
+  '19': 'NewOrleansPelicans',
+  '20': 'NewYorkKnicks',
+  '21': 'OklahomaCityThunder',
+  '22': 'OrlandoMagic',
+  '23': 'Philadelphia76ers',
+  '24': 'PhoenixSuns',
+  '25': 'PortlandTrailBlazers',
+  '26': 'SacramentoKings',
+  '27': 'SanAntonioSpurs',
+  '28': 'TorontoRaptors',
+  '29': 'UtahJazz',
+  '30': 'WashingtonWizards',
+};
+
 const rostersPath = path.join(process.cwd(), 'public', 'rosters.json');
 const aliasesPath = path.join(process.cwd(), 'public', 'roster-aliases.json');
 
@@ -123,6 +156,11 @@ export async function resolveTeamKey(input: string | null | undefined): Promise<
   const trimmed = input.trim();
   if (!trimmed) {
     return null;
+  }
+
+  const numericCandidate = /^\d+$/.test(trimmed) ? String(Number(trimmed)) : null;
+  if (numericCandidate && BDL_TEAM_ID_MAP[numericCandidate]) {
+    return BDL_TEAM_ID_MAP[numericCandidate];
   }
 
   const rosters = await getRosters();

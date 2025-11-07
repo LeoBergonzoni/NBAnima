@@ -1055,8 +1055,12 @@ export function DashboardClient({
 
     setPlayerSelections(
       picks.players.reduce<PlayerSelections>((acc, pick) => {
+        const providerPlayerId =
+          (pick as typeof pick & {
+            player?: { provider_player_id?: string | null } | null;
+          }).player?.provider_player_id ?? null;
         acc[pick.game_id] = acc[pick.game_id] ?? {};
-        acc[pick.game_id][pick.category] = pick.player_id;
+        acc[pick.game_id][pick.category] = providerPlayerId ?? pick.player_id;
         return acc;
       }, {}),
     );
