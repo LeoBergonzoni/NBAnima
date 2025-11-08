@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import type { Locale } from '@/lib/constants';
+import { getSlateBoundsUtc } from '@/lib/date-us-eastern';
 import { supabaseAdmin, createServerSupabase } from '@/lib/supabase';
 import type { Database } from '@/lib/supabase.types';
 import { computeDailyScore } from '@/lib/scoring';
@@ -40,10 +41,7 @@ const DATE_SCHEMA = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD date');
 
-const dayRangeForDate = (dateNY: string) => ({
-  start: `${dateNY}T00:00:00Z`,
-  end: `${dateNY}T23:59:59Z`,
-});
+const dayRangeForDate = (dateNY: string) => getSlateBoundsUtc(dateNY);
 
 const settlementReason = (dateNY: string) => `settlement:${dateNY}`;
 
@@ -342,7 +340,7 @@ const fetchGamesForDate = async (dateNY: string): Promise<GameRow[]> => {
     .from('games')
     .select('*')
     .gte('game_date', start)
-    .lte('game_date', end)
+    .lt('game_date', end)
     .order('game_date', { ascending: true })
     .returns<GameRow[]>();
 

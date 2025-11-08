@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@/lib/supabase.types';
+import { getSlateBoundsUtc } from '@/lib/date-us-eastern';
 import {
   PlayerResult,
   PlayerResultSchema,
@@ -20,14 +21,7 @@ type DB = SupabaseClient<Database>;
 const unique = <T>(values: (T | null | undefined)[]) =>
   Array.from(new Set(values.filter(Boolean) as T[]));
 
-const utcRangeForDate = (date: SlateDate) => {
-  const startDate = new Date(`${date}T00:00:00Z`);
-  const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
-  return {
-    start: startDate.toISOString(),
-    end: endDate.toISOString(),
-  };
-};
+const utcRangeForDate = (date: SlateDate) => getSlateBoundsUtc(date);
 
 export const getWinnersByDate = async (
   client: DB,
