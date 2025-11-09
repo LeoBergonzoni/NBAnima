@@ -9,14 +9,14 @@ export type PlayerCategory =
 
 export type WeeklyXPTotal = {
   user_id: string;
-  week_start_sunday: string;
+  week_start_monday: string;
   weekly_xp: number;
 };
 
 export type WeeklyRankingRow = {
   user_id: string;
   full_name: string;
-  week_start_sunday: string;
+  week_start_monday: string;
   weekly_xp: number;
 };
 

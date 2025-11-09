@@ -72,11 +72,42 @@ export const weekStartSundayET = (date: Date): string => {
   return formatEtDate(start);
 };
 
-export const visibleWeekStartET = (now = new Date()): string => {
-  const easternNow = toET(now);
-  const start = startOfDayET(easternNow);
-  const dayOfWeek = easternNow.getUTCDay();
-  const offsetDays = dayOfWeek === 0 ? 7 : dayOfWeek;
+export const weekStartMondayET = (date: Date): string => {
+  const easternDate = toET(date);
+  const start = startOfDayET(easternDate);
+  const dayOfWeek = easternDate.getUTCDay();
+  const offsetDays = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
   start.setUTCDate(start.getUTCDate() - offsetDays);
   return formatEtDate(start);
 };
+
+const parseUtcDateFromIso = (value: string): Date => {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1));
+};
+
+export const mondayFromSundayWeekStart = (weekStartSunday: string): string => {
+  const sundayUtc = parseUtcDateFromIso(weekStartSunday);
+  const mondayUtc = addDays(sundayUtc, 1);
+  return formatEtDate(mondayUtc);
+};
+
+export interface WeeklyXpWeekContext {
+  storageWeekStart: string;
+  rolloverWeekStart?: string;
+  displayWeekStart: string;
+}
+
+export const weeklyXpWeekContext = (now = new Date()): WeeklyXpWeekContext => {
+  const easternNow = toET(now);
+  const dayOfWeek = easternNow.getUTCDay();
+  const storageReference = dayOfWeek === 0 ? addDays(easternNow, -1) : easternNow;
+  return {
+    storageWeekStart: weekStartSundayET(storageReference),
+    rolloverWeekStart: dayOfWeek === 0 ? weekStartSundayET(easternNow) : undefined,
+    displayWeekStart: weekStartMondayET(easternNow),
+  };
+};
+
+export const visibleWeekStartET = (now = new Date()): string =>
+  weeklyXpWeekContext(now).storageWeekStart;

@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 
-import { visibleWeekStartET } from '@/lib/time';
 import { getWeeklyRankingCurrent } from '@/server/services/xp.service';
 
 export async function GET() {
   try {
-    const ranking = await getWeeklyRankingCurrent();
-    const weekStart = ranking[0]?.week_start_sunday ?? visibleWeekStartET();
+    const { ranking, weekStart } = await getWeeklyRankingCurrent();
 
     return NextResponse.json({
       weekStart,

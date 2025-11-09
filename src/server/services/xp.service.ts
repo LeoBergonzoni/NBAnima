@@ -1,5 +1,5 @@
 import { createAdminSupabaseClient } from '@/lib/supabase';
-import { visibleWeekStartET } from '@/lib/time';
+import { weeklyXpWeekContext } from '@/lib/time';
 import type { WeeklyRankingRow, WeeklyXPTotal } from '@/types/database';
 
 const WEEK_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
@@ -8,114 +8,107 @@ const ensureWeekStart = (weekStart?: string): string => {
   if (weekStart && WEEK_FORMAT.test(weekStart)) {
     return weekStart;
   }
-  return visibleWeekStartET();
+  return weeklyXpWeekContext().storageWeekStart;
 };
 
 export const getMyWeeklyXPVisible = async (userId: string): Promise<number> => {
   const supabaseAdmin = createAdminSupabaseClient();
-  const weekStart = visibleWeekStartET();
+  const { storageWeekStart, rolloverWeekStart } = weeklyXpWeekContext();
+  const weekStarts =
+    rolloverWeekStart && rolloverWeekStart !== storageWeekStart
+      ? [storageWeekStart, rolloverWeekStart]
+      : [storageWeekStart];
 
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('weekly_xp_totals')
-    .select('weekly_xp')
-    .eq('user_id', userId)
-    .eq('week_start_sunday', weekStart)
-    .maybeSingle<{ weekly_xp: number }>();
+    .select('week_start_monday, weekly_xp')
+    .eq('user_id', userId);
 
-  if (error && error.code !== 'PGRST116') {
+  query =
+    weekStarts.length === 1
+      ? query.eq('week_start_monday', weekStarts[0])
+      : query.in('week_start_monday', weekStarts);
+
+  const { data, error } = await query;
+
+  if (error) {
     throw error;
   }
 
-  return data?.weekly_xp ?? 0;
+  return (data ?? []).reduce((sum, row) => sum + (row.weekly_xp ?? 0), 0);
 };
 
-export const getWeeklyRankingCurrent = async (): Promise<WeeklyRankingRow[]> => {
+export interface WeeklyRankingResult {
+  weekStart: string;
+  ranking: WeeklyRankingRow[];
+}
+
+export const getWeeklyRankingCurrent = async (): Promise<WeeklyRankingResult> => {
   const supabaseAdmin = createAdminSupabaseClient();
+  const { displayWeekStart } = weeklyXpWeekContext();
 
   const { data, error } = await supabaseAdmin
     .from('weekly_xp_ranking_current')
-    .select('user_id, full_name, week_start_sunday, weekly_xp')
+    .select('user_id, full_name, week_start_monday, weekly_xp')
     .order('weekly_xp', { ascending: false });
 
   if (error) {
     throw error;
   }
 
-  const rankingRows = (data ?? []) as WeeklyRankingRow[];
-  const weekStart = rankingRows[0]?.week_start_sunday ?? visibleWeekStartET();
+  const ranking = (data ?? []) as WeeklyRankingRow[];
 
-  const [{ data: totalsData, error: totalsError }, { data: usersData, error: usersError }] =
-    await Promise.all([
-      supabaseAdmin
-        .from('weekly_xp_totals')
-        .select('user_id, week_start_sunday, weekly_xp')
-        .eq('week_start_sunday', weekStart),
-      supabaseAdmin
-        .from('users')
-        .select('id, full_name, email')
-        .order('full_name', { ascending: true, nullsFirst: true }),
-    ]);
-
-  if (totalsError) {
-    throw totalsError;
-  }
-
-  if (usersError) {
-    throw usersError;
-  }
-
-  const totalsMap = new Map<string, number>(
-    (totalsData ?? []).map((row) => [row.user_id, row.weekly_xp ?? 0]),
-  );
-
-  rankingRows.forEach((row) => {
-    if (!totalsMap.has(row.user_id)) {
-      totalsMap.set(row.user_id, row.weekly_xp ?? 0);
-    }
-  });
-
-  const augmentedRanking = (usersData ?? []).map((user) => {
-    const xp = totalsMap.get(user.id) ?? 0;
-    const baseRow = rankingRows.find((row) => row.user_id === user.id);
-    return {
-      user_id: user.id,
-      full_name: baseRow?.full_name ?? user.full_name ?? user.email ?? '—',
-      week_start_sunday: baseRow?.week_start_sunday ?? weekStart,
-      weekly_xp: xp,
-    };
-  });
-
-  const unmatched = rankingRows.filter(
-    (row) => !(usersData ?? []).some((user) => user.id === row.user_id),
-  );
-
-  const combined = [...augmentedRanking, ...unmatched];
-
-  combined.sort((a, b) => {
-    if (b.weekly_xp !== a.weekly_xp) {
-      return b.weekly_xp - a.weekly_xp;
-    }
-    return a.full_name.localeCompare(b.full_name);
-  });
-
-  return combined;
+  return {
+    weekStart: ranking[0]?.week_start_monday ?? displayWeekStart,
+    ranking,
+  };
 };
 
 export const getWeeklyTotalsByWeek = async (
   weekStart?: string,
+  additionalWeekStart?: string,
 ): Promise<WeeklyXPTotal[]> => {
   const supabaseAdmin = createAdminSupabaseClient();
   const resolvedWeekStart = ensureWeekStart(weekStart);
+  const additional =
+    additionalWeekStart && WEEK_FORMAT.test(additionalWeekStart)
+      ? additionalWeekStart
+      : undefined;
+  const weekStarts = additional ? [resolvedWeekStart, additional] : [resolvedWeekStart];
 
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('weekly_xp_totals')
-    .select('user_id, week_start_sunday, weekly_xp')
-    .eq('week_start_sunday', resolvedWeekStart)
-    .order('weekly_xp', { ascending: false });
+    .select('user_id, week_start_monday, weekly_xp');
+
+  query =
+    weekStarts.length === 1
+      ? query.eq('week_start_monday', weekStarts[0]).order('weekly_xp', { ascending: false })
+      : query.in('week_start_monday', weekStarts);
+
+  const { data, error } = await query;
 
   if (error) {
     throw error;
   }
 
-  return (data ?? []) as WeeklyXPTotal[];
+  if (weekStarts.length === 1) {
+    return (data ?? []) as WeeklyXPTotal[];
+  }
+
+  const totalsMap = new Map<string, number>();
+  (data ?? []).forEach((row) => {
+    const current = totalsMap.get(row.user_id) ?? 0;
+    totalsMap.set(row.user_id, current + (row.weekly_xp ?? 0));
+  });
+
+  const merged = Array.from(totalsMap.entries()).map<WeeklyXPTotal>(
+    ([user_id, weekly_xp]) => ({
+      user_id,
+      week_start_monday: resolvedWeekStart,
+      weekly_xp,
+    }),
+  );
+
+  merged.sort((a, b) => b.weekly_xp - a.weekly_xp);
+  return merged;
 };

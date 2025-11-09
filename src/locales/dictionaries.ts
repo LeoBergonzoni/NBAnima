@@ -334,9 +334,9 @@ const it: Dictionary = {
     shopTab: 'Acquista Cards',
     weeklyXpBalance: 'Saldo Weekly XP',
     weeklyRanking: 'Classifica settimanale',
-    weeklyRangeCaption: 'Settimana del {date} (Dom–Sab, ET)',
+    weeklyRangeCaption: 'Settimana del {date} (Lun–Dom, ET)',
     weeklyXpExplainer:
-      'I Weekly XP rispecchiano solo i punti da settlement e si azzerano il lunedì. La domenica mostra la classifica finale della settimana precedente.',
+      'I Weekly XP rispecchiano solo i punti da settlement, coprono la settimana Lun–Dom (ET) e si azzerano ogni lunedì.',
     howCalculatedBoth: 'Come sono stati calcolati i tuoi Anima Points e i Weekly XP',
     statusCompleted: 'Completato',
     statusPending: 'Da completare',
@@ -586,9 +586,9 @@ const en: Dictionary = {
     shopTab: 'Shop Cards',
     weeklyXpBalance: 'Weekly XP balance',
     weeklyRanking: 'Weekly Ranking',
-    weeklyRangeCaption: 'Week of {date} (Sun–Sat, ET)',
+    weeklyRangeCaption: 'Week of {date} (Mon–Sun, ET)',
     weeklyXpExplainer:
-      'Weekly XP mirror settlement-only points and reset on Monday. Sunday shows last week’s final ranking.',
+      'Weekly XP mirror settlement-only points, cover the Mon–Sun (ET) week, and reset every Monday.',
     howCalculatedBoth: 'How your Anima Points and Weekly XP were calculated',
     statusCompleted: 'Completed',
     statusPending: 'To-do',

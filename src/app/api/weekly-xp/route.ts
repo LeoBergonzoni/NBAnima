@@ -1,25 +1,39 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { visibleWeekStartET } from '@/lib/time';
+import { mondayFromSundayWeekStart, weeklyXpWeekContext } from '@/lib/time';
 import { getWeeklyTotalsByWeek } from '@/server/services/xp.service';
 
 const WEEK_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
 
-const resolveWeekStart = (request: NextRequest): string => {
+type WeekStartResolution = {
+  storageWeekStart: string;
+  additionalWeekStart?: string;
+  displayWeekStart: string;
+};
+
+const resolveWeekStart = (request: NextRequest): WeekStartResolution => {
   const input = request.nextUrl.searchParams.get('weekStart');
   if (input && WEEK_FORMAT.test(input)) {
-    return input;
+    return {
+      storageWeekStart: input,
+      displayWeekStart: mondayFromSundayWeekStart(input),
+    };
   }
-  return visibleWeekStartET();
+  const context = weeklyXpWeekContext();
+  return {
+    storageWeekStart: context.storageWeekStart,
+    additionalWeekStart: context.rolloverWeekStart,
+    displayWeekStart: context.displayWeekStart,
+  };
 };
 
 export async function GET(request: NextRequest) {
   try {
-    const weekStart = resolveWeekStart(request);
-    const totals = await getWeeklyTotalsByWeek(weekStart);
+    const { storageWeekStart, additionalWeekStart, displayWeekStart } = resolveWeekStart(request);
+    const totals = await getWeeklyTotalsByWeek(storageWeekStart, additionalWeekStart);
 
     return NextResponse.json({
-      weekStart,
+      weekStart: displayWeekStart,
       totals,
     });
   } catch (error) {
