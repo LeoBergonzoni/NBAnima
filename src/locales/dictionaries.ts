@@ -368,6 +368,8 @@ const it: Dictionary = {
     },
     toasts: {
       cardPurchased: 'Card acquistata!',
+      picksSaved: 'Picks salvate con successo.',
+      picksUpdated: 'Picks aggiornate con successo.',
     },
   },
   play: {
@@ -620,6 +622,8 @@ const en: Dictionary = {
     },
     toasts: {
       cardPurchased: 'Card purchased!',
+      picksSaved: 'Picks saved successfully.',
+      picksUpdated: 'Picks updated successfully.',
     },
   },
   play: {

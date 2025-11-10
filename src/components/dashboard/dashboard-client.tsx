@@ -987,7 +987,7 @@ export function DashboardClient({
   const [highlightSelections, setHighlightSelections] = useState<string[]>(() =>
     buildEmptyHighlightSlots(),
   );
-  const [playersManuallyCompleted, setPlayersManuallyCompleted] = useState(false);
+  const [picksToast, setPicksToast] = useState<string | null>(null);
   const [highlightsManuallyCompleted, setHighlightsManuallyCompleted] = useState(false);
   const [playersByGame, setPlayersByGame] = useState<Record<string, PlayerSummary[]>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -1073,9 +1073,16 @@ export function DashboardClient({
       slots[index] = highlight.player_id;
     });
     setHighlightSelections(slots);
-    setPlayersManuallyCompleted(false);
     setHighlightsManuallyCompleted(false);
   }, [picks]);
+
+  useEffect(() => {
+    if (!picksToast) {
+      return;
+    }
+    const timer = setTimeout(() => setPicksToast(null), 3000);
+    return () => clearTimeout(timer);
+  }, [picksToast]);
 
   const onPlayersLoaded = useCallback((gameId: string, players: PlayerSummary[]) => {
     setPlayersByGame((previous) => {
@@ -1130,14 +1137,11 @@ export function DashboardClient({
 
   const playersComplete = useMemo(
     () =>
-      playersManuallyCompleted ||
-      (games.length > 0 &&
-        games.every((game) =>
-          PLAYER_CATEGORIES.every((category) =>
-            Boolean(playerSelections[game.id]?.[category]),
-          ),
-        )),
-    [games, playerSelections, playersManuallyCompleted],
+      games.length > 0 &&
+      games.every((game) =>
+        PLAYER_CATEGORIES.every((category) => Boolean(playerSelections[game.id]?.[category])),
+      ),
+    [games, playerSelections],
   );
 
   const highlightsComplete = useMemo(() => {
@@ -1290,8 +1294,10 @@ export function DashboardClient({
     try {
       if (hasExistingPicks) {
         await updatePicks(payload);
+        setPicksToast(dictionary.dashboard.toasts.picksUpdated);
       } else {
         await saveInitialPicks(payload);
+        setPicksToast(dictionary.dashboard.toasts.picksSaved);
       }
     } catch (error) {
       setErrorMessage((error as Error).message);
@@ -1331,7 +1337,8 @@ export function DashboardClient({
   };
 
   return (
-    <div className="space-y-8 pb-16 pt-2 sm:pt-4 lg:pb-24">
+    <>
+      <div className="space-y-8 pb-16 pt-2 sm:pt-4 lg:pb-24">
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-2xl font-semibold text-white">NBAnima</span>
@@ -1571,15 +1578,6 @@ export function DashboardClient({
                       onPlayersLoaded={onPlayersLoaded}
                     />
                   ))}
-                  <div className="mt-3">
-                    <button
-                      type="button"
-                      onClick={() => setPlayersManuallyCompleted(true)}
-                      className="rounded-lg border border-accent-gold bg-gradient-to-r from-accent-gold/90 to-accent-coral/90 px-4 py-2 text-sm font-semibold text-navy-900 shadow-card hover:brightness-105"
-                    >
-                      {dictionary?.play?.players?.endPicks ?? 'Termina scelte'}
-                    </button>
-                  </div>
                 </section>
               ) : null}
 
@@ -1751,6 +1749,13 @@ export function DashboardClient({
           ) : null}
         </div>
       </section>
-    </div>
+      </div>
+      {picksToast ? (
+        <div className="fixed bottom-6 left-6 z-40 flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-200 shadow-card">
+          <CheckCircle2 className="h-4 w-4" />
+          <span>{picksToast}</span>
+        </div>
+      ) : null}
+    </>
   );
 }
