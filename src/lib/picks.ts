@@ -10,11 +10,18 @@ const isoDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD date');
 
-const getDateRange = (pickDate: string) => {
+const getETUtcRange = (pickDate: string) => {
   const parsed = isoDateSchema.parse(pickDate);
+  const [year, month, day] = parsed.split('-').map(Number);
+  const noonUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const offsetMinutes = getNYOffsetMinutes(noonUtc);
+
+  const startMs = Date.UTC(year, month - 1, day, 0, 0, 0) - offsetMinutes * 60_000;
+  const endMs = Date.UTC(year, month - 1, day, 23, 59, 59) - offsetMinutes * 60_000;
+
   return {
-    start: `${parsed}T00:00:00Z`,
-    end: `${parsed}T23:59:59Z`,
+    start: new Date(startMs).toISOString(),
+    end: new Date(endMs).toISOString(),
   };
 };
 
@@ -130,7 +137,8 @@ export const assertLockWindowOpen = async (
     new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York' }).resolvedOptions().timeZone
   );
 
-  const { start, end } = getDateRange(pickDate);
+  const { start, end } = getETUtcRange(pickDate);
+  console.log('[LOCK DEBUG] ET day UTC window:', { start, end });
   const { data, error } = await supabaseAdmin
     .from('games')
     .select('game_date')
