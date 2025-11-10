@@ -119,6 +119,8 @@ export interface Dictionary {
     };
     toasts: {
       cardPurchased: string;
+      picksSaved: string;
+      picksUpdated: string;
     };
   };
   play: {
