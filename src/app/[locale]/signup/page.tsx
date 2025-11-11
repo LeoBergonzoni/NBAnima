@@ -40,11 +40,13 @@ export default async function SignupPage({
         submit: dictionary.auth.signup.submit,
         switchPrompt: dictionary.auth.signup.switchPrompt,
         switchCta: dictionary.auth.signup.switchCta,
+        nameLabel: dictionary.auth.fields.fullName,
         emailLabel: dictionary.auth.fields.email,
         passwordLabel: dictionary.auth.fields.password,
         confirmPasswordLabel: dictionary.auth.fields.confirmPassword,
         passwordMismatch: dictionary.auth.errors.mismatch,
         genericError: dictionary.auth.errors.generic,
+        confirmationNotice: dictionary.auth.signup.confirmationNotice,
       }}
       switchHref={`/${locale}/login`}
     />

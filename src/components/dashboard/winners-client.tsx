@@ -1236,9 +1236,6 @@ export const WinnersClient = ({
                               </span>
                             </p>
                           </div>
-                          <p className="mt-2 text-xs text-slate-400">
-                            {formatDateNy(row.pick_date)} · Changes: {row.changes_count ?? 0} · Updated: {formatDateTimeNy(row.updated_at)}
-                          </p>
                         </li>
                       );
                     })}
@@ -1298,9 +1295,6 @@ export const WinnersClient = ({
                               </span>
                             </p>
                           </div>
-                          <p className="mt-2 text-xs text-slate-400">
-                            {formatDateNy(row.pick_date)} · Changes: {row.changes_count ?? 0} · Updated: {formatDateTimeNy(row.updated_at)}
-                          </p>
                         </li>
                       );
                     })}

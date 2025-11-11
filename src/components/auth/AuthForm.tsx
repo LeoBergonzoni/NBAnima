@@ -12,11 +12,13 @@ interface AuthFormCopy {
   submit: string;
   switchPrompt: string;
   switchCta: string;
+  nameLabel?: string;
   emailLabel: string;
   passwordLabel: string;
   confirmPasswordLabel?: string;
   passwordMismatch: string;
   genericError: string;
+  confirmationNotice?: string;
 }
 
 interface AuthFormProps {
@@ -30,18 +32,28 @@ export const AuthForm = ({ mode, locale, copy, switchHref }: AuthFormProps) => {
   const router = useRouter();
   const supabase = useMemo(() => createBrowserSupabase(), []);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const email = (formData.get('email') ?? '').toString().trim();
     const password = (formData.get('password') ?? '').toString();
     const confirmPassword =
       (formData.get('confirmPassword') ?? '').toString();
+    const fullNameEntry = formData.get('fullName');
+    const fullName =
+      typeof fullNameEntry === 'string' ? fullNameEntry.trim() : '';
 
     if (!email || !password) {
+      setErrorMessage(copy.genericError);
+      return;
+    }
+
+    if (mode === 'signup' && !fullName) {
       setErrorMessage(copy.genericError);
       return;
     }
@@ -52,38 +64,68 @@ export const AuthForm = ({ mode, locale, copy, switchHref }: AuthFormProps) => {
     }
 
     setErrorMessage(null);
+    setStatusMessage(null);
 
     startTransition(async () => {
       try {
         if (mode === 'signup') {
+          const emailRedirectTo =
+            typeof window !== 'undefined'
+              ? `${window.location.origin}/${locale}/login`
+              : undefined;
+
           const { error } = await supabase.auth.signUp({
             email,
             password,
+            options: {
+              emailRedirectTo,
+              data: fullName ? { full_name: fullName } : undefined,
+            },
           });
           if (error) {
             throw error;
           }
+          form.reset();
+          setStatusMessage(copy.confirmationNotice ?? null);
+          setIsRedirecting(false);
+          return;
         } else {
-          const { error } = await supabase.auth.signInWithPassword({
+          const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
           });
           if (error) {
             throw error;
           }
+          const user = data.user;
+          if (user) {
+            const metadataName =
+              (user.user_metadata?.full_name as string | undefined)?.trim() ?? null;
+            try {
+              await supabase
+                .from('users')
+                .upsert(
+                  {
+                    id: user.id,
+                    email: user.email ?? email,
+                    full_name: metadataName ?? undefined,
+                    updated_at: new Date().toISOString(),
+                  },
+                  { onConflict: 'id' },
+                );
+            } catch (profileError) {
+              console.warn('[AuthForm] Failed to sync profile', profileError);
+            }
+          }
+          setStatusMessage(null);
+          setIsRedirecting(true);
+          router.push(`/${locale}/dashboard`);
+          router.refresh();
         }
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
-          setErrorMessage(copy.genericError);
-          return;
-        }
-        setIsRedirecting(true);
-        router.push(`/${locale}/dashboard`);
-        router.refresh();
       } catch (error) {
+        console.error('[AuthForm] Auth error', error);
         setErrorMessage((error as Error).message || copy.genericError);
+        setStatusMessage(null);
         setIsRedirecting(false);
       }
     });
@@ -102,6 +144,20 @@ export const AuthForm = ({ mode, locale, copy, switchHref }: AuthFormProps) => {
             noValidate
             className="mt-8 space-y-5"
           >
+            {mode === 'signup' ? (
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-slate-200">
+                  {copy.nameLabel ?? 'Name'}
+                </span>
+                <input
+                  type="text"
+                  name="fullName"
+                  autoComplete="name"
+                  required
+                  className="w-full rounded-2xl border border-white/10 bg-navy-800/90 px-4 py-3 text-base text-white shadow-inner focus:border-accent-gold focus:outline-none focus:ring-2 focus:ring-accent-gold/60"
+                />
+              </label>
+            ) : null}
             <label className="block space-y-2">
               <span className="text-sm font-medium text-slate-200">
                 {copy.emailLabel}
@@ -146,11 +202,16 @@ export const AuthForm = ({ mode, locale, copy, switchHref }: AuthFormProps) => {
             <div
               role="status"
               aria-live="polite"
-              className="min-h-[1.5rem]"
+              className="min-h-[1.5rem] space-y-2"
             >
               {errorMessage ? (
                 <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
                   {errorMessage}
+                </p>
+              ) : null}
+              {statusMessage ? (
+                <p className="rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-100">
+                  {statusMessage}
                 </p>
               ) : null}
             </div>

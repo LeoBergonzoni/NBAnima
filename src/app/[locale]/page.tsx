@@ -65,7 +65,7 @@ export default async function LocaleHomePage({
         <div className="mt-4 flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
             href={`/${locale}/signup`}
-            className="inline-flex min-h-[44px] min-w-[180px] items-center justify-center rounded-2xl bg-gradient-to-r from-accent-gold via-accent-coral to-accent-gold px-6 py-2.5 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110"
+            className="inline-flex min-h-[44px] min-w-[180px] items-center justify-center rounded-2xl border border-white/15 bg-gradient-to-r from-accent-gold via-accent-coral to-accent-gold px-6 py-2.5 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110"
           >
             {dictionary.home.ctaRegister}
           </Link>
@@ -102,7 +102,7 @@ export default async function LocaleHomePage({
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link
             href={`/${locale}/signup`}
-            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-gradient-to-r from-accent-gold via-accent-coral to-accent-gold px-6 py-2.5 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110 sm:w-auto"
+            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl border border-white/15 bg-gradient-to-r from-accent-gold via-accent-coral to-accent-gold px-6 py-2.5 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110 sm:w-auto"
           >
             {dictionary.home.ctaRegister}
           </Link>

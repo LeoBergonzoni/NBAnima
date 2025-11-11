@@ -1012,6 +1012,7 @@ export function DashboardClient({
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isTeamsOpen, setIsTeamsOpen] = useState(true);
   const [isPlayersOpen, setIsPlayersOpen] = useState(false);
+  const [nowTs, setNowTs] = useState(() => Date.now());
 
   const pickDate = useMemo(
     () => new Date().toISOString().slice(0, 10),
@@ -1041,6 +1042,11 @@ export function DashboardClient({
     saveInitialPicks,
     updatePicks,
   } = usePicks(pickDate);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTs(Date.now()), 15000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (!picks) {
@@ -1147,6 +1153,19 @@ export function DashboardClient({
       ? 'Nessun dato settimanale disponibile al momento.'
       : 'No weekly data available yet.';
 
+  const lockWindowActive = useMemo(() => {
+    if (!games.length) {
+      return false;
+    }
+    return games.some((game) => {
+      const startsAt = new Date(game.startsAt).getTime();
+      if (Number.isNaN(startsAt)) {
+        return false;
+      }
+      return startsAt <= nowTs;
+    });
+  }, [games, nowTs]);
+
   const teamsComplete = useMemo(
     () => games.length > 0 && games.every((game) => !!teamSelections[game.id]),
     [games, teamSelections],
@@ -1214,7 +1233,7 @@ export function DashboardClient({
     '{count}',
     String(dailyChanges),
   );
-  const canSubmit = teamsComplete && !isSaving;
+  const canSubmit = teamsComplete && !isSaving && !lockWindowActive;
 
   const handleSave = async () => {
     if (!canSubmit) {
@@ -1641,19 +1660,25 @@ export function DashboardClient({
                 <button
                   type="button"
                   onClick={handleSave}
-                  disabled={!canSubmit || picksLoading || gamesLoading || isSaving}
+                  disabled={
+                    !canSubmit || picksLoading || gamesLoading || isSaving || lockWindowActive
+                  }
                   className={clsx(
                     'inline-flex w-full items-center justify-center gap-2 rounded-full border px-6 py-3 text-sm font-semibold transition min-h-[48px]',
-                    canSubmit
-                      ? 'border-lime-400/80 bg-lime-400/20 text-lime-300 hover:bg-lime-400/30'
-                      : 'border-white/10 bg-navy-800/70 text-slate-400',
+                    lockWindowActive
+                      ? 'cursor-not-allowed border-rose-500/60 bg-rose-500/15 text-rose-100'
+                      : canSubmit
+                        ? 'border-lime-400/80 bg-lime-400/20 text-lime-300 hover:bg-lime-400/30'
+                        : 'border-white/10 bg-navy-800/70 text-slate-400',
                   )}
                   aria-busy={isSaving}
                 >
-                  {isSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : null}
-                  {hasExistingPicks ? dictionary.play.update : dictionary.play.submit}
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {lockWindowActive
+                    ? dictionary.dashboard.lockWindowActive
+                    : hasExistingPicks
+                      ? dictionary.play.update
+                      : dictionary.play.submit}
                 </button>
               </footer>
             </div>

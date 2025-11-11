@@ -198,8 +198,10 @@ export interface Dictionary {
       submit: string;
       switchPrompt: string;
       switchCta: string;
+      confirmationNotice: string;
     };
     fields: {
+      fullName: string;
       email: string;
       password: string;
       confirmPassword: string;
@@ -343,7 +345,7 @@ const it: Dictionary = {
     howCalculatedBoth: 'Come sono stati calcolati i tuoi Anima Points e i Weekly XP',
     statusCompleted: 'Completato',
     statusPending: 'Da completare',
-    lockWindowActive: 'Window di gioco attiva, non puoi modificare le scelte.',
+    lockWindowActive: 'Picks chiuse per oggi',
     lastUpdated: 'Ultimo aggiornamento',
     winners: {
       title: 'Vincenti',
@@ -453,8 +455,11 @@ const it: Dictionary = {
       submit: 'Registrati',
       switchPrompt: 'Hai già un account?',
       switchCta: 'Accedi',
+      confirmationNotice:
+        'Controlla la tua email per il link di conferma, aprilo e poi accedi con i dati appena inseriti.',
     },
     fields: {
+      fullName: 'Nome o soprannome',
       email: 'Email',
       password: 'Password',
       confirmPassword: 'Conferma Password',
@@ -598,7 +603,7 @@ const en: Dictionary = {
     howCalculatedBoth: 'How your Anima Points and Weekly XP were calculated',
     statusCompleted: 'Completed',
     statusPending: 'To-do',
-    lockWindowActive: 'Game window locked. Picks cannot be edited now.',
+    lockWindowActive: 'Pick closed for today',
     lastUpdated: 'Last updated',
     winners: {
       title: 'Winners',
@@ -709,8 +714,11 @@ const en: Dictionary = {
       submit: 'Sign up',
       switchPrompt: 'Already part of the community?',
       switchCta: 'Log in',
+      confirmationNotice:
+        'Check your inbox for the confirmation link, click it, then sign in with the credentials you just created.',
     },
     fields: {
+      fullName: 'Name or nickname',
       email: 'Email',
       password: 'Password',
       confirmPassword: 'Confirm Password',
