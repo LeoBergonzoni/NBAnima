@@ -380,7 +380,7 @@ const it: Dictionary = {
   play: {
     title: 'Preparati alla prossima notte NBA',
     subtitle:
-      'Completa le tre sfide per ottenere il check verde e massimizzare i tuoi Anima Points.',
+      'Completa le sfide per ottenere il check verde e massimizzare i tuoi Anima Points.',
     links: {
       nbaStats: 'NBA Stats',
       nbaLineups: 'NBA Starting lineups',
@@ -638,7 +638,7 @@ const en: Dictionary = {
   play: {
     title: 'Gear up for the next NBA night',
     subtitle:
-      'Complete the three challenges to secure the green check and maximize your Anima Points.',
+      'Complete the challenges to secure the green check and maximize your Anima Points.',
     links: {
       nbaStats: 'NBA Stats',
       nbaLineups: 'NBA Starting lineups',
