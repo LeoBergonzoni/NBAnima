@@ -15,6 +15,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import type { MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 
@@ -759,6 +760,12 @@ const ShopGrid = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const handleGuardContextMenu = useCallback(
+    (event: MouseEvent) => {
+      event.preventDefault();
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!pendingCard) {
@@ -868,12 +875,22 @@ const ShopGrid = ({
                     {card.price}
                   </span>
                 </div>
-                <div className="relative h-40 w-full overflow-hidden rounded-2xl border border-white/10 bg-navy-900">
+                <div
+                  className="relative h-40 w-full overflow-hidden rounded-2xl border border-white/10 bg-navy-900 select-none"
+                  onContextMenu={handleGuardContextMenu}
+                >
                   <Image
                     src={card.image_url}
                     alt={card.name}
                     fill
-                    className="object-cover"
+                    draggable={false}
+                    onContextMenu={handleGuardContextMenu}
+                    className="pointer-events-none object-cover"
+                  />
+                  <div
+                    aria-hidden="true"
+                    onContextMenu={handleGuardContextMenu}
+                    className="pointer-events-auto absolute inset-0 rounded-2xl bg-gradient-to-b from-navy-950/30 via-navy-950/10 to-navy-950/50 backdrop-blur-[1px]"
                   />
                 </div>
                 <div>

@@ -175,6 +175,7 @@ export interface Dictionary {
     usersTab: string;
     picksTab: string;
     highlightsTab: string;
+    backToDashboard: string;
     searchPlaceholder: string;
     balance: string;
     cards: string;
@@ -429,6 +430,7 @@ const it: Dictionary = {
     usersTab: 'Utenti',
     picksTab: 'Picks',
     highlightsTab: 'Highlights',
+    backToDashboard: 'Torna alla dashboard',
     searchPlaceholder: 'Cerca utente…',
     balance: 'Saldo',
     cards: 'Cards',
@@ -684,6 +686,7 @@ const en: Dictionary = {
     usersTab: 'Users',
     picksTab: 'Picks',
     highlightsTab: 'Winners Highlights',
+    backToDashboard: 'Back to dashboard',
     searchPlaceholder: 'Search user…',
     balance: 'Balance',
     cards: 'Cards',

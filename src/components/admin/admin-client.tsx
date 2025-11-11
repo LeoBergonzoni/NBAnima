@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import clsx from 'clsx';
 import { Loader2, Pencil, Trash2 } from 'lucide-react';
 import { subDays } from 'date-fns';
@@ -953,11 +954,18 @@ export const AdminClient = ({
     <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 py-4 md:py-6">
       <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 md:mx-0 bg-navy-950/80 backdrop-blur supports-[backdrop-filter]:bg-navy-950/60">
         <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 py-3">
-          <header className="flex gap-2 overflow-x-auto pb-1 text-sm text-white touch-scroll">
-            {ADMIN_TABS.map((tab) => {
-              const label =
-                tab === 'users'
-                  ? dictionary.admin.usersTab
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <Link
+              href={`/${locale}/dashboard`}
+              className="inline-flex min-h-[40px] items-center justify-center rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-sm font-semibold text-white transition hover:border-accent-gold/50 hover:text-accent-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-gold"
+            >
+              {dictionary.admin.backToDashboard}
+            </Link>
+            <header className="flex w-full flex-1 gap-2 overflow-x-auto pb-1 text-sm text-white touch-scroll">
+              {ADMIN_TABS.map((tab) => {
+                const label =
+                  tab === 'users'
+                    ? dictionary.admin.usersTab
                   : tab === 'picks'
                     ? dictionary.admin.picksTab
                     : tab === 'winnersTeams'
@@ -982,7 +990,8 @@ export const AdminClient = ({
                 </button>
               );
             })}
-          </header>
+            </header>
+          </div>
         </div>
       </div>
 
