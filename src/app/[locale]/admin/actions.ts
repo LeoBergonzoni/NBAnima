@@ -9,6 +9,7 @@ import { supabaseAdmin, createServerSupabase } from '@/lib/supabase';
 import type { Database } from '@/lib/supabase.types';
 import { computeDailyScore } from '@/lib/scoring';
 import { ADMIN_POINT_STEP } from '@/lib/admin';
+import { upsertPlayers, type UpsertablePlayer } from '@/lib/db/upsertPlayers';
 
 interface BalanceInput {
   userId: string;
@@ -245,22 +246,6 @@ const ensurePlayerUuid = async (
     return providerPlayerIdCache.get(providerId)!;
   }
 
-  const { data: existing, error: selectError } = await supabaseAdmin
-    .from('player')
-    .select('id')
-    .eq('provider', PLAYER_PROVIDER)
-    .eq('provider_player_id', providerId)
-    .maybeSingle();
-
-  if (selectError) {
-    throw selectError;
-  }
-
-  if (existing?.id) {
-    providerPlayerIdCache.set(providerId, existing.id);
-    return existing.id;
-  }
-
   const teamAbbr =
     selection.teamAbbr?.toUpperCase() ?? extractTeamAbbr(selection.label);
 
@@ -275,30 +260,28 @@ const ensurePlayerUuid = async (
   const position = selection.position
     ? selection.position.toUpperCase()
     : null;
-
-  const { data: inserted, error: insertError } = await supabaseAdmin
-    .from('player')
-    .insert({
-      provider: PLAYER_PROVIDER,
-      provider_player_id: providerId,
-      team_id: teamId,
-      first_name: first || 'N.',
-      last_name: last || 'N.',
-      position,
-    })
-    .select('id')
-    .single();
-
-  if (insertError) {
-    throw insertError;
+  const upsertPayload: UpsertablePlayer = {
+    provider: PLAYER_PROVIDER,
+    provider_player_id: providerId,
+    team_id: teamId,
+    first_name: first || 'N.',
+    last_name: last || 'N.',
+    position,
+  };
+  const { data, error } = await upsertPlayers(supabaseAdmin, [upsertPayload]);
+  if (error) {
+    throw error;
   }
-
-  if (!inserted?.id) {
+  const created = data?.find(
+    (entry) =>
+      entry.provider === PLAYER_PROVIDER &&
+      entry.provider_player_id === providerId,
+  );
+  if (!created?.id) {
     throw new Error(`Creazione giocatore non riuscita per "${providerId}"`);
   }
-
-  providerPlayerIdCache.set(providerId, inserted.id);
-  return inserted.id;
+  providerPlayerIdCache.set(providerId, created.id);
+  return created.id;
 };
 
 const ensureAdminUser = async () => {

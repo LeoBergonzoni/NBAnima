@@ -27,6 +27,7 @@ import {
   UserPicksResponseSchema,
 } from '@/lib/types-winners';
 import { getUserPicksByDate } from '@/server/services/winners.service';
+import { upsertPlayers, type UpsertablePlayer } from '@/lib/db/upsertPlayers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -463,46 +464,6 @@ const findPlayerContext = (
   return null;
 };
 
-async function getOrCreatePlayerUuid(opts: {
-  supabase: SupabaseClient<Database>;
-  provider: string;               // es. 'local-rosters'
-  providerPlayerId: string;       // id esterno (dal roster.json)
-  teamUuid: string;               // UUID della squadra (da games)
-  firstName: string;
-  lastName: string;
-  position?: string | null;
-}) {
-  const { supabase, provider, providerPlayerId } = opts;
-
-  // 1) cerco per chiave logica
-  const { data: found, error: selErr } = await supabase
-    .from('player')
-    .select('id')
-    .eq('provider', provider)
-    .eq('provider_player_id', providerPlayerId)
-    .maybeSingle();
-
-  if (selErr) throw selErr;
-  if (found?.id) return found.id;
-
-  // 2) creo
-  const { data: inserted, error: insErr } = await supabase
-    .from('player')
-    .insert({
-      provider: provider,
-      provider_player_id: providerPlayerId,
-      team_id: opts.teamUuid,
-      first_name: opts.firstName || 'N.',
-      last_name: opts.lastName || 'N.',
-      position: opts.position ?? null,
-    })
-    .select('id')
-    .single();
-
-  if (insErr) throw insErr;
-  return inserted!.id;
-}
-
 // Utility per spezzare un full name in first/last
 function splitName(full: string) {
   const clean = (full || '').trim();
@@ -513,6 +474,9 @@ function splitName(full: string) {
     last: parts.slice(1).join(' ') || parts[0],
   };
 }
+
+const buildPlayerKey = (provider: string, providerPlayerId: string) =>
+  `${provider}:${providerPlayerId}`;
 
 const resolveSlateDate = (request: NextRequest) => {
   const fallback = toEasternYYYYMMDD(yesterdayInEastern());
@@ -960,82 +924,118 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const playerPayloadMap = new Map<string, UpsertablePlayer>();
+    const registerPlayerPayload = (key: string, payload: UpsertablePlayer) => {
+      if (!playerPayloadMap.has(key)) {
+        playerPayloadMap.set(key, payload);
+      }
+    };
+
+    const playerPickContexts = payload.players.map((pick) => {
+      const game = gamesMap.get(pick.gameId);
+      if (!game) {
+        throw new Error(`Unknown game(s): ${pick.gameId}`);
+      }
+      const match = findPlayerInGame(pick.playerId, game, rosters);
+      if (!match) {
+        throw new Error(
+          `Cannot resolve player "${pick.playerId}" for game ${pick.gameId}`,
+        );
+      }
+      const { first, last } = splitName(pick.playerId);
+      const teamId = match.side === 'home' ? game.home_team_id : game.away_team_id;
+      const key = buildPlayerKey(PLAYER_PROVIDER, pick.playerId);
+      registerPlayerPayload(key, {
+        provider: PLAYER_PROVIDER,
+        provider_player_id: pick.playerId,
+        team_id: teamId,
+        first_name: first,
+        last_name: last,
+        position: match.rosterPlayer?.pos ?? null,
+      });
+      return { pick, game, playerKey: key };
+    });
+
     const playerReferenceGames = payload.players
       .map((pick) => gamesMap.get(pick.gameId))
       .filter((value): value is GameContext => Boolean(value));
 
-    const playerInsert: PicksPlayersInsert[] = await Promise.all(
-      payload.players.map(async (pick) => {
-        const game = gamesMap.get(pick.gameId);
-        if (!game) {
-          throw new Error(`Unknown game(s): ${pick.gameId}`);
-        }
-        const match = findPlayerInGame(pick.playerId, game, rosters);
-        if (!match) {
-          throw new Error(
-            `Cannot resolve player "${pick.playerId}" for game ${pick.gameId}`,
-          );
-        }
-        const { first, last } = splitName(pick.playerId);
-        const playerUuid = await getOrCreatePlayerUuid({
-          supabase: supabaseAdmin,
-          provider: PLAYER_PROVIDER,
-          providerPlayerId: pick.playerId,
-          teamUuid: match.side === 'home' ? game.home_team_id : game.away_team_id,
-          firstName: first,
-          lastName: last,
-          position: match.rosterPlayer?.pos ?? null,
-        });
-        return {
-          user_id: userId,
-          game_id: game.id,
-          category: pick.category,
-          player_id: playerUuid,
-          pick_date: payload.pickDate,
-          changes_count: 0,
-          created_at: now,
-          updated_at: now,
-        };
+    const highlightContexts = payload.highlights.map((pick, index) => {
+      const directMatch = findPlayerContext(pick.playerId, gameList, rosters);
+      const fallbackMatch =
+        directMatch ??
+        (playerReferenceGames.length > 0
+          ? (() => {
+              const fallbackGame = playerReferenceGames[0];
+              const match = findPlayerInGame(pick.playerId, fallbackGame, rosters);
+              return match ? { game: fallbackGame, ...match } : null;
+            })()
+          : null);
+      if (!fallbackMatch) {
+        throw new Error(
+          `Cannot resolve player "${pick.playerId}" for highlights`,
+        );
+      }
+      const { game, side, rosterPlayer } = fallbackMatch;
+      const { first, last } = splitName(pick.playerId);
+      const teamId = side === 'home' ? game.home_team_id : game.away_team_id;
+      const key = buildPlayerKey(PLAYER_PROVIDER, pick.playerId);
+      registerPlayerPayload(key, {
+        provider: PLAYER_PROVIDER,
+        provider_player_id: pick.playerId,
+        team_id: teamId,
+        first_name: first,
+        last_name: last,
+        position: rosterPlayer?.pos ?? null,
+      });
+      return { pick, rank: index + 1, playerKey: key };
+    });
+
+    const upsertInputs = Array.from(playerPayloadMap.values());
+    const {
+      data: upsertedPlayers,
+      error: playerUpsertError,
+    } = upsertInputs.length
+      ? await upsertPlayers(supabaseAdmin, upsertInputs)
+      : { data: [], error: null };
+    if (playerUpsertError) {
+      throw playerUpsertError;
+    }
+    const playerUuidByKey = new Map<string, string>();
+    (upsertedPlayers ?? []).forEach((row) => {
+      const key = buildPlayerKey(row.provider, row.provider_player_id);
+      playerUuidByKey.set(key, row.id);
+    });
+    const resolvePlayerUuid = (key: string, label: string) => {
+      const uuid = playerUuidByKey.get(key);
+      if (!uuid) {
+        throw new Error(`Unable to resolve player id for "${label}"`);
+      }
+      return uuid;
+    };
+
+    const playerInsert: PicksPlayersInsert[] = playerPickContexts.map(
+      ({ pick, game, playerKey }) => ({
+        user_id: userId,
+        game_id: game.id,
+        category: pick.category,
+        player_id: resolvePlayerUuid(playerKey, pick.playerId),
+        pick_date: payload.pickDate,
+        changes_count: 0,
+        created_at: now,
+        updated_at: now,
       }),
     );
 
-    const highlightInsert: PicksHighlightsInsert[] = await Promise.all(
-      payload.highlights.map(async (pick, index) => {
-        const directMatch = findPlayerContext(pick.playerId, gameList, rosters);
-        const fallbackMatch =
-          directMatch ??
-          (playerReferenceGames.length > 0
-            ? (() => {
-                const fallbackGame = playerReferenceGames[0];
-                const match = findPlayerInGame(pick.playerId, fallbackGame, rosters);
-                return match ? { game: fallbackGame, ...match } : null;
-              })()
-            : null);
-        if (!fallbackMatch) {
-          throw new Error(
-            `Cannot resolve player "${pick.playerId}" for highlights`,
-          );
-        }
-        const { game, side, rosterPlayer } = fallbackMatch;
-        const { first, last } = splitName(pick.playerId);
-        const playerUuid = await getOrCreatePlayerUuid({
-          supabase: supabaseAdmin,
-          provider: PLAYER_PROVIDER,
-          providerPlayerId: pick.playerId,
-          teamUuid: side === 'home' ? game.home_team_id : game.away_team_id,
-          firstName: first,
-          lastName: last,
-          position: rosterPlayer?.pos ?? null,
-        });
-        return {
-          user_id: userId,
-          player_id: playerUuid,
-          rank: index + 1,
-          pick_date: payload.pickDate,
-          changes_count: 0,
-          created_at: now,
-          updated_at: now,
-        };
+    const highlightInsert: PicksHighlightsInsert[] = highlightContexts.map(
+      ({ pick, rank, playerKey }) => ({
+        user_id: userId,
+        player_id: resolvePlayerUuid(playerKey, pick.playerId),
+        rank,
+        pick_date: payload.pickDate,
+        changes_count: 0,
+        created_at: now,
+        updated_at: now,
       }),
     );
 
@@ -1184,82 +1184,118 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    const playerPayloadMap = new Map<string, UpsertablePlayer>();
+    const registerPlayerPayload = (key: string, payload: UpsertablePlayer) => {
+      if (!playerPayloadMap.has(key)) {
+        playerPayloadMap.set(key, payload);
+      }
+    };
+
+    const playerPickContexts = payload.players.map((pick) => {
+      const game = gamesMap.get(pick.gameId);
+      if (!game) {
+        throw new Error(`Unknown game(s): ${pick.gameId}`);
+      }
+      const match = findPlayerInGame(pick.playerId, game, rosters);
+      if (!match) {
+        throw new Error(
+          `Cannot resolve player "${pick.playerId}" for game ${pick.gameId}`,
+        );
+      }
+      const { first, last } = splitName(pick.playerId);
+      const teamId = match.side === 'home' ? game.home_team_id : game.away_team_id;
+      const key = buildPlayerKey(PLAYER_PROVIDER, pick.playerId);
+      registerPlayerPayload(key, {
+        provider: PLAYER_PROVIDER,
+        provider_player_id: pick.playerId,
+        team_id: teamId,
+        first_name: first,
+        last_name: last,
+        position: match.rosterPlayer?.pos ?? null,
+      });
+      return { pick, game, playerKey: key };
+    });
+
     const playerReferenceGames = payload.players
       .map((pick) => gamesMap.get(pick.gameId))
       .filter((value): value is GameContext => Boolean(value));
 
-    const playerUpsert: PicksPlayersInsert[] = await Promise.all(
-      payload.players.map(async (pick) => {
-        const game = gamesMap.get(pick.gameId);
-        if (!game) {
-          throw new Error(`Unknown game(s): ${pick.gameId}`);
-        }
-        const match = findPlayerInGame(pick.playerId, game, rosters);
-        if (!match) {
-          throw new Error(
-            `Cannot resolve player "${pick.playerId}" for game ${pick.gameId}`,
-          );
-        }
-        const { first, last } = splitName(pick.playerId);
-        const playerUuid = await getOrCreatePlayerUuid({
-          supabase: supabaseAdmin,
-          provider: PLAYER_PROVIDER,
-          providerPlayerId: pick.playerId,
-          teamUuid: match.side === 'home' ? game.home_team_id : game.away_team_id,
-          firstName: first,
-          lastName: last,
-          position: match.rosterPlayer?.pos ?? null,
-        });
-        return {
-          user_id: userId,
-          game_id: game.id,
-          category: pick.category,
-          player_id: playerUuid,
-          pick_date: payload.pickDate,
-          changes_count: nextChangeCount,
-          created_at: now,
-          updated_at: now,
-        };
+    const highlightContexts = payload.highlights.map((pick, index) => {
+      const directMatch = findPlayerContext(pick.playerId, gameList, rosters);
+      const fallbackMatch =
+        directMatch ??
+        (playerReferenceGames.length > 0
+          ? (() => {
+              const fallbackGame = playerReferenceGames[0];
+              const match = findPlayerInGame(pick.playerId, fallbackGame, rosters);
+              return match ? { game: fallbackGame, ...match } : null;
+            })()
+          : null);
+      if (!fallbackMatch) {
+        throw new Error(
+          `Cannot resolve player "${pick.playerId}" for highlights`,
+        );
+      }
+      const { game, side, rosterPlayer } = fallbackMatch;
+      const { first, last } = splitName(pick.playerId);
+      const teamId = side === 'home' ? game.home_team_id : game.away_team_id;
+      const key = buildPlayerKey(PLAYER_PROVIDER, pick.playerId);
+      registerPlayerPayload(key, {
+        provider: PLAYER_PROVIDER,
+        provider_player_id: pick.playerId,
+        team_id: teamId,
+        first_name: first,
+        last_name: last,
+        position: rosterPlayer?.pos ?? null,
+      });
+      return { pick, rank: index + 1, playerKey: key };
+    });
+
+    const upsertInputs = Array.from(playerPayloadMap.values());
+    const {
+      data: upsertedPlayers,
+      error: playerUpsertError,
+    } = upsertInputs.length
+      ? await upsertPlayers(supabaseAdmin, upsertInputs)
+      : { data: [], error: null };
+    if (playerUpsertError) {
+      throw playerUpsertError;
+    }
+    const playerUuidByKey = new Map<string, string>();
+    (upsertedPlayers ?? []).forEach((row) => {
+      const key = buildPlayerKey(row.provider, row.provider_player_id);
+      playerUuidByKey.set(key, row.id);
+    });
+    const resolvePlayerUuid = (key: string, label: string) => {
+      const uuid = playerUuidByKey.get(key);
+      if (!uuid) {
+        throw new Error(`Unable to resolve player id for "${label}"`);
+      }
+      return uuid;
+    };
+
+    const playerUpsert: PicksPlayersInsert[] = playerPickContexts.map(
+      ({ pick, game, playerKey }) => ({
+        user_id: userId,
+        game_id: game.id,
+        category: pick.category,
+        player_id: resolvePlayerUuid(playerKey, pick.playerId),
+        pick_date: payload.pickDate,
+        changes_count: nextChangeCount,
+        created_at: now,
+        updated_at: now,
       }),
     );
 
-    const highlightUpsert: PicksHighlightsInsert[] = await Promise.all(
-      payload.highlights.map(async (pick, index) => {
-        const directMatch = findPlayerContext(pick.playerId, gameList, rosters);
-        const fallbackMatch =
-          directMatch ??
-          (playerReferenceGames.length > 0
-            ? (() => {
-                const fallbackGame = playerReferenceGames[0];
-                const match = findPlayerInGame(pick.playerId, fallbackGame, rosters);
-                return match ? { game: fallbackGame, ...match } : null;
-              })()
-            : null);
-        if (!fallbackMatch) {
-          throw new Error(
-            `Cannot resolve player "${pick.playerId}" for highlights`,
-          );
-        }
-        const { game, side, rosterPlayer } = fallbackMatch;
-        const { first, last } = splitName(pick.playerId);
-        const playerUuid = await getOrCreatePlayerUuid({
-          supabase: supabaseAdmin,
-          provider: PLAYER_PROVIDER,
-          providerPlayerId: pick.playerId,
-          teamUuid: side === 'home' ? game.home_team_id : game.away_team_id,
-          firstName: first,
-          lastName: last,
-          position: rosterPlayer?.pos ?? null,
-        });
-        return {
-          user_id: userId,
-          player_id: playerUuid,
-          rank: index + 1,
-          pick_date: payload.pickDate,
-          changes_count: nextChangeCount,
-          created_at: now,
-          updated_at: now,
-        };
+    const highlightUpsert: PicksHighlightsInsert[] = highlightContexts.map(
+      ({ pick, rank, playerKey }) => ({
+        user_id: userId,
+        player_id: resolvePlayerUuid(playerKey, pick.playerId),
+        rank,
+        pick_date: payload.pickDate,
+        changes_count: nextChangeCount,
+        created_at: now,
+        updated_at: now,
       }),
     );
 
