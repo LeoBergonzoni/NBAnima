@@ -19,7 +19,7 @@ import type { MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 
-import { PlayerSelect } from '@/components/ui/PlayerSelect';
+import { PlayerSelect, type PlayerOptionSection } from '@/components/ui/PlayerSelect';
 import { useLocale } from '@/components/providers/locale-provider';
 import { FEATURES, type Locale } from '@/lib/constants';
 import { createBrowserSupabase } from '@/lib/supabase-browser';
@@ -39,6 +39,7 @@ import type { WeeklyRankingRow } from '@/types/database';
 
 const PLAYER_CATEGORIES = ['top_scorer', 'top_assist', 'top_rebound'] as const;
 const HIGHLIGHT_SLOT_COUNT = 5;
+const LOCK_WINDOW_BUFFER_MS = 5 * 60 * 1000;
 const buildEmptyHighlightSlots = () =>
   Array.from({ length: HIGHLIGHT_SLOT_COUNT }, () => '');
 
@@ -166,6 +167,16 @@ const deriveSeasonFromDate = (iso: string): string => {
   const month = validDate.getUTCMonth(); // 0-indexed
   const startYear = month >= 6 ? year : year - 1;
   return `${startYear}-${startYear + 1}`;
+};
+
+const formatCountdown = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds]
+    .map((unit) => unit.toString().padStart(2, '0'))
+    .join(':');
 };
 
 const computeTeamAbbr = (team: GameTeam): string => {
@@ -389,6 +400,64 @@ const awayKey = useMemo(
     [combinedPlayers, createOptionLabel],
   );
 
+  const selectSections = useMemo<PlayerOptionSection[]>(() => {
+    const playerTeamMap = new Map<string, string | null>();
+    combinedPlayers.forEach((player) => {
+      const normalizedTeamId =
+        player.teamId !== undefined && player.teamId !== null && player.teamId !== ''
+          ? String(player.teamId)
+          : null;
+      playerTeamMap.set(player.id, normalizedTeamId);
+    });
+
+    const homeIds = new Set(homeRosterPlayers.map((player) => String(player.id)));
+    const awayIds = new Set(awayRosterPlayers.map((player) => String(player.id)));
+
+    const belongsToHome = (optionId: string) =>
+      homeIds.has(optionId) || playerTeamMap.get(optionId) === homeTeamId;
+    const belongsToAway = (optionId: string) =>
+      awayIds.has(optionId) || playerTeamMap.get(optionId) === awayTeamId;
+
+    const homeOptions = selectOptions.filter((option) => belongsToHome(option.id));
+    const awayOptions = selectOptions.filter((option) => belongsToAway(option.id));
+
+    const assignedIds = new Set([...homeOptions, ...awayOptions].map((option) => option.id));
+    const otherOptions = selectOptions.filter((option) => !assignedIds.has(option.id));
+
+    const fallbackLabel = locale === 'it' ? 'Altri giocatori' : 'Other players';
+    const homeLabel = game.homeTeam.name ?? (locale === 'it' ? 'Squadra casa' : 'Home team');
+    const awayLabel = game.awayTeam.name ?? (locale === 'it' ? 'Squadra trasferta' : 'Away team');
+
+    const sections: PlayerOptionSection[] = [];
+
+    if (homeOptions.length > 0) {
+      sections.push({ label: homeLabel, options: homeOptions });
+    }
+
+    if (awayOptions.length > 0) {
+      sections.push({ label: awayLabel, options: awayOptions });
+    }
+
+    if (otherOptions.length > 0) {
+      sections.push({
+        label: fallbackLabel,
+        options: otherOptions,
+      });
+    }
+
+    return sections;
+  }, [
+    awayRosterPlayers,
+    awayTeamId,
+    combinedPlayers,
+    game.awayTeam.name,
+    game.homeTeam.name,
+    homeRosterPlayers,
+    homeTeamId,
+    locale,
+    selectOptions,
+  ]);
+
   const isLoading = playersLoading;
   const loadError = playersError ? playersErrorMessage ?? 'Players unavailable' : null;
   const hasNoPlayers = !isLoading && !loadError && combinedPlayers.length === 0;
@@ -528,6 +597,7 @@ const awayKey = useMemo(
                 </span>
                 <PlayerSelect
                   options={selectOptions}
+                  sections={selectSections}
                   value={normalizedValue ?? undefined}
                   onChange={(playerId) => onChange(category, playerId ?? '')}
                   placeholder="-"
@@ -1010,7 +1080,7 @@ export function DashboardClient({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isTeamsOpen, setIsTeamsOpen] = useState(true);
+  const [isTeamsOpen, setIsTeamsOpen] = useState(false);
   const [isPlayersOpen, setIsPlayersOpen] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
 
@@ -1044,7 +1114,7 @@ export function DashboardClient({
   } = usePicks(pickDate);
 
   useEffect(() => {
-    const id = window.setInterval(() => setNowTs(Date.now()), 15000);
+    const id = window.setInterval(() => setNowTs(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -1153,18 +1223,29 @@ export function DashboardClient({
       ? 'Nessun dato settimanale disponibile al momento.'
       : 'No weekly data available yet.';
 
+  const earliestGameStartTs = useMemo(() => {
+    const timestamps = games
+      .map((game) => new Date(game.startsAt).getTime())
+      .filter((value) => Number.isFinite(value));
+    if (!timestamps.length) {
+      return null;
+    }
+    return Math.min(...timestamps);
+  }, [games]);
+
+  const lockWindowDeadlineTs = useMemo(() => {
+    if (!earliestGameStartTs) {
+      return null;
+    }
+    return earliestGameStartTs - LOCK_WINDOW_BUFFER_MS;
+  }, [earliestGameStartTs]);
+
   const lockWindowActive = useMemo(() => {
-    if (!games.length) {
+    if (!lockWindowDeadlineTs) {
       return false;
     }
-    return games.some((game) => {
-      const startsAt = new Date(game.startsAt).getTime();
-      if (Number.isNaN(startsAt)) {
-        return false;
-      }
-      return startsAt <= nowTs;
-    });
-  }, [games, nowTs]);
+    return nowTs >= lockWindowDeadlineTs;
+  }, [lockWindowDeadlineTs, nowTs]);
 
   const teamsComplete = useMemo(
     () => games.length > 0 && games.every((game) => !!teamSelections[game.id]),
@@ -1233,6 +1314,28 @@ export function DashboardClient({
     '{count}',
     String(dailyChanges),
   );
+  const lockCountdownInfo = useMemo(() => {
+    if (!lockWindowDeadlineTs) {
+      return {
+        status: 'pending' as const,
+        label: dictionary.play.lockCountdown.pending,
+        time: null,
+      };
+    }
+    const diff = lockWindowDeadlineTs - nowTs;
+    if (diff <= 0) {
+      return {
+        status: 'closed' as const,
+        label: dictionary.play.lockCountdown.closed,
+        time: null,
+      };
+    }
+    return {
+      status: 'running' as const,
+      label: dictionary.play.lockCountdown.label,
+      time: formatCountdown(diff),
+    };
+  }, [dictionary.play.lockCountdown, lockWindowDeadlineTs, nowTs]);
   const canSubmit = teamsComplete && !isSaving && !lockWindowActive;
 
   const handleSave = async () => {
@@ -1502,120 +1605,124 @@ export function DashboardClient({
                 </div>
               </header>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setIsTeamsOpen((previous) => !previous)}
-                  className={clsx(
-                    'flex flex-col gap-2 rounded-2xl border px-4 py-3 text-left transition',
-                    isTeamsOpen
-                      ? 'border-accent-gold bg-accent-gold/10 text-white shadow-card'
-                      : 'border-white/10 bg-navy-900/40 text-slate-200 hover:border-accent-gold/40',
-                  )}
-                  aria-expanded={isTeamsOpen}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-white">
-                      {dictionary.play.teams.title}
-                    </span>
-                    <ArrowRight
-                      className={clsx(
-                        'h-4 w-4 transition-transform',
-                        isTeamsOpen ? 'rotate-90 text-accent-gold' : 'text-slate-300',
-                      )}
-                    />
-                  </div>
-                  <p className="text-sm text-slate-300">
-                    {dictionary.play.teams.description}
-                  </p>
-                  <p className="text-xs font-semibold text-accent-gold">
-                    {dictionary.play.teams.reward}
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsPlayersOpen((previous) => !previous)}
-                  className={clsx(
-                    'flex flex-col gap-2 rounded-2xl border px-4 py-3 text-left transition',
-                    isPlayersOpen
-                      ? 'border-accent-gold bg-accent-gold/10 text-white shadow-card'
-                      : 'border-white/10 bg-navy-900/40 text-slate-200 hover:border-accent-gold/40',
-                  )}
-                  aria-expanded={isPlayersOpen}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-white">
-                      {dictionary.play.players.title}
-                    </span>
-                    <ArrowRight
-                      className={clsx(
-                        'h-4 w-4 transition-transform',
-                        isPlayersOpen ? 'rotate-90 text-accent-gold' : 'text-slate-300',
-                      )}
-                    />
-                  </div>
-                  <p className="text-sm text-slate-300">
-                    {dictionary.play.players.description}
-                  </p>
-                  <p className="text-xs font-semibold text-accent-gold">
-                    {dictionary.play.players.reward}
-                  </p>
-                </button>
-              </div>
-
-              {isTeamsOpen ? (
-                <section className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <SectionStatus complete={teamsComplete} />
-                    <h3 className="text-lg font-semibold text-white">
-                      {dictionary.play.teams.title}
-                    </h3>
-                  </div>
-                  {gamesLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-slate-400">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>{dictionary.common.loading}</span>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsTeamsOpen((previous) => !previous)}
+                    className={clsx(
+                      'flex w-full flex-col gap-2 rounded-2xl border px-4 py-3 text-left transition',
+                      isTeamsOpen
+                        ? 'border-accent-gold bg-accent-gold/10 text-white shadow-card'
+                        : 'border-white/10 bg-navy-900/40 text-slate-200 hover:border-accent-gold/40',
+                    )}
+                    aria-expanded={isTeamsOpen}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-semibold text-white">
+                        {dictionary.play.teams.title}
+                      </span>
+                      <ArrowRight
+                        className={clsx(
+                          'h-4 w-4 transition-transform',
+                          isTeamsOpen ? 'rotate-90 text-accent-gold' : 'text-slate-300',
+                        )}
+                      />
                     </div>
-                  ) : (
-                    <div className="space-y-4">
+                    <p className="text-sm text-slate-300">
+                      {dictionary.play.teams.description}
+                    </p>
+                    <p className="text-xs font-semibold text-accent-gold">
+                      {dictionary.play.teams.reward}
+                    </p>
+                  </button>
+
+                  {isTeamsOpen ? (
+                    <section className="space-y-4 rounded-2xl border border-white/10 bg-navy-900/40 p-4">
+                      <div className="flex items-center gap-2">
+                        <SectionStatus complete={teamsComplete} />
+                        <h3 className="text-lg font-semibold text-white">
+                          {dictionary.play.teams.title}
+                        </h3>
+                      </div>
+                      {gamesLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-slate-400">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>{dictionary.common.loading}</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {games.map((game) => (
+                            <GameTeamsRow
+                              key={game.id}
+                              locale={locale}
+                              game={game}
+                              selection={teamSelections[game.id]}
+                              onSelect={(teamId) => handleTeamsSelect(game.id, teamId)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  ) : null}
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsPlayersOpen((previous) => !previous)}
+                    className={clsx(
+                      'flex w-full flex-col gap-2 rounded-2xl border px-4 py-3 text-left transition',
+                      isPlayersOpen
+                        ? 'border-accent-gold bg-accent-gold/10 text-white shadow-card'
+                        : 'border-white/10 bg-navy-900/40 text-slate-200 hover:border-accent-gold/40',
+                    )}
+                    aria-expanded={isPlayersOpen}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-semibold text-white">
+                        {dictionary.play.players.title}
+                      </span>
+                      <ArrowRight
+                        className={clsx(
+                          'h-4 w-4 transition-transform',
+                          isPlayersOpen ? 'rotate-90 text-accent-gold' : 'text-slate-300',
+                        )}
+                      />
+                    </div>
+                    <p className="text-sm text-slate-300">
+                      {dictionary.play.players.description}
+                    </p>
+                    <p className="text-xs font-semibold text-accent-gold">
+                      {dictionary.play.players.reward}
+                    </p>
+                  </button>
+
+                  {isPlayersOpen ? (
+                    <section className="space-y-4 rounded-2xl border border-white/10 bg-navy-900/40 p-4">
+                      <div className="flex items-center gap-2">
+                        <SectionStatus complete={playersComplete} />
+                        <h3 className="text-lg font-semibold text-white">
+                          {dictionary.play.players.title}
+                        </h3>
+                      </div>
                       {games.map((game) => (
-                        <GameTeamsRow
+                        <GamePlayersCard
                           key={game.id}
                           locale={locale}
+                          dictionary={dictionary}
                           game={game}
-                          selection={teamSelections[game.id]}
-                          onSelect={(teamId) => handleTeamsSelect(game.id, teamId)}
+                          playerSelections={playerSelections[game.id] ?? {}}
+                          onChange={(category, playerId) =>
+                            handlePlayerSelect(game.id, category, playerId)
+                          }
+                          onPlayersLoaded={onPlayersLoaded}
                         />
                       ))}
-                    </div>
-                  )}
-                </section>
-              ) : null}
-
-              {isPlayersOpen ? (
-                <section className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <SectionStatus complete={playersComplete} />
-                    <h3 className="text-lg font-semibold text-white">
-                      {dictionary.play.players.title}
-                    </h3>
-                  </div>
-                  {games.map((game) => (
-                    <GamePlayersCard
-                      key={game.id}
-                      locale={locale}
-                      dictionary={dictionary}
-                      game={game}
-                      playerSelections={playerSelections[game.id] ?? {}}
-                      onChange={(category, playerId) =>
-                        handlePlayerSelect(game.id, category, playerId)
-                      }
-                      onPlayersLoaded={onPlayersLoaded}
-                    />
-                  ))}
-                </section>
-              ) : null}
+                    </section>
+                  ) : null}
+                </div>
+              </div>
 
               {highlightsEnabled ? (
                 <section className="space-y-4">
@@ -1650,6 +1757,16 @@ export function DashboardClient({
 
               <footer className="space-y-4">
                 <p className="text-sm text-slate-300">{changeHintMessage}</p>
+                <div className="text-xs text-slate-400">
+                  {lockCountdownInfo.status === 'running' ? (
+                    <>
+                      {lockCountdownInfo.label}{' '}
+                      <span className="font-semibold text-white">{lockCountdownInfo.time}</span>
+                    </>
+                  ) : (
+                    lockCountdownInfo.label
+                  )}
+                </div>
                 <div
                   role="status"
                   aria-live="polite"

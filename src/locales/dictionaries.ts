@@ -155,6 +155,11 @@ export interface Dictionary {
     submit: string;
     update: string;
     changesHint: string;
+    lockCountdown: {
+      label: string;
+      pending: string;
+      closed: string;
+    };
   };
   collection: {
     empty: string;
@@ -412,6 +417,11 @@ const it: Dictionary = {
     update: 'Aggiorna picks',
     changesHint:
       'Modifiche effettuate oggi: {count}. Puoi aggiornare le tue picks tutte le volte che vuoi fino all’inizio delle partite.',
+    lockCountdown: {
+      label: 'Tempo rimanente per modificare le picks:',
+      pending: 'In attesa dell’orario ufficiale delle partite...',
+      closed: 'Le picks si chiudono 5 minuti prima della prima partita.',
+    },
   },
   collection: {
     empty: 'Non hai ancora alcuna card. Completa le sfide per guadagnare punti e acquistare la tua prima carta.',
@@ -670,6 +680,11 @@ const en: Dictionary = {
     update: 'Update picks',
     changesHint:
       'Changes made today: {count}. You can keep updating your picks freely until tip-off.',
+    lockCountdown: {
+      label: 'Time left to edit your picks:',
+      pending: 'Waiting for today’s schedule...',
+      closed: 'Picks lock 5 minutes before the first game.',
+    },
   },
   collection: {
     empty: 'Your collection is empty. Play challenges to earn points and redeem your first card.',
