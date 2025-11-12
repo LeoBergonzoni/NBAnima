@@ -391,10 +391,11 @@ const awayKey = useMemo(
       combinedPlayers.map((player) => ({
         id: player.id,
         label: createOptionLabel(player),
-        subtitle: [
-          player.jersey ? (player.jersey.startsWith('#') ? player.jersey : `#${player.jersey}`) : undefined,
-          player.position ?? undefined,
-        ].filter(Boolean).join(' • '),
+        subtitle: player.jersey
+          ? player.jersey.startsWith('#')
+            ? player.jersey
+            : `#${player.jersey}`
+          : undefined,
         keywords: [player.fullName, player.firstName, player.lastName].filter(Boolean),
       })),
     [combinedPlayers, createOptionLabel],
@@ -675,10 +676,11 @@ const HighlightsSelector = ({
         const options = sortedPlayers.map((player) => ({
           id: player.id,
           label: createOptionLabel(player),
-          subtitle: [
-            player.jersey ? (player.jersey.startsWith('#') ? player.jersey : `#${player.jersey}`) : undefined,
-            player.position ?? undefined,
-          ].filter(Boolean).join(' • '),
+          subtitle: player.jersey
+            ? player.jersey.startsWith('#')
+              ? player.jersey
+              : `#${player.jersey}`
+            : undefined,
           disabled: disabledIds.has(player.id),
           keywords: [player.fullName, player.firstName, player.lastName].filter(Boolean),
         }));

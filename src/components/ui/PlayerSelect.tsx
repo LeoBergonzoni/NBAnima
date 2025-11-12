@@ -216,7 +216,7 @@ export function PlayerSelect({
                           onClick={() => handleSelect(option.id)}
                           disabled={option.disabled}
                           className={clsx(
-                            'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60',
+                        'flex w-full items-center gap-2 rounded-lg px-3 py-0.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60',
                             option.disabled
                               ? 'cursor-not-allowed text-slate-500 opacity-60'
                               : 'text-white hover:bg-accent-gold/20',
