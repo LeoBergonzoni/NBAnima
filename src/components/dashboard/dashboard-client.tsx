@@ -752,12 +752,16 @@ const CollectionGrid = ({
                 <span>{card.rarity}</span>
                 <span>{card.price} AP</span>
               </div>
-              <div className="relative h-40 w-full overflow-hidden rounded-2xl border border-white/10 bg-navy-900">
+              <div
+                className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-navy-900/80 p-3"
+                style={{ aspectRatio: '2 / 3' }}
+              >
                 <Image
                   src={card.image_url}
                   alt={card.name}
                   fill
-                  className="object-cover"
+                  className="object-contain"
+                  sizes="(min-width: 1024px) 20vw, (min-width: 640px) 35vw, 80vw"
                 />
               </div>
               <div>
