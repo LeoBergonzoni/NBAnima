@@ -1611,6 +1611,28 @@ export function DashboardClient({
                 </div>
               </header>
 
+              <div className="rounded-2xl border border-accent-gold/40 bg-navy-900/50 p-4 sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs uppercase tracking-wide text-accent-gold/80">
+                      {dictionary.tileGame.rewardPointsLabel}
+                    </p>
+                    <h3 className="text-xl font-semibold text-white">
+                      {dictionary.tileGame.sectionTitle}
+                    </h3>
+                    <p className="text-sm text-slate-300">
+                      {dictionary.tileGame.sectionDescription}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/${locale}/dashboard/tile-flip-game`}
+                    className="inline-flex items-center justify-center rounded-full border border-accent-gold/70 px-5 py-2 text-sm font-semibold text-accent-gold transition hover:bg-accent-gold/10"
+                  >
+                    {dictionary.tileGame.sectionCta}
+                  </Link>
+                </div>
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-3">
                   <button

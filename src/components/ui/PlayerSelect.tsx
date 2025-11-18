@@ -59,13 +59,6 @@ export function PlayerSelect({
 
   useEffect(() => {
     if (!open) {
-      setQuery('');
-      setDebouncedQuery('');
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) {
       return undefined;
     }
     const frame = requestAnimationFrame(() => {
@@ -130,8 +123,19 @@ export function PlayerSelect({
     setOpen(false);
   };
 
+  const handleOpenChange = (next: boolean) => {
+    if (disabled) {
+      return;
+    }
+    setOpen(next);
+    if (!next) {
+      setQuery('');
+      setDebouncedQuery('');
+    }
+  };
+
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => !disabled && setOpen(next)}>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Trigger asChild>
         <button
           type="button"

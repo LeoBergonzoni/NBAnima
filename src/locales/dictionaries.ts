@@ -161,6 +161,29 @@ export interface Dictionary {
       closed: string;
     };
   };
+  tileGame: {
+    sectionTitle: string;
+    sectionDescription: string;
+    sectionCta: string;
+    pageTitle: string;
+    pageSubtitle: string;
+    rewardHint: string;
+    rewardPointsLabel: string;
+    stats: {
+      moves: string;
+      matches: string;
+      completed: string;
+    };
+    rewardStatus: {
+      eligible: string;
+      pending: string;
+      success: string;
+      failure: string;
+      retry: string;
+    };
+    resetCta: string;
+    instructions: string;
+  };
   collection: {
     empty: string;
     title: string;
@@ -422,6 +445,30 @@ const it: Dictionary = {
       pending: 'In attesa dell’orario ufficiale delle partite...',
       closed: 'Le picks si chiudono 5 minuti prima della prima partita.',
     },
+  },
+  tileGame: {
+    sectionTitle: 'Tile Flip Game',
+    sectionDescription:
+      'Completa lo schema in 15 mosse o meno per ottenere 10 Anima Points extra.',
+    sectionCta: 'Apri il gioco',
+    pageTitle: 'Tile Flip Game',
+    pageSubtitle: 'Allena la memoria con le tessere NBAnima.',
+    rewardHint: 'Abbina tutte le 8 coppie in 15 mosse o meno per guadagnare +10 Anima Points.',
+    rewardPointsLabel: '+10 Anima Points',
+    stats: {
+      moves: 'Mosse',
+      matches: 'Coppie trovate',
+      completed: 'Completato!',
+    },
+    rewardStatus: {
+      eligible: 'Ricompensa disponibile se completi entro 15 mosse.',
+      pending: 'Assegnazione in corso…',
+      success: '10 Anima Points accreditati!',
+      failure: 'Impossibile assegnare i punti.',
+      retry: 'Riprova completando lo schema in 15 mosse o meno.',
+    },
+    resetCta: 'Reset',
+    instructions: 'Gira due tessere alla volta per trovare tutte le coppie NBAnima.',
   },
   collection: {
     empty: 'Non hai ancora alcuna card. Completa le sfide per guadagnare punti e acquistare la tua prima carta.',
@@ -685,6 +732,30 @@ const en: Dictionary = {
       pending: 'Waiting for today’s schedule...',
       closed: 'Picks lock 5 minutes before the first game.',
     },
+  },
+  tileGame: {
+    sectionTitle: 'Tile Flip Game',
+    sectionDescription:
+      'Beat the board in 15 moves or less to collect 10 bonus Anima Points.',
+    sectionCta: 'Open the game',
+    pageTitle: 'Tile Flip Game',
+    pageSubtitle: 'Test your memory with NBAnima tiles.',
+    rewardHint: 'Match all 8 pairs in 15 moves or fewer to earn +10 Anima Points.',
+    rewardPointsLabel: '+10 Anima Points',
+    stats: {
+      moves: 'Moves',
+      matches: 'Pairs found',
+      completed: 'Completed!',
+    },
+    rewardStatus: {
+      eligible: 'Reward available when you finish within 15 moves.',
+      pending: 'Rewarding…',
+      success: '10 Anima Points credited!',
+      failure: 'Unable to award the points.',
+      retry: 'Beat the board in 15 moves or fewer to try again.',
+    },
+    resetCta: 'Reset',
+    instructions: 'Flip two tiles at a time and find every NBAnima pair.',
   },
   collection: {
     empty: 'Your collection is empty. Play challenges to earn points and redeem your first card.',
