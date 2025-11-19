@@ -88,6 +88,7 @@ export interface Dictionary {
     weeklyRanking: string;
     weeklyRangeCaption: string;
     weeklyXpExplainer: string;
+    weeklyLeaderboardButton: string;
     howCalculatedBoth: string;
     statusCompleted: string;
     statusPending: string;
@@ -126,6 +127,7 @@ export interface Dictionary {
   play: {
     title: string;
     subtitle: string;
+    multiplierHint: string;
     links: {
       nbaStats: string;
       nbaLineups: string;
@@ -134,12 +136,14 @@ export interface Dictionary {
       title: string;
       description: string;
       reward: string;
+      rewardBadge: string;
     };
     players: {
       title: string;
       description: string;
       endPicks: string;
       reward: string;
+      rewardBadge: string;
       categories: {
         top_scorer: string;
         top_assist: string;
@@ -378,6 +382,7 @@ const it: Dictionary = {
     weeklyRangeCaption: 'Settimana del {date} (Lun–Dom, ET)',
     weeklyXpExplainer:
       'I Weekly XP rispecchiano solo i punti da settlement, coprono la settimana Lun–Dom (ET) e si azzerano ogni lunedì.',
+    weeklyLeaderboardButton: 'Classifica',
     howCalculatedBoth: 'Come sono stati calcolati i tuoi Anima Points e i Weekly XP',
     statusCompleted: 'Completato',
     statusPending: 'Da completare',
@@ -417,6 +422,8 @@ const it: Dictionary = {
     title: 'Preparati alla prossima notte NBA',
     subtitle:
       'Completa le sfide per ottenere il check verde e massimizzare i tuoi Anima Points.',
+    multiplierHint:
+      'Se indovini 5 risultati in una notte il punteggio si moltiplica x2; con 10 risultati corretti si moltiplica x3.',
     links: {
       nbaStats: 'NBA Stats',
       nbaLineups: 'NBA Starting lineups',
@@ -425,6 +432,7 @@ const it: Dictionary = {
       title: 'Teams',
       description: 'Scegli la squadra vincente per ogni partita della prossima notte. 30 Anima Points ogni scelta azzeccata.',
       reward: '30 Anima Points ogni scelta azzeccata.',
+      rewardBadge: '+30 Anima Points',
     },
     players: {
       title: 'Players',
@@ -432,6 +440,7 @@ const it: Dictionary = {
         'Seleziona i protagonisti per punti, assist e rimbalzi. 50 Anima Points ogni scelta azzeccata.',
       endPicks: 'Termina scelte',
       reward: '50 Anima Points ogni scelta azzeccata.',
+      rewardBadge: '+50 Anima Points',
       categories: {
         top_scorer: 'Top Scorer',
         top_assist: 'Top Assist',
@@ -673,6 +682,7 @@ const en: Dictionary = {
     weeklyRangeCaption: 'Week of {date} (Mon–Sun, ET)',
     weeklyXpExplainer:
       'Weekly XP mirror settlement-only points, cover the Mon–Sun (ET) week, and reset every Monday.',
+    weeklyLeaderboardButton: 'Leaderboard',
     howCalculatedBoth: 'How your Anima Points and Weekly XP were calculated',
     statusCompleted: 'Completed',
     statusPending: 'To-do',
@@ -712,6 +722,8 @@ const en: Dictionary = {
     title: 'Gear up for the next NBA night',
     subtitle:
       'Complete the challenges to secure the green check and maximize your Anima Points.',
+    multiplierHint:
+      'Hit 5 correct picks in a night to double (x2) your total – nail 10 and it triples (x3).',
     links: {
       nbaStats: 'NBA Stats',
       nbaLineups: 'NBA Starting lineups',
@@ -720,6 +732,7 @@ const en: Dictionary = {
       title: 'Teams',
       description: 'Pick the winner for every game in the upcoming slate. 30 Anima Points for each correct choice.',
       reward: '30 Anima Points for each correct choice.',
+      rewardBadge: '+30 Anima Points',
     },
     players: {
       title: 'Players',
@@ -727,6 +740,7 @@ const en: Dictionary = {
         'Select the standout performers for points, assists, and rebounds. 50 Anima Points for each correct choice.',
       endPicks: 'End picks',
       reward: '50 Anima Points for each correct choice.',
+      rewardBadge: '+50 Anima Points',
       categories: {
         top_scorer: 'Top Scorer',
         top_assist: 'Top Assists',

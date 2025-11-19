@@ -362,13 +362,6 @@ export const TileFlipGameNBAnima = () => {
             <p className="text-sm text-slate-300">{t.pageSubtitle}</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => resetGame()}
-          className="h-10 rounded-full border border-white/15 bg-navy-900/70 px-5 text-sm font-semibold text-white transition hover:border-accent-gold/40"
-        >
-          {t.resetCta}
-        </button>
       </div>
 
       <div className="mt-6">
@@ -398,7 +391,16 @@ export const TileFlipGameNBAnima = () => {
       </div>
 
       <div className="mt-6 space-y-4 rounded-2xl border border-white/10 bg-navy-900/60 p-4">
-        <p className="text-sm text-slate-200">{t.rewardHint}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-200">{t.rewardHint}</p>
+          <button
+            type="button"
+            onClick={() => resetGame()}
+            className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-navy-950/60 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-100 transition hover:border-accent-gold/40 hover:text-white"
+          >
+            {t.resetCta}
+          </button>
+        </div>
         <div className="flex flex-wrap items-center gap-4 text-sm text-slate-300">
           <span>
             {t.stats.moves}:{' '}

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
@@ -775,13 +775,13 @@ const CollectionGrid = ({
 
       {selectedCard ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black p-4"
           role="dialog"
           aria-modal="true"
           onClick={closeModal}
         >
           <div
-            className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[2rem] border border-accent-gold/30 bg-navy-900/90 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+            className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[2rem] border border-accent-gold/30 bg-navy-900 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.65)]"
             onClick={(event) => event.stopPropagation()}
           >
             <button
@@ -998,13 +998,13 @@ const ShopGrid = ({
 
       {pendingCard ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black p-4"
           role="dialog"
           aria-modal="true"
           onClick={closeConfirm}
         >
           <div
-            className="relative w-full max-w-md rounded-2xl border border-accent-gold/30 bg-navy-900/90 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.45)]"
+            className="relative w-full max-w-md rounded-2xl border border-accent-gold/30 bg-navy-900 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.65)]"
             onClick={(event) => event.stopPropagation()}
           >
             <button
@@ -1068,6 +1068,7 @@ export function DashboardClient({
   const highlightsEnabled = FEATURES.HIGHLIGHTS_ENABLED;
   const router = useRouter();
   const supabase = useMemo(() => createBrowserSupabase(), []);
+  const tabsSectionRef = useRef<HTMLElement | null>(null);
   const numberFormatter = useMemo(
     () => new Intl.NumberFormat(locale === 'it' ? 'it-IT' : 'en-US'),
     [locale],
@@ -1506,40 +1507,37 @@ export function DashboardClient({
         <h1 className="text-3xl font-semibold text-white">Dashboard</h1>
       </section>
 
-      <section className="rounded-[2rem] border border-accent-gold/40 bg-navy-900/70 p-6 shadow-card">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-gold/40 bg-navy-800/70">
-              <Coins className="h-7 w-7 text-accent-gold" />
+      <section className="rounded-[2rem] border border-accent-gold/40 bg-navy-900/70 p-4 shadow-card sm:p-6">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-2">
+          <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:gap-4 sm:text-left">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-accent-gold/40 bg-navy-800/70 sm:h-14 sm:w-14">
+              <Coins className="h-6 w-6 text-accent-gold sm:h-7 sm:w-7" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">
+              <p className="text-[11px] uppercase tracking-wide text-slate-400 sm:text-xs">
                 {dictionary.dashboard.animaPoints}
               </p>
-              <p className="text-3xl font-semibold text-white">
+              <p className="text-xl font-semibold text-white sm:text-3xl">
                 {numberFormatter.format(balance)}
               </p>
             </div>
           </div>
-          <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-gold/40 bg-navy-800/70">
-              <Sparkles className="h-7 w-7 text-accent-gold" />
+          <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:gap-4 sm:text-left">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-accent-gold/40 bg-navy-800/70 sm:h-14 sm:w-14">
+              <Sparkles className="h-6 w-6 text-accent-gold sm:h-7 sm:w-7" />
             </div>
             <div className="space-y-1 text-center sm:text-left">
-              <p className="text-xs uppercase tracking-wide text-slate-400">
+              <p className="text-[11px] uppercase tracking-wide text-slate-400 sm:text-xs">
                 {dictionary.dashboard.weeklyXpBalance}
               </p>
-              <div className="flex min-h-[2.25rem] items-center justify-center gap-2 text-3xl font-semibold text-white sm:justify-start">
+              <div className="flex min-h-[1.5rem] items-center justify-center gap-2 text-xl font-semibold text-white sm:min-h-[2.25rem] sm:text-3xl sm:justify-start">
                 {weeklyXpLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" aria-label={dictionary.common.loading} />
                 ) : (
                   <span>{weeklyXpError ? '—' : numberFormatter.format(weeklyXpValue)}</span>
                 )}
               </div>
-              <p className="text-xs text-slate-400">{weeklyXpCaption}</p>
-              <p className="text-xs text-slate-400">
-                {dictionary.dashboard.weeklyXpExplainer}
-              </p>
+              <p className="text-[11px] text-slate-400 sm:text-xs">{weeklyXpCaption}</p>
               {weeklyXpErrorMessage ? (
                 <p className="text-xs text-rose-300">{weeklyXpErrorMessage}</p>
               ) : null}
@@ -1551,6 +1549,17 @@ export function DashboardClient({
           <code className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 font-mono text-xs">
             {pickDate}
           </code>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('weekly');
+              tabsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-accent-gold/40 px-3 py-1 text-xs font-semibold text-accent-gold hover:border-accent-gold transition"
+          >
+            {dictionary.dashboard.weeklyLeaderboardButton}
+            <ArrowRight className="h-3 w-3" />
+          </button>
           {role === 'admin' ? (
             <Link
               href={`/${locale}/admin`}
@@ -1563,7 +1572,10 @@ export function DashboardClient({
         </div>
       </section>
 
-      <section className="rounded-[2rem] border border-white/10 bg-navy-900/50 p-4 shadow-card">
+      <section
+        ref={tabsSectionRef}
+        className="rounded-[2rem] border border-white/10 bg-navy-900/50 p-4 shadow-card"
+      >
         <div className="flex snap-x gap-3 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
           {tabs.map((tab) => (
             <button
@@ -1587,15 +1599,16 @@ export function DashboardClient({
           {activeTab === 'play' ? (
             <div className="space-y-6">
               <header className="space-y-2">
-                <h2 className="text-2xl font-semibold text-white">
-                  {dictionary.play.title}
-                </h2>
-                <p className="text-sm text-slate-300">{dictionary.play.subtitle}</p>
-                <div className="mt-4 flex gap-3 flex-wrap">
-                  <a
-                    href="https://www.nba.com/stats"
-                    target="_blank"
-                    rel="noopener noreferrer"
+              <h2 className="text-2xl font-semibold text-white">
+                {dictionary.play.title}
+              </h2>
+              <p className="text-sm text-slate-300">{dictionary.play.subtitle}</p>
+              <p className="text-sm text-slate-400">{dictionary.play.multiplierHint}</p>
+              <div className="mt-4 flex gap-3 flex-wrap">
+                <a
+                  href="https://www.nba.com/stats"
+                  target="_blank"
+                  rel="noopener noreferrer"
                     className="inline-flex items-center rounded-xl border border-accent-gold bg-gradient-to-r from-accent-gold to-accent-coral px-4 py-2 text-sm font-semibold text-navy-900 shadow-card hover:brightness-110 transition"
                   >
                     {dictionary.play.links.nbaStats}
@@ -1667,11 +1680,16 @@ export function DashboardClient({
 
                   {isTeamsOpen ? (
                     <section className="space-y-4 rounded-2xl border border-white/10 bg-navy-900/40 p-4">
-                      <div className="flex items-center gap-2">
-                        <SectionStatus complete={teamsComplete} />
-                        <h3 className="text-lg font-semibold text-white">
-                          {dictionary.play.teams.title}
-                        </h3>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <SectionStatus complete={teamsComplete} />
+                          <h3 className="text-lg font-semibold text-white">
+                            {dictionary.play.teams.title}
+                          </h3>
+                        </div>
+                        <span className="inline-flex items-center justify-center rounded-full border border-accent-gold/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-accent-gold">
+                          {dictionary.play.teams.rewardBadge}
+                        </span>
                       </div>
                       {gamesLoading ? (
                         <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -1728,11 +1746,16 @@ export function DashboardClient({
 
                   {isPlayersOpen ? (
                     <section className="space-y-4 rounded-2xl border border-white/10 bg-navy-900/40 p-4">
-                      <div className="flex items-center gap-2">
-                        <SectionStatus complete={playersComplete} />
-                        <h3 className="text-lg font-semibold text-white">
-                          {dictionary.play.players.title}
-                        </h3>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <SectionStatus complete={playersComplete} />
+                          <h3 className="text-lg font-semibold text-white">
+                            {dictionary.play.players.title}
+                          </h3>
+                        </div>
+                        <span className="inline-flex items-center justify-center rounded-full border border-accent-gold/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-accent-gold">
+                          {dictionary.play.players.rewardBadge}
+                        </span>
                       </div>
                       {games.map((game) => (
                         <GamePlayersCard
