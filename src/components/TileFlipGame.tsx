@@ -364,7 +364,7 @@ export const TileFlipGameNBAnima = () => {
         </div>
         <button
           type="button"
-          onClick={resetGame}
+          onClick={() => resetGame()}
           className="h-10 rounded-full border border-white/15 bg-navy-900/70 px-5 text-sm font-semibold text-white transition hover:border-accent-gold/40"
         >
           {t.resetCta}
