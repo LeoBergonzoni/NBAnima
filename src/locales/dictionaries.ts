@@ -169,6 +169,11 @@ export interface Dictionary {
     pageSubtitle: string;
     rewardHint: string;
     rewardPointsLabel: string;
+    coastToggleLabel: string;
+    coastOptions: {
+      west: string;
+      east: string;
+    };
     stats: {
       moves: string;
       matches: string;
@@ -183,6 +188,9 @@ export interface Dictionary {
     };
     resetCta: string;
     instructions: string;
+    galleryTitle: string;
+    gallerySubtitle: string;
+    galleryEmpty: string;
   };
   collection: {
     empty: string;
@@ -455,6 +463,11 @@ const it: Dictionary = {
     pageSubtitle: 'Allena la memoria con le tessere NBAnima.',
     rewardHint: 'Abbina tutte le 8 coppie in 15 mosse o meno per guadagnare +10 Anima Points.',
     rewardPointsLabel: '+10 Anima Points',
+    coastToggleLabel: 'Scegli i giocatori',
+    coastOptions: {
+      west: 'West Coast Players',
+      east: 'East Coast Players',
+    },
     stats: {
       moves: 'Mosse',
       matches: 'Coppie trovate',
@@ -469,6 +482,9 @@ const it: Dictionary = {
     },
     resetCta: 'Reset',
     instructions: 'Gira due tessere alla volta per trovare tutte le coppie NBAnima.',
+    galleryTitle: 'Giocatori trovati',
+    gallerySubtitle: 'Ogni coppia completata rivela nome e squadra.',
+    galleryEmpty: 'Trova una coppia per scoprire i tuoi roster preferiti.',
   },
   collection: {
     empty: 'Non hai ancora alcuna card. Completa le sfide per guadagnare punti e acquistare la tua prima carta.',
@@ -742,6 +758,11 @@ const en: Dictionary = {
     pageSubtitle: 'Test your memory with NBAnima tiles.',
     rewardHint: 'Match all 8 pairs in 15 moves or fewer to earn +10 Anima Points.',
     rewardPointsLabel: '+10 Anima Points',
+    coastToggleLabel: 'Choose your lineup',
+    coastOptions: {
+      west: 'West Coast Players',
+      east: 'East Coast Players',
+    },
     stats: {
       moves: 'Moves',
       matches: 'Pairs found',
@@ -756,6 +777,9 @@ const en: Dictionary = {
     },
     resetCta: 'Reset',
     instructions: 'Flip two tiles at a time and find every NBAnima pair.',
+    galleryTitle: 'Matched players',
+    gallerySubtitle: 'Each completed pair reveals the player name and team.',
+    galleryEmpty: 'Match any pair to start filling your scouting report.',
   },
   collection: {
     empty: 'Your collection is empty. Play challenges to earn points and redeem your first card.',

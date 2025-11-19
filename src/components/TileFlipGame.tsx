@@ -1,12 +1,24 @@
 'use client';
 
+import clsx from 'clsx';
 import Image from 'next/image';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useLocale } from '@/components/providers/locale-provider';
 
+type Coast = 'west' | 'east';
+
+type PlayerDefinition = {
+  id: string;
+  name: string;
+  team: string;
+  image: string;
+  coast: Coast;
+};
+
 type Card = {
-  id: number;
+  id: string;
+  playerId: string;
   image: string;
   matched: boolean;
   flipped: boolean;
@@ -14,16 +26,155 @@ type Card = {
 
 type RewardState = 'idle' | 'pending' | 'success' | 'error' | 'ineligible';
 
-const FACE_COUNT = 8;
 const MAX_MOVES_FOR_REWARD = 15;
 
-const FACES: string[] = Array.from({ length: FACE_COUNT }, (_, index) => `/nbanima-tiles/${index + 1}.png`);
-const BACK_IMAGE = '/nbanima-tiles/back.png';
+const PLAYER_SETS: Record<Coast, PlayerDefinition[]> = {
+  west: [
+    {
+      id: 'alperen-sengun',
+      name: 'Alperen Sengun',
+      team: 'Houston Rockets',
+      image: '/nbanima-tiles/WestCoast/AlperenSengunAnime.png',
+      coast: 'west',
+    },
+    {
+      id: 'chet-holmgren',
+      name: 'Chet Holmgren',
+      team: 'Oklahoma City Thunder',
+      image: '/nbanima-tiles/WestCoast/ChetHolmgrenAnime.png',
+      coast: 'west',
+    },
+    {
+      id: 'cooper-flagg',
+      name: 'Cooper Flagg',
+      team: 'Dallas Mavericks',
+      image: '/nbanima-tiles/WestCoast/CooperFlaggAnime.png',
+      coast: 'west',
+    },
+    {
+      id: 'demar-derozan',
+      name: 'Demar Derozan',
+      team: 'Sacramento Kings',
+      image: '/nbanima-tiles/WestCoast/DemarDerozanAnime.png',
+      coast: 'west',
+    },
+    {
+      id: 'kevin-durant',
+      name: 'Kevin Durant',
+      team: 'Houston Rockets',
+      image: '/nbanima-tiles/WestCoast/KevinDurantAnime.png',
+      coast: 'west',
+    },
+    {
+      id: 'lebron-james',
+      name: 'LeBron James',
+      team: 'Los Angeles Lakers',
+      image: '/nbanima-tiles/WestCoast/LebronJamesAnime.png',
+      coast: 'west',
+    },
+    {
+      id: 'nikola-jokic',
+      name: 'Nikola Jokic',
+      team: 'Denver Nuggets',
+      image: '/nbanima-tiles/WestCoast/NikolaJokicAnime.png',
+      coast: 'west',
+    },
+    {
+      id: 'stephen-curry',
+      name: 'Stephen Curry',
+      team: 'Golden State Warriors',
+      image: '/nbanima-tiles/WestCoast/StephenCurryAnime.png',
+      coast: 'west',
+    },
+  ],
+  east: [
+    {
+      id: 'cade-cunningham',
+      name: 'Cade Cunningham',
+      team: 'Detroit Pistons',
+      image: '/nbanima-tiles/EastCoast/CadeCunninghamAnime.png',
+      coast: 'east',
+    },
+    {
+      id: 'donovan-mitchell',
+      name: 'Donovan Mitchell',
+      team: 'Cleveland Cavaliers',
+      image: '/nbanima-tiles/EastCoast/DonovanMitchellAnime.png',
+      coast: 'east',
+    },
+    {
+      id: 'giannis-antetokounmpo',
+      name: 'Giannis Antetokounmpo',
+      team: 'Milwaukee Bucks',
+      image: '/nbanima-tiles/EastCoast/GiannisAntetokounmpoAnime.png',
+      coast: 'east',
+    },
+    {
+      id: 'jaylen-brown',
+      name: 'Jaylen Brown',
+      team: 'Boston Celtics',
+      image: '/nbanima-tiles/EastCoast/JaylenBrownAnime.png',
+      coast: 'east',
+    },
+    {
+      id: 'karl-anthony-towns',
+      name: 'Karl Anthony Towns',
+      team: 'New York Knicks',
+      image: '/nbanima-tiles/EastCoast/KarlAnthonyTownsAnime.png',
+      coast: 'east',
+    },
+    {
+      id: 'lamelo-ball',
+      name: 'Lamelo Ball',
+      team: 'Charlotte Hornets',
+      image: '/nbanima-tiles/EastCoast/LameloBallAnime.png',
+      coast: 'east',
+    },
+    {
+      id: 'trae-young',
+      name: 'Trae Young',
+      team: 'Atlanta Hawks',
+      image: '/nbanima-tiles/EastCoast/TraeYoungAnime.png',
+      coast: 'east',
+    },
+    {
+      id: 'tyrese-maxey',
+      name: 'Tyrese Maxey',
+      team: 'Philadelphia 76ers',
+      image: '/nbanima-tiles/EastCoast/TyreseMaxeyAnime.png',
+      coast: 'east',
+    },
+  ],
+};
 
-const createShuffledDeck = (): Card[] => {
-  const baseDeck: Card[] = FACES.flatMap((image, index) => [
-    { id: index * 2, image, matched: false, flipped: false },
-    { id: index * 2 + 1, image, matched: false, flipped: false },
+const BACK_IMAGES: Record<Coast, string> = {
+  west: '/nbanima-tiles/WestCoast/back.png',
+  east: '/nbanima-tiles/EastCoast/back.png',
+};
+
+const PLAYER_LOOKUP: Record<string, PlayerDefinition> = Object.values(PLAYER_SETS)
+  .flat()
+  .reduce<Record<string, PlayerDefinition>>((acc, player) => {
+    acc[player.id] = player;
+    return acc;
+  }, {});
+
+const createShuffledDeck = (players: PlayerDefinition[]): Card[] => {
+  const baseDeck: Card[] = players.flatMap((player) => [
+    {
+      id: `${player.id}-a`,
+      playerId: player.id,
+      image: player.image,
+      matched: false,
+      flipped: false,
+    },
+    {
+      id: `${player.id}-b`,
+      playerId: player.id,
+      image: player.image,
+      matched: false,
+      flipped: false,
+    },
   ]);
   for (let i = baseDeck.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -35,11 +186,13 @@ const createShuffledDeck = (): Card[] => {
 export const TileFlipGameNBAnima = () => {
   const { locale, dictionary } = useLocale();
   const t = dictionary.tileGame;
-  const [cards, setCards] = useState<Card[]>(() => createShuffledDeck());
+  const [selectedCoast, setSelectedCoast] = useState<Coast>('west');
+  const [cards, setCards] = useState<Card[]>(() => createShuffledDeck(PLAYER_SETS.west));
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [isLocked, setIsLocked] = useState(false);
   const [moves, setMoves] = useState(0);
   const [matches, setMatches] = useState(0);
+  const [matchedPlayerIds, setMatchedPlayerIds] = useState<string[]>([]);
   const [rewardState, setRewardState] = useState<RewardState>('idle');
   const [rewardMessage, setRewardMessage] = useState<string | null>(null);
   const [rewardSubmitted, setRewardSubmitted] = useState(false);
@@ -49,16 +202,23 @@ export const TileFlipGameNBAnima = () => {
     cardsRef.current = cards;
   }, [cards]);
 
-  const resetGame = useCallback(() => {
-    setCards(createShuffledDeck());
-    setFlippedIndices([]);
-    setIsLocked(false);
-    setMoves(0);
-    setMatches(0);
-    setRewardState('idle');
-    setRewardMessage(null);
-    setRewardSubmitted(false);
-  }, []);
+  const resetGame = useCallback(
+    (coast?: Coast) => {
+      const nextCoast = coast ?? selectedCoast;
+      const deck = createShuffledDeck(PLAYER_SETS[nextCoast]);
+      cardsRef.current = deck;
+      setCards(deck);
+      setFlippedIndices([]);
+      setIsLocked(false);
+      setMoves(0);
+      setMatches(0);
+      setMatchedPlayerIds([]);
+      setRewardState('idle');
+      setRewardMessage(null);
+      setRewardSubmitted(false);
+    },
+    [selectedCoast],
+  );
 
   const handleCardClick = useCallback(
     (index: number) => {
@@ -113,6 +273,9 @@ export const TileFlipGameNBAnima = () => {
         setFlippedIndices([]);
         setIsLocked(false);
         setMatches((prev) => prev + 1);
+        setMatchedPlayerIds((prev) =>
+          prev.includes(firstCard.playerId) ? prev : [...prev, firstCard.playerId],
+        );
       }, 350);
       return () => window.clearTimeout(timeout);
     }
@@ -152,7 +315,15 @@ export const TileFlipGameNBAnima = () => {
     }
   }, [locale, moves, t.rewardStatus.failure, t.rewardStatus.pending, t.rewardStatus.success]);
 
-  const allMatched = matches === FACE_COUNT;
+  const currentPlayers = PLAYER_SETS[selectedCoast];
+  const totalPairs = currentPlayers.length;
+  const backImage = BACK_IMAGES[selectedCoast];
+  const matchedPlayers = useMemo(
+    () => matchedPlayerIds.map((id) => PLAYER_LOOKUP[id]).filter(Boolean),
+    [matchedPlayerIds],
+  );
+
+  const allMatched = matches === totalPairs;
 
   useEffect(() => {
     if (!allMatched) {
@@ -200,6 +371,32 @@ export const TileFlipGameNBAnima = () => {
         </button>
       </div>
 
+      <div className="mt-6">
+        <p className="text-xs uppercase tracking-wide text-slate-400">{t.coastToggleLabel}</p>
+        <div className="mt-3 flex flex-wrap gap-3">
+          {(['west', 'east'] as const).map((coast) => (
+            <button
+              key={coast}
+              type="button"
+              onClick={() => {
+                if (coast !== selectedCoast) {
+                  setSelectedCoast(coast);
+                  resetGame(coast);
+                }
+              }}
+              className={clsx(
+                'min-w-[160px] rounded-2xl border px-4 py-2 text-sm font-semibold transition',
+                selectedCoast === coast
+                  ? 'border-accent-gold bg-accent-gold/10 text-white shadow-card'
+                  : 'border-white/15 bg-navy-900/60 text-slate-200 hover:border-accent-gold/40',
+              )}
+            >
+              {t.coastOptions[coast]}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="mt-6 space-y-4 rounded-2xl border border-white/10 bg-navy-900/60 p-4">
         <p className="text-sm text-slate-200">{t.rewardHint}</p>
         <div className="flex flex-wrap items-center gap-4 text-sm text-slate-300">
@@ -210,7 +407,7 @@ export const TileFlipGameNBAnima = () => {
           <span>
             {t.stats.matches}:{' '}
             <strong className="text-white">
-              {matches}/{FACE_COUNT}
+              {matches}/{totalPairs}
             </strong>
           </span>
           {allMatched ? (
@@ -224,6 +421,7 @@ export const TileFlipGameNBAnima = () => {
         {cards.map((card, index) => {
           const showFront = card.flipped || card.matched;
           const borderColor = card.matched ? 'border-emerald-400/70' : 'border-white/15';
+          const playerMeta = PLAYER_LOOKUP[card.playerId];
           return (
             <button
               key={card.id}
@@ -256,7 +454,7 @@ export const TileFlipGameNBAnima = () => {
                 >
                   <div className="relative h-[80%] w-[80%]">
                     <Image
-                      src={BACK_IMAGE}
+                      src={backImage}
                       alt="NBAnima card back"
                       fill
                       sizes="(max-width: 640px) 45vw, (max-width: 1024px) 20vw, 140px"
@@ -273,14 +471,14 @@ export const TileFlipGameNBAnima = () => {
                     overflow: 'hidden',
                     backgroundColor: '#020617',
                   }}
-                >
-                  <div className="relative h-full w-full">
-                    <Image
-                      src={card.image}
-                      alt="NBAnima card face"
-                      fill
-                      sizes="(max-width: 640px) 45vw, (max-width: 1024px) 20vw, 140px"
-                      className="object-cover"
+                  >
+                    <div className="relative h-full w-full">
+                      <Image
+                        src={card.image}
+                        alt={playerMeta ? playerMeta.name : 'NBAnima card face'}
+                        fill
+                        sizes="(max-width: 640px) 45vw, (max-width: 1024px) 20vw, 140px"
+                        className="object-cover"
                       priority={false}
                     />
                   </div>
@@ -292,6 +490,44 @@ export const TileFlipGameNBAnima = () => {
       </div>
 
       <p className="mt-6 text-center text-xs text-slate-400">{t.instructions}</p>
+
+      <div className="mt-6 rounded-2xl border border-white/10 bg-navy-900/50 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-white">{t.galleryTitle}</p>
+            <p className="text-xs text-slate-400">{t.gallerySubtitle}</p>
+          </div>
+          <span className="text-xs font-semibold text-accent-gold">
+            {matchedPlayers.length}/{totalPairs}
+          </span>
+        </div>
+        {matchedPlayers.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-400">{t.galleryEmpty}</p>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {matchedPlayers.map((player) => (
+              <div
+                key={player.id}
+                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-navy-800/60 p-3"
+              >
+                <div className="relative h-16 w-16 overflow-hidden rounded-2xl border border-white/10">
+                  <Image
+                    src={player.image}
+                    alt={player.name}
+                    fill
+                    sizes="64px"
+                    className="object-cover"
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{player.name}</p>
+                  <p className="text-xs text-slate-400">{player.team}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
