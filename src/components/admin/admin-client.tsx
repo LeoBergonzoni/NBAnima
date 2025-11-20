@@ -26,6 +26,7 @@ import {
   PlayerSelect,
   type PlayerSelectResult,
 } from '@/components/admin/PlayerSelect';
+import { AdminStorageDashboard } from '@/components/AdminStorageDashboard';
 import { ADMIN_POINT_STEP } from '@/lib/admin';
 import { TIMEZONES, type Locale } from '@/lib/constants';
 import type { Dictionary } from '@/locales/dictionaries';
@@ -142,6 +143,7 @@ const ADMIN_TABS = [
   'winnersTeams',
   'winnersPlayers',
   'highlights',
+  'storage',
 ] as const;
 
 type AdminTab = (typeof ADMIN_TABS)[number];
@@ -968,11 +970,13 @@ export const AdminClient = ({
                     ? dictionary.admin.usersTab
                   : tab === 'picks'
                     ? dictionary.admin.picksTab
-                    : tab === 'winnersTeams'
-                      ? 'Winners Teams'
-                      : tab === 'winnersPlayers'
-                        ? 'Winners Players'
-                        : dictionary.admin.highlightsTab;
+                  : tab === 'winnersTeams'
+                    ? 'Winners Teams'
+                  : tab === 'winnersPlayers'
+                    ? 'Winners Players'
+                    : tab === 'storage'
+                      ? 'Storage'
+                      : dictionary.admin.highlightsTab;
               return (
                 <button
                   key={tab}
@@ -1962,6 +1966,15 @@ export const AdminClient = ({
             {highlightPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {dictionary.admin.applyHighlights}
           </button>
+        </section>
+      ) : null}
+
+      {activeTab === 'storage' ? (
+        <section className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <h2 className="text-2xl font-semibold text-white">Storage Supabase</h2>
+          </div>
+          <AdminStorageDashboard />
         </section>
       ) : null}
     </div>

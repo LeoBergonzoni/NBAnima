@@ -648,6 +648,11 @@ export const WinnersClient = ({
     });
   }, [winners?.players, playerSelectionsByKey, playerOutcomes, resolveTeamDisplay, resolvePlayerName]);
 
+  const playerSummaryCardsVisible = useMemo(
+    () => playerSummaryCards.filter((summary) => summary.status !== 'pending'),
+    [playerSummaryCards],
+  );
+
   const pickDate = picks?.date ?? selectedDate;
   const changeCount = picks?.changesCount ?? null;
 
@@ -984,7 +989,7 @@ export const WinnersClient = ({
                 }
               >
                 <tbody className="divide-y divide-white/10 text-sm text-slate-200">
-                  {playerSummaryCards.map((summary) => {
+                  {playerSummaryCardsVisible.map((summary) => {
                     const userGame = summary.userPick?.game ?? null;
                     const teamMeta = teamWinnersByGameId.get(summary.gameId);
                     const homeAbbr =
@@ -1048,7 +1053,7 @@ export const WinnersClient = ({
                 </tbody>
               </ResponsiveTable>
               <MobileList>
-                {playerSummaryCards.map((summary, index) => {
+                {playerSummaryCardsVisible.map((summary, index) => {
                   const userGame = summary.userPick?.game ?? null;
                   const teamMeta = teamWinnersByGameId.get(summary.gameId);
                   const homeAbbr =
