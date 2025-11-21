@@ -15,6 +15,60 @@ export default function HowToPlay({ content, signupHref }: HowToPlayProps) {
   const { title, subtitle, play, cards, cta } = content;
   const highlightsEnabled = FEATURES.HIGHLIGHTS_ENABLED;
 
+  const highlightsCard = (
+    <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-950/60 p-5 shadow-inner">
+      <div>
+        <p className="text-xs uppercase tracking-[0.4em] text-accent-gold">
+          {play.label}
+        </p>
+        <h4 className="text-lg font-semibold">{play.highlights.title}</h4>
+      </div>
+      <p className="text-sm text-slate-200">{play.highlights.description}</p>
+      <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-100 shadow-inner">
+        <p className="mb-2 font-medium">{play.highlights.scoreTitle}</p>
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5 sm:text-sm">
+          {play.highlights.scores.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+      <p className="text-xs text-slate-400">{play.highlights.note}</p>
+    </div>
+  );
+
+  const multipliersCard = (
+    <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-950/60 p-5 shadow-inner">
+      <div>
+        <p className="text-xs uppercase tracking-[0.4em] text-accent-gold">
+          {play.label}
+        </p>
+        <h4 className="text-lg font-semibold">{play.multipliers.title}</h4>
+      </div>
+      <p className="text-sm text-slate-200">{play.multipliers.description}</p>
+    </div>
+  );
+
+  const tileGameCard = (
+    <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-950/60 p-5 shadow-inner">
+      <div>
+        <p className="text-xs uppercase tracking-[0.4em] text-accent-gold">
+          {play.label}
+        </p>
+        <h4 className="text-lg font-semibold">{play.tileGame.title}</h4>
+      </div>
+      <p className="text-sm text-slate-200">{play.tileGame.description}</p>
+      <div className="flex justify-center">
+        <Image
+          src={play.tileGame.imageSrc}
+          alt={play.tileGame.imageAlt}
+          width={2360}
+          height={2200}
+          className="h-60 w-auto max-w-xs rounded-xl border border-white/10 bg-navy-900/40 p-4"
+        />
+      </div>
+    </div>
+  );
+
   return (
     <section
       id="how-to-play"
@@ -99,47 +153,15 @@ export default function HowToPlay({ content, signupHref }: HowToPlayProps) {
           </div>
 
           {highlightsEnabled ? (
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-950/60 p-5 shadow-inner">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.4em] text-accent-gold">
-                    {play.label}
-                  </p>
-                  <h4 className="text-lg font-semibold">{play.highlights.title}</h4>
-                </div>
-                <p className="text-sm text-slate-200">{play.highlights.description}</p>
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-100 shadow-inner">
-                  <p className="mb-2 font-medium">{play.highlights.scoreTitle}</p>
-                  <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5 sm:text-sm">
-                    {play.highlights.scores.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-                <p className="text-xs text-slate-400">{play.highlights.note}</p>
-              </div>
-
-              <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-950/60 p-5 shadow-inner">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.4em] text-accent-gold">
-                    {play.label}
-                  </p>
-                  <h4 className="text-lg font-semibold">{play.multipliers.title}</h4>
-                </div>
-                <p className="text-sm text-slate-200">{play.multipliers.description}</p>
-              </div>
+            <div className="grid gap-6 lg:grid-cols-3">
+              {highlightsCard}
+              {tileGameCard}
+              {multipliersCard}
             </div>
           ) : (
-            <div className="grid gap-6">
-              <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-950/60 p-5 shadow-inner">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.4em] text-accent-gold">
-                    {play.label}
-                  </p>
-                  <h4 className="text-lg font-semibold">{play.multipliers.title}</h4>
-                </div>
-                <p className="text-sm text-slate-200">{play.multipliers.description}</p>
-              </div>
+            <div className="grid gap-6 lg:grid-cols-2">
+              {tileGameCard}
+              {multipliersCard}
             </div>
           )}
         </article>
