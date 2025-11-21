@@ -34,6 +34,12 @@ type HowToPlayContent = {
       title: string;
       description: string;
     };
+    tileGame: {
+      title: string;
+      description: string;
+      imageAlt: string;
+      imageSrc: string;
+    };
   };
   cards: {
     label: string;
@@ -354,6 +360,12 @@ const it: Dictionary = {
           description:
             'Se indovini 5 risultati il totale ottenuto si moltiplica x2; con 10 risultati il totale si moltiplica x3.',
         },
+        tileGame: {
+          title: 'Tile Flip Game',
+          description: 'Guadagna 10 Anima Points extra con il Tile Flip Game.',
+          imageAlt: 'Anteprima del Tile Flip Game',
+          imageSrc: '/TileGame.jpg',
+        },
       },
       cards: {
         label: 'Cards',
@@ -653,6 +665,12 @@ const en: Dictionary = {
           title: 'Anima Points multipliers',
           description:
             'Hit 5 correct results to double (x2) your total, or 10 correct results to triple (x3) it.',
+        },
+        tileGame: {
+          title: 'Tile Flip Game',
+          description: 'Earn 10 bonus Anima Points with the Tile Flip Game.',
+          imageAlt: 'Tile Flip Game preview',
+          imageSrc: '/TileGame.jpg',
         },
       },
       cards: {
