@@ -7,7 +7,6 @@ import {
   CircleDashed,
   Coins,
   Loader2,
-  LogOut,
   Sparkles,
   UserCircle2,
   X,
@@ -22,7 +21,6 @@ import useSWR from 'swr';
 import { PlayerSelect, type PlayerOptionSection } from '@/components/ui/PlayerSelect';
 import { useLocale } from '@/components/providers/locale-provider';
 import { FEATURES, type Locale } from '@/lib/constants';
-import { createBrowserSupabase } from '@/lib/supabase-browser';
 import type { Dictionary } from '@/locales/dictionaries';
 import { useGames } from '@/hooks/useGames';
 import {
@@ -34,6 +32,7 @@ import {
 } from '@/hooks/usePicks';
 import { useTeamPlayers } from '@/hooks/useTeamPlayers';
 import { buyCardAction } from '@/app/[locale]/dashboard/(shop)/actions';
+import { LogoutButton } from '@/components/logout-button';
 import { WinnersClient } from './winners-client';
 import type { WeeklyRankingRow } from '@/types/database';
 
@@ -1067,7 +1066,6 @@ export function DashboardClient({
   const { dictionary } = useLocale();
   const highlightsEnabled = FEATURES.HIGHLIGHTS_ENABLED;
   const router = useRouter();
-  const supabase = useMemo(() => createBrowserSupabase(), []);
   const tabsSectionRef = useRef<HTMLElement | null>(null);
   const numberFormatter = useMemo(
     () => new Intl.NumberFormat(locale === 'it' ? 'it-IT' : 'en-US'),
@@ -1086,7 +1084,6 @@ export function DashboardClient({
   const [playersByGame, setPlayersByGame] = useState<Record<string, PlayerSummary[]>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isTeamsOpen, setIsTeamsOpen] = useState(false);
   const [isPlayersOpen, setIsPlayersOpen] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
@@ -1469,23 +1466,10 @@ export function DashboardClient({
     [ownedCards],
   );
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await supabase.auth.signOut();
-      router.push(`/${locale}`);
-      router.refresh();
-    } catch (error) {
-      console.error('[dashboard] signOut failed', error);
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
-
   return (
     <>
       <div className="space-y-8 pb-16 pt-2 sm:pt-4 lg:pb-24">
-      <section className="space-y-3">
+      <section className="hidden space-y-3 sm:block">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-2xl font-semibold text-white">NBAnima</span>
           <div className="flex items-center gap-2">
@@ -1493,15 +1477,11 @@ export function DashboardClient({
               <UserCircle2 className="h-4 w-4 text-accent-gold" />
               <span>{locale.toUpperCase()}</span>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-navy-900/70 px-3 py-1 text-xs font-medium text-slate-200 transition hover:border-accent-gold/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <LogOut className="h-3 w-3" />
-              {isLoggingOut ? '…' : dictionary.common.logout}
-            </button>
+            <LogoutButton
+              locale={locale}
+              label={dictionary.common.logout}
+              className="bg-navy-900/70 text-xs font-medium"
+            />
           </div>
         </div>
         <h1 className="text-3xl font-semibold text-white">Dashboard</h1>
@@ -1545,10 +1525,6 @@ export function DashboardClient({
           </div>
         </div>
         <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-slate-300">
-          <span>{dictionary.dashboard.lastUpdated}:</span>
-          <code className="rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 font-mono text-xs">
-            {pickDate}
-          </code>
           <button
             type="button"
             onClick={() => {

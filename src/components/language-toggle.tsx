@@ -44,17 +44,17 @@ export const LanguageToggle = ({
   };
 
   return (
-    <div className="flex rounded-full border border-accent-gold/50 bg-navy-900/60 p-1 text-xs uppercase shadow-card">
+    <div className="flex rounded-full border border-accent-gold/50 bg-navy-900/60 p-1 text-[11px] uppercase shadow-card sm:text-xs">
       {languages.map(({ label, value }) => (
         <button
           key={value}
           type="button"
           disabled={isPending}
           onClick={() => switchLocale(value)}
-          className={`px-2 py-1 font-semibold transition-colors ${
+          className={`px-2 py-1 transition-colors ${
             value === activeLocale
-              ? 'bg-gradient-to-r from-accent-gold/90 to-accent-ice/90 text-navy-950 shadow-lg'
-              : 'text-slate-200 hover:text-white'
+              ? 'bg-gradient-to-r from-accent-gold/90 to-accent-ice/90 font-semibold text-navy-950 shadow-lg sm:text-sm'
+              : 'text-[10px] font-medium text-slate-200 hover:text-white sm:text-xs'
           }`}
         >
           {label}
