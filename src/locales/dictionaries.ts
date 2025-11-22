@@ -202,6 +202,17 @@ export interface Dictionary {
     gallerySubtitle: string;
     galleryEmpty: string;
   };
+  tradingCards: {
+    pageTitle: string;
+    pageSubtitle: string;
+    ctaLabel: string;
+    ctaDescription: string;
+    collectionTab: string;
+    shopTab: string;
+    collectionBadge: string;
+    shopBadge: string;
+    heroImageAlt: string;
+  };
   collection: {
     empty: string;
     title: string;
@@ -383,13 +394,13 @@ const it: Dictionary = {
   },
   dashboard: {
     welcome: 'Bentornato su NBAnima!',
-    animaPoints: 'Saldo Anima Points',
+    animaPoints: 'Anima Points',
     playTab: 'Gioca',
     myPicksTab: 'Le mie scelte',
     winnersTab: 'Vincenti',
     collectionTab: 'Collezione',
     shopTab: 'Acquista Cards',
-    weeklyXpBalance: 'Saldo Weekly XP',
+    weeklyXpBalance: 'Weekly XP',
     weeklyRanking: 'Classifica settimanale',
     weeklyRangeCaption: 'Settimana del {date} (Lun–Dom, ET)',
     weeklyXpExplainer:
@@ -429,6 +440,17 @@ const it: Dictionary = {
       picksSaved: 'Picks salvate con successo.',
       picksUpdated: 'Picks aggiornate con successo.',
     },
+  },
+  tradingCards: {
+    pageTitle: 'Carte collezionabili',
+    pageSubtitle: 'Gestisci la tua collezione e acquista nuove cards a schermo intero.',
+    ctaLabel: 'Carte Collezionabili',
+    ctaDescription: 'Vai alla pagina dedicata per collezione e shop.',
+    collectionTab: 'La mia Collezione',
+    shopTab: 'Acquista Cards',
+    collectionBadge: 'cards in collezione',
+    shopBadge: 'cards nello shop',
+    heroImageAlt: 'Immagine delle carte NBAnima',
   },
   play: {
     title: 'Preparati alla prossima notte NBA',
@@ -689,13 +711,13 @@ const en: Dictionary = {
   },
   dashboard: {
     welcome: 'Welcome back to NBAnima!',
-    animaPoints: 'Anima Points balance',
+    animaPoints: 'Anima Points',
     playTab: 'Play',
     myPicksTab: 'My Picks',
     winnersTab: 'Winners',
     collectionTab: 'Collection',
     shopTab: 'Shop Cards',
-    weeklyXpBalance: 'Weekly XP balance',
+    weeklyXpBalance: 'Weekly XP',
     weeklyRanking: 'Weekly Ranking',
     weeklyRangeCaption: 'Week of {date} (Mon–Sun, ET)',
     weeklyXpExplainer:
@@ -735,6 +757,17 @@ const en: Dictionary = {
       picksSaved: 'Picks saved successfully.',
       picksUpdated: 'Picks updated successfully.',
     },
+  },
+  tradingCards: {
+    pageTitle: 'Trading cards',
+    pageSubtitle: 'Manage your collection and shop new cards in a full-width layout.',
+    ctaLabel: 'Trading Cards',
+    ctaDescription: 'Open the dedicated page for collection and shop.',
+    collectionTab: 'My Collection',
+    shopTab: 'Buy Cards',
+    collectionBadge: 'cards in collection',
+    shopBadge: 'cards in shop',
+    heroImageAlt: 'NBAnima trading cards preview',
   },
   play: {
     title: 'Gear up for the next NBA night',

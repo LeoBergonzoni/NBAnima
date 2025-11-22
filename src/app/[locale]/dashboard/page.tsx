@@ -2,88 +2,13 @@ import { notFound, redirect } from 'next/navigation';
 
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
+import { ensureUserProfile, type UserProfileRow } from '@/lib/server/ensureUserProfile';
 import {
-  createAdminSupabaseClient,
   createServerSupabase,
   supabaseAdmin,
 } from '@/lib/supabase';
 import type { Database } from '@/lib/supabase.types';
-
-type UserProfileRow = Pick<
-  Database['public']['Tables']['users']['Row'],
-  'full_name' | 'anima_points_balance' | 'role'
->;
-
-const ensureUserProfile = async (
-  userId: string,
-  email?: string | null,
-): Promise<UserProfileRow> => {
-  const admin = createAdminSupabaseClient();
-  const { data, error } = await admin
-    .from('users')
-    .select('full_name, anima_points_balance, role')
-    .eq('id', userId)
-    .maybeSingle<UserProfileRow>();
-
-  if (error) {
-    throw error;
-  }
-
-  if (data) {
-    return data;
-  }
-
-  const fallbackEmail = email ?? `${userId}@nb-anima.local`;
-  const nowIso = new Date().toISOString();
-  const { data: inserted, error: insertError } = await admin
-    .from('users')
-    .upsert(
-      {
-        id: userId,
-        email: fallbackEmail,
-        role: 'user',
-        anima_points_balance: 0,
-        full_name: null,
-        created_at: nowIso,
-        updated_at: nowIso,
-      },
-      {
-        onConflict: 'id',
-      },
-    )
-    .select('full_name, anima_points_balance, role')
-    .single<UserProfileRow>();
-
-  if (insertError) {
-    throw insertError;
-  }
-
-  if (inserted) {
-    return inserted;
-  }
-
-  const { data: fetched, error: fetchError } = await admin
-    .from('users')
-    .select('full_name, anima_points_balance, role')
-    .eq('id', userId)
-    .maybeSingle<UserProfileRow>();
-
-  if (fetchError || !fetched) {
-    throw fetchError ?? new Error('Failed to read user profile');
-  }
-
-  return fetched;
-};
-
-interface ShopCard {
-  id: string;
-  name: string;
-  description: string;
-  rarity: string;
-  price: number;
-  image_url: string;
-  accent_color: string | null;
-}
+import type { ShopCard } from '@/types/shop-card';
 
 export default async function DashboardPage({
   params,

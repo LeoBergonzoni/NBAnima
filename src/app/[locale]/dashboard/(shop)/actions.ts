@@ -109,7 +109,7 @@ export async function buyCardAction({
 
     const dashboardPath = formatDashboardPath(locale);
     revalidatePath(dashboardPath);
-    revalidatePath(`${dashboardPath}/collection`);
+    revalidatePath(`${dashboardPath}/trading-cards`);
 
     return { ok: true };
   } catch (error) {
