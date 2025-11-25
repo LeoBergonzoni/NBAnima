@@ -149,8 +149,7 @@ create table if not exists public.user_cards (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   card_id uuid not null references public.shop_cards(id) on delete cascade,
-  acquired_at timestamptz not null default timezone('utc', now()),
-  unique(user_id, card_id)
+  acquired_at timestamptz not null default timezone('utc', now())
 );
 
 create table if not exists public.shop_cards (
@@ -161,6 +160,9 @@ create table if not exists public.shop_cards (
   price integer not null check (price >= 0),
   image_url text not null,
   accent_color text,
+  category text not null check (category in ('Rosters','Celebrations','Courtside','Iconic')),
+  conference text not null check (conference in ('Eastern Conference','Western Conference','Special')),
+  check (conference <> 'Special' or category = 'Courtside'),
   created_at timestamptz not null default timezone('utc', now())
 );
 

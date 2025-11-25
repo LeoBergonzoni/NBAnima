@@ -65,20 +65,6 @@ export async function buyCardAction({
       return { ok: false, error: 'INSUFFICIENT_FUNDS' };
     }
 
-    const { data: existingOwnership, error: ownershipError } = await supabaseAdmin
-      .from('user_cards')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('card_id', cardId)
-      .maybeSingle();
-
-    if (ownershipError) {
-      return { ok: false, error: 'UNKNOWN' };
-    }
-    if (existingOwnership) {
-      return { ok: false, error: 'ALREADY_OWNED' };
-    }
-
     const { error: userCardsError } = await supabaseAdmin.from('user_cards').insert({
       user_id: user.id,
       card_id: cardId,

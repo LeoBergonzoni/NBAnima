@@ -15,26 +15,38 @@ import type { ShopCard } from '@/types/shop-card';
 interface TradingCardsClientProps {
   locale: Locale;
   balance: number;
-  ownedCards: ShopCard[];
   shopCards: ShopCard[];
+  ownedCardCounts: Record<string, number>;
 }
 
 export const TradingCardsClient = ({
   locale,
   balance,
-  ownedCards,
   shopCards,
+  ownedCardCounts,
 }: TradingCardsClientProps) => {
   const { dictionary } = useLocale();
   const router = useRouter();
   const [activeSection, setActiveSection] = useState<'collection' | 'shop'>('collection');
-  const ownedCardIds = useMemo(
-    () => new Set(ownedCards.map((card) => card.id)),
-    [ownedCards],
+  const ownedCardCountsMap = useMemo(
+    () => new Map(Object.entries(ownedCardCounts ?? {})),
+    [ownedCardCounts],
+  );
+  const collectionCards = useMemo(
+    () =>
+      shopCards.map((card) => {
+        const quantity = Number(ownedCardCountsMap.get(card.id) ?? 0);
+        return { ...card, owned: quantity > 0, quantity };
+      }),
+    [shopCards, ownedCardCountsMap],
   );
   const numberFormatter = useMemo(
     () => new Intl.NumberFormat(locale === 'it' ? 'it-IT' : 'en-US'),
     [locale],
+  );
+  const totalOwnedCards = useMemo(
+    () => Object.values(ownedCardCounts ?? {}).reduce((sum, value) => sum + Number(value), 0),
+    [ownedCardCounts],
   );
 
   return (
@@ -91,7 +103,7 @@ export const TradingCardsClient = ({
                   {dictionary.collection.title}
                 </span>
                 <span className="text-base font-semibold text-white sm:text-lg">
-                  {numberFormatter.format(ownedCards.length)}
+                  {numberFormatter.format(totalOwnedCards)}
                 </span>
               </div>
             </div>
@@ -134,12 +146,12 @@ export const TradingCardsClient = ({
 
         <section className="rounded-[1.25rem] border border-white/10 bg-navy-900/70 p-4 shadow-card sm:p-6">
           {activeSection === 'collection' ? (
-            ownedCards.length === 0 ? (
+            collectionCards.length === 0 ? (
               <p className="rounded-2xl border border-white/10 bg-navy-900/50 p-6 text-sm text-slate-300">
                 {dictionary.collection.empty}
               </p>
             ) : (
-              <CollectionGrid cards={ownedCards} dictionary={dictionary} />
+              <CollectionGrid cards={collectionCards} dictionary={dictionary} />
             )
           ) : (
             <ShopGrid
@@ -147,7 +159,7 @@ export const TradingCardsClient = ({
               balance={balance}
               dictionary={dictionary}
               locale={locale}
-              ownedCardIds={ownedCardIds}
+              ownedCardCounts={ownedCardCountsMap}
               onPurchaseSuccess={() => router.refresh()}
             />
           )}

@@ -37,10 +37,7 @@ export default async function TradingCardsPage({
 
   const [{ data: userCards, error: cardsError }, { data: shopCards, error: shopError }] =
     await Promise.all([
-      supabaseAdmin
-        .from('user_cards')
-        .select('card:shop_cards(id, name, description, rarity, price, image_url, accent_color)')
-        .eq('user_id', user.id),
+      supabaseAdmin.from('user_cards').select('card_id').eq('user_id', user.id),
       supabaseAdmin.from('shop_cards').select('*').order('price', { ascending: true }),
     ]);
 
@@ -49,19 +46,25 @@ export default async function TradingCardsPage({
     redirect(`/${locale}/login`);
   }
 
-  type ShopCardRow = Database['public']['Tables']['shop_cards']['Row'];
-  type UserCardRecord = { card: ShopCardRow | null };
+  type UserCardRecord = { card_id: string | null };
 
-  const ownedCards = ((userCards ?? []) as UserCardRecord[])
-    .map((entry) => entry.card as ShopCard | null)
-    .filter((card): card is ShopCard => Boolean(card));
+  const ownedCardCounts = ((userCards ?? []) as UserCardRecord[]).reduce<Record<string, number>>(
+    (acc, entry) => {
+      const cardId = entry.card_id;
+      if (cardId) {
+        acc[cardId] = (acc[cardId] ?? 0) + 1;
+      }
+      return acc;
+    },
+    {},
+  );
 
   return (
     <TradingCardsClient
       locale={locale}
       balance={profile.anima_points_balance}
-      ownedCards={ownedCards}
       shopCards={(shopCards ?? []) as ShopCard[]}
+      ownedCardCounts={ownedCardCounts}
     />
   );
 }

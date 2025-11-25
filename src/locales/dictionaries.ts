@@ -217,10 +217,12 @@ export interface Dictionary {
     empty: string;
     title: string;
     download: string;
+    locked: string;
   };
   shop: {
     title: string;
     buy: string;
+    buyAgain: string;
     insufficientPoints: string;
     confirmTitle: string;
     confirmMessage: string;
@@ -533,10 +535,12 @@ const it: Dictionary = {
     empty: 'Non hai ancora alcuna card. Completa le sfide per guadagnare punti e acquistare la tua prima carta.',
     title: 'La tua Collezione',
     download: 'Scarica',
+    locked: 'Non acquistata',
   },
   shop: {
     title: 'Shop Cards',
     buy: 'Acquista ora',
+    buyAgain: 'Acquista di nuovo',
     insufficientPoints: 'Punti insufficienti',
     confirmTitle: 'Confermi l’acquisto?',
     confirmMessage: 'Sei sicuro di voler acquistare questa Card per {price} Anima Points?',
@@ -850,10 +854,12 @@ const en: Dictionary = {
     empty: 'Your collection is empty. Play challenges to earn points and redeem your first card.',
     title: 'Your Collection',
     download: 'Download',
+    locked: 'Locked',
   },
   shop: {
     title: 'Shop Cards',
     buy: 'Buy now',
+    buyAgain: 'Buy again',
     insufficientPoints: 'Not enough points',
     confirmTitle: 'Confirm purchase?',
     confirmMessage:
