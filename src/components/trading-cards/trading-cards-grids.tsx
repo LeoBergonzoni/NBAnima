@@ -140,7 +140,7 @@ export const CollectionGrid = ({
                   <div className="absolute right-2 top-2 z-10 rounded-full border border-white/10 bg-black/60 px-2 py-[2px] text-[10px] font-semibold text-white sm:text-[11px]">
                     ×{card.quantity}
                   </div>
-                  <div className="relative space-y-3">
+                  <div className="relative flex min-h-full flex-col gap-3">
                     <div className="flex items-center justify-between text-[7px] uppercase tracking-wide text-slate-400 sm:text-[8px]">
                       <span>{card.rarity}</span>
                     </div>
@@ -166,9 +166,8 @@ export const CollectionGrid = ({
                     </div>
                     <div>
                       <h3 className="text-xs font-semibold text-white sm:text-sm">{card.name}</h3>
-                      <p className="text-[7px] text-slate-300 sm:text-[9px]">{card.description}</p>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="mt-auto flex items-center justify-between">
                       <div className="flex items-center gap-1">
                         {Array.from({ length: 5 }).map((_, index) => {
                           const filled = card.quantity > index;
@@ -226,6 +225,9 @@ export const CollectionGrid = ({
                 className="h-[70vh] w-auto max-w-full object-contain"
               />
             </div>
+            <p className="mt-4 text-center text-sm text-slate-200 sm:text-base">
+              {selectedCard.description}
+            </p>
             <div className="mt-4 flex justify-center">
               <a
                 href={selectedCard.image_url}
@@ -366,28 +368,22 @@ export const ShopGrid = ({
                 const canBuy = affordable;
                 const isLoadingCard = isPending && pendingCard?.id === card.id;
                 const buttonLabel =
-                  quantity > 0 && canBuy
-                    ? dictionary.shop.buyAgain
-                    : canBuy
-                      ? dictionary.shop.buy
-                      : dictionary.shop.insufficientPoints;
+                  canBuy || isLoadingCard
+                    ? null
+                    : dictionary.shop.insufficientPoints;
 
                 return (
                   <div
                     key={card.id}
-                    className="group relative overflow-hidden rounded-xl border border-accent-gold/20 bg-navy-800/70 p-2 shadow-card transition hover:border-accent-gold/40 sm:p-3"
+                    className="group relative h-full overflow-hidden rounded-xl border border-accent-gold/20 bg-navy-800/70 p-2 shadow-card transition hover:border-accent-gold/40 sm:p-3"
                   >
                     <div
                       className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-30"
                       style={{ backgroundColor: card.accent_color ?? '#8ecae6' }}
                     />
-                    <div className="relative space-y-3">
-                      <div className="flex items-center justify-between text-[7px] uppercase tracking-wide text-slate-400 sm:text-[10px]">
+                    <div className="relative flex min-h-full flex-col gap-3">
+                      <div className="flex items-center text-[7px] uppercase tracking-wide text-slate-400 sm:text-[10px]">
                         <span>{card.rarity}</span>
-                        <span className="flex items-center gap-2 text-slate-200">
-                          <Coins className="h-4 w-4 text-accent-gold" />
-                          {card.price}
-                        </span>
                       </div>
                       <div
                         className="relative h-20 w-full overflow-hidden rounded-lg border border-white/10 bg-navy-900 select-none sm:h-32"
@@ -407,16 +403,13 @@ export const ShopGrid = ({
                           className="pointer-events-auto absolute inset-0 rounded-2xl bg-gradient-to-b from-navy-950/30 via-navy-950/10 to-navy-950/50 backdrop-blur-[1px]"
                         />
                       </div>
-                      <div>
-                        <h3 className="text-xs font-semibold text-white sm:text-sm">{card.name}</h3>
-                        <p className="text-[10px] text-slate-300 sm:text-[9px]">{card.description}</p>
-                      </div>
+                      <h3 className="text-xs font-semibold text-white sm:text-sm">{card.name}</h3>
                       <button
                         type="button"
                         onClick={() => (canBuy ? setPendingCard(card) : undefined)}
                         disabled={!canBuy || isPending}
                         className={clsx(
-                          'inline-flex w-full items-center justify-center gap-1 rounded-2xl border px-2 py-0.5 text-[8px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 disabled:cursor-not-allowed sm:px-2.5 sm:py-1 sm:text-[10px]',
+                          'mt-auto inline-flex w-full items-center justify-center gap-1 rounded-2xl border px-2 py-0.5 text-[8px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 disabled:cursor-not-allowed sm:px-2.5 sm:py-1 sm:text-[10px]',
                           !canBuy
                             ? 'border-white/10 bg-navy-900/60 text-slate-500'
                             : quantity > 0
@@ -426,7 +419,14 @@ export const ShopGrid = ({
                         )}
                       >
                         {isLoadingCard ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                        <span>{buttonLabel}</span>
+                        {buttonLabel ? (
+                          <span>{buttonLabel}</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1">
+                            <Coins className="h-4 w-4" />
+                            {card.price}
+                          </span>
+                        )}
                       </button>
                     </div>
                   </div>

@@ -4,8 +4,8 @@ import { notFound } from 'next/navigation';
 
 import { LanguageToggle } from '@/components/language-toggle';
 import { LocaleSync } from '@/components/locale-sync';
-import { LogoutButton } from '@/components/logout-button';
 import { LocaleProvider } from '@/components/providers/locale-provider';
+import { UserNavButton } from '@/components/user-nav-button';
 import { APP_TITLE, SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { getDictionary } from '@/locales/dictionaries';
 
@@ -42,7 +42,7 @@ export default async function LocaleLayout({
               </Link>
               <div className="flex items-center gap-2">
                 <LanguageToggle locale={locale} />
-                <LogoutButton locale={locale} label={dictionary.common.logout} />
+                <UserNavButton locale={locale} label={dictionary.user.title} />
               </div>
             </div>
 
@@ -60,6 +60,7 @@ export default async function LocaleLayout({
               </Link>
               <div className="flex items-center gap-4">
                 <LanguageToggle locale={locale} />
+                <UserNavButton locale={locale} label={dictionary.user.title} />
               </div>
             </div>
           </header>

@@ -73,7 +73,7 @@ export const TradingCardsClient = ({
               href={`/${locale}/dashboard`}
               className="inline-flex items-center rounded-full border border-accent-gold/60 bg-accent-gold/15 px-3 py-2 text-xs font-semibold text-accent-gold transition hover:bg-accent-gold/25 sm:text-sm"
             >
-              {dictionary.dashboard.playTab}
+              Dashboard
             </Link>
           </div>
           <div className="space-y-2">

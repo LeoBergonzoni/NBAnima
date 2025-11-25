@@ -243,6 +243,23 @@ export interface Dictionary {
     applyHighlights: string;
     rank: string;
   };
+  user: {
+    title: string;
+    subtitle: string;
+    avatarLabel: string;
+    changeAvatar: string;
+    avatarModalTitle: string;
+    avatarModalSubtitle: string;
+    eastLabel: string;
+    westLabel: string;
+    nicknameLabel: string;
+    nicknamePlaceholder: string;
+    editNickname: string;
+    saveNickname: string;
+    statusSaved: string;
+    statusError: string;
+    backToDashboard: string;
+  };
   auth: {
     login: {
       title: string;
@@ -560,6 +577,24 @@ const it: Dictionary = {
     dateLabel: 'Data',
     applyHighlights: 'Applica Top 10 del giorno',
     rank: 'Posizione',
+  },
+  user: {
+    title: 'Profilo utente',
+    subtitle: 'Aggiorna avatar e nickname.',
+    avatarLabel: 'Il tuo avatar',
+    changeAvatar: 'Scegli avatar',
+    avatarModalTitle: 'Scegli il tuo avatar',
+    avatarModalSubtitle:
+      'Seleziona una delle immagini East o West Coast come avatar del tuo profilo.',
+    eastLabel: 'East Coast',
+    westLabel: 'West Coast',
+    nicknameLabel: 'Nickname',
+    nicknamePlaceholder: 'Inserisci il tuo nickname',
+    editNickname: 'Modifica nickname',
+    saveNickname: 'Salva nickname',
+    statusSaved: 'Profilo aggiornato!',
+    statusError: 'Impossibile salvare le modifiche. Riprova.',
+    backToDashboard: 'Torna alla dashboard',
   },
   auth: {
     login: {
@@ -880,6 +915,24 @@ const en: Dictionary = {
     dateLabel: 'Date',
     applyHighlights: 'Save daily Top 10',
     rank: 'Rank',
+  },
+  user: {
+    title: 'Your profile',
+    subtitle: 'Pick an avatar and set your nickname.',
+    avatarLabel: 'Avatar',
+    changeAvatar: 'Choose avatar',
+    avatarModalTitle: 'Choose your avatar',
+    avatarModalSubtitle:
+      'Pick one of the East or West Coast tiles to use as your profile image.',
+    eastLabel: 'East Coast',
+    westLabel: 'West Coast',
+    nicknameLabel: 'Nickname',
+    nicknamePlaceholder: 'Enter your nickname',
+    editNickname: 'Edit nickname',
+    saveNickname: 'Save nickname',
+    statusSaved: 'Profile updated!',
+    statusError: 'Unable to save changes. Please try again.',
+    backToDashboard: 'Back to dashboard',
   },
   auth: {
     login: {
