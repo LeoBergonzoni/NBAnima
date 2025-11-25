@@ -258,6 +258,7 @@ export interface Dictionary {
     saveNickname: string;
     statusSaved: string;
     statusError: string;
+    backToDashboard: string;
   };
   auth: {
     login: {
