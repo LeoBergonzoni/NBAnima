@@ -49,7 +49,7 @@ values
   ('balldontlie', 'demo-player-3', (select home_team_id from public.games offset 1 limit 1), 'Anna', 'Verdi', 'C'),
   ('balldontlie', 'demo-player-4', (select away_team_id from public.games offset 1 limit 1), 'Giulia', 'Neri', 'G');
 
-insert into public.shop_cards (name, description, rarity, price, image_url, accent_color)
+insert into public.shop_cards (name, description, rarity, price, image_url, accent_color, category, conference)
 values
   (
     'Rookie Spark',
@@ -57,7 +57,9 @@ values
     'common',
     150,
     '/cards/rookie-spark.png',
-    '#ffd166'
+    '#ffd166',
+    'Rosters',
+    'Eastern Conference'
   ),
   (
     'All-Star Aura',
@@ -65,7 +67,9 @@ values
     'rare',
     450,
     '/cards/all-star-aura.png',
-    '#06d6a0'
+    '#06d6a0',
+    'Celebrations',
+    'Western Conference'
   ),
   (
     'Legendary Echo',
@@ -73,5 +77,7 @@ values
     'legendary',
     1200,
     '/cards/legendary-echo.png',
-    '#ef476f'
+    '#ef476f',
+    'Courtside',
+    'Special'
   );

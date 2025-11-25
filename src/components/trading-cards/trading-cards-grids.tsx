@@ -1,24 +1,89 @@
 'use client';
 
 import clsx from 'clsx';
-import { CheckCircle2, Coins, Loader2, X } from 'lucide-react';
+import { CheckCircle2, Coins, Loader2, Lock, Star, X } from 'lucide-react';
 import Image from 'next/image';
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import type { MouseEvent } from 'react';
 
 import { buyCardAction } from '@/app/[locale]/dashboard/(shop)/actions';
 import type { Locale } from '@/lib/constants';
 import type { Dictionary } from '@/locales/dictionaries';
-import type { ShopCard } from '@/types/shop-card';
+import type { CardCategory, CardConference, ShopCard } from '@/types/shop-card';
+
+const CATEGORY_ORDER: CardCategory[] = ['Rosters', 'Celebrations', 'Courtside', 'Iconic'];
+const CONFERENCE_ORDER: CardConference[] = [
+  'Eastern Conference',
+  'Western Conference',
+  'Special',
+];
+
+type GroupedCards<T extends ShopCard> = {
+  category: CardCategory;
+  conference: CardConference;
+  cards: T[];
+};
+
+const orderIndex = <T extends string>(value: T, order: readonly T[]) => {
+  const index = order.indexOf(value);
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+};
+
+const sortCards = <T extends ShopCard>(cards: T[]) =>
+  [...cards].sort((a, b) => {
+    const categoryDiff =
+      orderIndex(a.category as CardCategory, CATEGORY_ORDER) -
+      orderIndex(b.category as CardCategory, CATEGORY_ORDER);
+
+    if (categoryDiff !== 0) {
+      return categoryDiff;
+    }
+
+    const conferenceDiff =
+      orderIndex(a.conference as CardConference, CONFERENCE_ORDER) -
+      orderIndex(b.conference as CardConference, CONFERENCE_ORDER);
+
+    if (conferenceDiff !== 0) {
+      return conferenceDiff;
+    }
+
+    return a.price - b.price;
+  });
+
+const groupCardsByCategory = <T extends ShopCard>(cards: T[]): GroupedCards<T>[] => {
+  const sorted = sortCards(cards);
+  const groups = new Map<string, GroupedCards<T>>();
+
+  for (const card of sorted) {
+    const key = `${card.category}-${card.conference}`;
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.cards.push(card);
+      continue;
+    }
+
+    groups.set(key, {
+      category: card.category as CardCategory,
+      conference: card.conference as CardConference,
+      cards: [card],
+    });
+  }
+
+  return Array.from(groups.values());
+};
 
 export const CollectionGrid = ({
   cards,
   dictionary,
 }: {
-  cards: ShopCard[];
+  cards: Array<ShopCard & { owned: boolean; quantity: number }>;
   dictionary: Dictionary;
 }) => {
-  const [selectedCard, setSelectedCard] = useState<ShopCard | null>(null);
+  const [selectedCard, setSelectedCard] = useState<
+    (ShopCard & { owned: boolean; quantity: number }) | null
+  >(null);
+  const groupedCards = useMemo(() => groupCardsByCategory(cards), [cards]);
 
   useEffect(() => {
     if (!selectedCard) {
@@ -41,41 +106,95 @@ export const CollectionGrid = ({
 
   return (
     <>
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:grid-cols-3 lg:gap-4">
-        {cards.map((card) => (
-          <button
-            key={card.id}
-            type="button"
-            onClick={() => setSelectedCard(card)}
-            className="group relative overflow-hidden rounded-xl border border-accent-gold/20 bg-navy-800/70 p-2 text-left shadow-card transition hover:border-accent-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 sm:p-3"
-          >
-            <div
-              className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-20"
-              style={{ backgroundColor: card.accent_color ?? '#8ecae6' }}
-            />
-            <div className="relative space-y-3">
-              <div className="flex items-center justify-between text-[7px] uppercase tracking-wide text-slate-400 sm:text-[8px]">
-                <span>{card.rarity}</span>
-                <span>{card.price} AP</span>
-              </div>
-              <div
-                className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-navy-900/80 p-1"
-                style={{ aspectRatio: '2 / 3' }}
-              >
-                <Image
-                  src={card.image_url}
-                  alt={card.name}
-                  fill
-                  className="object-contain"
-                  sizes="(min-width: 1024px) 20vw, (min-width: 640px) 35vw, 80vw"
-                />
-              </div>
-              <div>
-                <h3 className="text-xs font-semibold text-white sm:text-sm">{card.name}</h3>
-                <p className="text-[7px] text-slate-300 sm:text-[9px]">{card.description}</p>
-              </div>
+      <div className="space-y-6">
+        {groupedCards.map((group) => (
+          <div key={`${group.category}-${group.conference}`} className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent-gold sm:text-[11px]">
+                {group.category}
+              </span>
+              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-200 sm:text-[11px]">
+                {group.conference}
+              </span>
             </div>
-          </button>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:grid-cols-3 lg:gap-4">
+              {group.cards.map((card) => (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={card.owned ? () => setSelectedCard(card) : undefined}
+                  disabled={!card.owned}
+                  className={clsx(
+                    'group relative overflow-hidden rounded-xl border bg-navy-800/70 p-2 text-left shadow-card transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 sm:p-3',
+                    card.quantity >= 5
+                      ? 'border-accent-gold shadow-[0_0_18px_rgba(255,215,0,0.3)] hover:border-accent-gold'
+                      : card.owned
+                        ? 'border-accent-gold/20 hover:border-accent-gold/40'
+                        : 'border-white/10 opacity-90',
+                  )}
+                >
+                  <div
+                    className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-20"
+                    style={{ backgroundColor: card.accent_color ?? '#8ecae6' }}
+                  />
+                  <div className="absolute right-2 top-2 z-10 rounded-full border border-white/10 bg-black/60 px-2 py-[2px] text-[10px] font-semibold text-white sm:text-[11px]">
+                    ×{card.quantity}
+                  </div>
+                  <div className="relative space-y-3">
+                    <div className="flex items-center justify-between text-[7px] uppercase tracking-wide text-slate-400 sm:text-[8px]">
+                      <span>{card.rarity}</span>
+                    </div>
+                    <div
+                      className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-navy-900/80 p-1"
+                      style={{ aspectRatio: '2 / 3' }}
+                    >
+                      <Image
+                        src={card.owned ? card.image_url : '/cards/back.png'}
+                        alt={card.name}
+                        fill
+                        className={clsx('object-contain transition', card.owned ? '' : 'saturate-50')}
+                        sizes="(min-width: 1024px) 20vw, (min-width: 640px) 35vw, 80vw"
+                      />
+                      {!card.owned ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-navy-900/70 text-slate-200">
+                          <Lock className="h-3.5 w-3.5" />
+                          <span className="text-[8px] font-semibold uppercase tracking-wide sm:text-[9px]">
+                            {dictionary.collection.locked}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-semibold text-white sm:text-sm">{card.name}</h3>
+                      <p className="text-[7px] text-slate-300 sm:text-[9px]">{card.description}</p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: 5 }).map((_, index) => {
+                          const filled = card.quantity > index;
+                          return (
+                            <Star
+                              key={index}
+                              className={clsx(
+                                'h-3 w-3 sm:h-3.5 sm:w-3.5',
+                                filled
+                                  ? 'text-accent-gold drop-shadow-[0_0_6px_rgba(255,215,0,0.45)]'
+                                  : 'text-slate-600',
+                              )}
+                              fill={filled ? 'currentColor' : 'none'}
+                            />
+                          );
+                        })}
+                      </div>
+                      <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-300 sm:text-[9px]">
+                        {Math.min(card.quantity, 5)}/5
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 
@@ -128,14 +247,14 @@ export const ShopGrid = ({
   balance,
   dictionary,
   locale,
-  ownedCardIds,
+  ownedCardCounts,
   onPurchaseSuccess,
 }: {
   cards: ShopCard[];
   balance: number;
   dictionary: Dictionary;
   locale: Locale;
-  ownedCardIds: Set<string>;
+  ownedCardCounts: Map<string, number>;
   onPurchaseSuccess: () => void;
 }) => {
   const [pendingCard, setPendingCard] = useState<ShopCard | null>(null);
@@ -172,6 +291,7 @@ export const ShopGrid = ({
   }, [toastMessage]);
 
   const localeTag = locale === 'it' ? 'it-IT' : 'en-US';
+  const groupedCards = useMemo(() => groupCardsByCategory(cards), [cards]);
 
   const handleConfirmPurchase = () => {
     if (!pendingCard) {
@@ -228,78 +348,93 @@ export const ShopGrid = ({
 
   return (
     <>
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:grid-cols-3 lg:gap-4">
-        {cards.map((card) => {
-          const affordable = balance >= card.price;
-          const alreadyOwned = ownedCardIds.has(card.id);
-          const canBuy = affordable && !alreadyOwned;
-          const isLoadingCard = isPending && pendingCard?.id === card.id;
-          const buttonLabel = alreadyOwned
-            ? dictionary.shop.owned
-            : canBuy
-              ? dictionary.shop.buy
-              : dictionary.shop.insufficientPoints;
-
-          return (
-            <div
-              key={card.id}
-              className="group relative overflow-hidden rounded-xl border border-accent-gold/20 bg-navy-800/70 p-2 shadow-card transition hover:border-accent-gold/40 sm:p-3"
-            >
-              <div
-                className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-30"
-                style={{ backgroundColor: card.accent_color ?? '#8ecae6' }}
-              />
-              <div className="relative space-y-3">
-                <div className="flex items-center justify-between text-[7px] uppercase tracking-wide text-slate-400 sm:text-[10px]">
-                  <span>{card.rarity}</span>
-                  <span className="flex items-center gap-2 text-slate-200">
-                    <Coins className="h-4 w-4 text-accent-gold" />
-                    {card.price}
-                  </span>
-                </div>
-                <div
-                  className="relative h-20 w-full overflow-hidden rounded-lg border border-white/10 bg-navy-900 select-none sm:h-32"
-                  onContextMenu={handleGuardContextMenu}
-                >
-                  <Image
-                    src={card.image_url}
-                    alt={card.name}
-                    fill
-                    draggable={false}
-                    onContextMenu={handleGuardContextMenu}
-                    className="pointer-events-none object-cover"
-                  />
-                  <div
-                    aria-hidden="true"
-                    onContextMenu={handleGuardContextMenu}
-                    className="pointer-events-auto absolute inset-0 rounded-2xl bg-gradient-to-b from-navy-950/30 via-navy-950/10 to-navy-950/50 backdrop-blur-[1px]"
-                  />
-                </div>
-                <div>
-                  <h3 className="text-xs font-semibold text-white sm:text-sm">{card.name}</h3>
-                  <p className="text-[10px] text-slate-300 sm:text-[9px]">{card.description}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => (canBuy ? setPendingCard(card) : undefined)}
-                  disabled={!canBuy || isPending}
-                  className={clsx(
-                    'inline-flex w-full items-center justify-center gap-1 rounded-2xl border px-2 py-0.5 text-[8px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 disabled:cursor-not-allowed sm:px-2.5 sm:py-1 sm:text-[10px]',
-                    alreadyOwned
-                      ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-200'
-                      : canBuy
-                        ? 'border-accent-gold bg-accent-gold/20 text-accent-gold hover:bg-accent-gold/30'
-                        : 'border-white/10 bg-navy-900/60 text-slate-500',
-                    isLoadingCard ? 'opacity-80' : '',
-                  )}
-                >
-                  {isLoadingCard ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  <span>{buttonLabel}</span>
-                </button>
-              </div>
+      <div className="space-y-6">
+        {groupedCards.map((group) => (
+          <div key={`${group.category}-${group.conference}`} className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent-gold sm:text-[11px]">
+                {group.category}
+              </span>
+              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-200 sm:text-[11px]">
+                {group.conference}
+              </span>
             </div>
-          );
-        })}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:grid-cols-3 lg:gap-4">
+              {group.cards.map((card) => {
+                const quantity = Number(ownedCardCounts.get(card.id) ?? 0);
+                const affordable = balance >= card.price;
+                const canBuy = affordable;
+                const isLoadingCard = isPending && pendingCard?.id === card.id;
+                const buttonLabel =
+                  quantity > 0 && canBuy
+                    ? dictionary.shop.buyAgain
+                    : canBuy
+                      ? dictionary.shop.buy
+                      : dictionary.shop.insufficientPoints;
+
+                return (
+                  <div
+                    key={card.id}
+                    className="group relative overflow-hidden rounded-xl border border-accent-gold/20 bg-navy-800/70 p-2 shadow-card transition hover:border-accent-gold/40 sm:p-3"
+                  >
+                    <div
+                      className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-30"
+                      style={{ backgroundColor: card.accent_color ?? '#8ecae6' }}
+                    />
+                    <div className="relative space-y-3">
+                      <div className="flex items-center justify-between text-[7px] uppercase tracking-wide text-slate-400 sm:text-[10px]">
+                        <span>{card.rarity}</span>
+                        <span className="flex items-center gap-2 text-slate-200">
+                          <Coins className="h-4 w-4 text-accent-gold" />
+                          {card.price}
+                        </span>
+                      </div>
+                      <div
+                        className="relative h-20 w-full overflow-hidden rounded-lg border border-white/10 bg-navy-900 select-none sm:h-32"
+                        onContextMenu={handleGuardContextMenu}
+                      >
+                        <Image
+                          src={card.image_url}
+                          alt={card.name}
+                          fill
+                          draggable={false}
+                          onContextMenu={handleGuardContextMenu}
+                          className="pointer-events-none object-cover"
+                        />
+                        <div
+                          aria-hidden="true"
+                          onContextMenu={handleGuardContextMenu}
+                          className="pointer-events-auto absolute inset-0 rounded-2xl bg-gradient-to-b from-navy-950/30 via-navy-950/10 to-navy-950/50 backdrop-blur-[1px]"
+                        />
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-semibold text-white sm:text-sm">{card.name}</h3>
+                        <p className="text-[10px] text-slate-300 sm:text-[9px]">{card.description}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => (canBuy ? setPendingCard(card) : undefined)}
+                        disabled={!canBuy || isPending}
+                        className={clsx(
+                          'inline-flex w-full items-center justify-center gap-1 rounded-2xl border px-2 py-0.5 text-[8px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 disabled:cursor-not-allowed sm:px-2.5 sm:py-1 sm:text-[10px]',
+                          !canBuy
+                            ? 'border-white/10 bg-navy-900/60 text-slate-500'
+                            : quantity > 0
+                              ? 'border-accent-gold bg-accent-gold/25 text-accent-gold hover:bg-accent-gold/35'
+                              : 'border-accent-gold bg-accent-gold/20 text-accent-gold hover:bg-accent-gold/30',
+                          isLoadingCard ? 'opacity-80' : '',
+                        )}
+                      >
+                        {isLoadingCard ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        <span>{buttonLabel}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       {pendingCard ? (
