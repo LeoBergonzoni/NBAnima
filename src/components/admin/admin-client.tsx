@@ -57,7 +57,7 @@ interface AdminUser {
   full_name: string | null;
   anima_points_balance: number;
   role: string;
-  user_cards?: Array<{ card: ShopCard | null }>;
+  user_cards?: Array<{ id: string; card: ShopCard | null }>;
 }
 
 interface HighlightResult {
@@ -1081,10 +1081,10 @@ export const AdminClient = ({
                     </td>
                     <td className="px-4 py-3 align-top">
                       <div className="flex flex-wrap gap-2">
-                        {userCards.map((entry) =>
+                        {userCards.map((entry, index) =>
                           entry.card ? (
                             <span
-                              key={entry.card.id}
+                              key={entry.id ?? `${entry.card.id}-${index}`}
                               className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 text-xs text-slate-200"
                             >
                               {entry.card.name} · {entry.card.rarity}
@@ -1219,10 +1219,10 @@ export const AdminClient = ({
                     </span>
                     {userCards.length > 0 ? (
                       <div className="mt-1 flex flex-wrap gap-2">
-                        {userCards.map((entry) =>
+                        {userCards.map((entry, index) =>
                           entry.card ? (
                             <span
-                              key={entry.card.id}
+                              key={entry.id ?? `${entry.card.id}-${index}`}
                               className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-navy-900/60 px-3 py-1 text-xs text-slate-200"
                             >
                               {entry.card.name} · {entry.card.rarity}

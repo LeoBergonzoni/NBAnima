@@ -3,7 +3,7 @@ import type { Database } from '@/lib/supabase.types';
 
 export type UserProfileRow = Pick<
   Database['public']['Tables']['users']['Row'],
-  'full_name' | 'anima_points_balance' | 'role'
+  'full_name' | 'anima_points_balance' | 'role' | 'avatar_url'
 >;
 
 export const ensureUserProfile = async (
@@ -13,7 +13,7 @@ export const ensureUserProfile = async (
   const admin = createAdminSupabaseClient();
   const { data, error } = await admin
     .from('users')
-    .select('full_name, anima_points_balance, role')
+    .select('full_name, anima_points_balance, role, avatar_url')
     .eq('id', userId)
     .maybeSingle<UserProfileRow>();
 
@@ -36,6 +36,7 @@ export const ensureUserProfile = async (
         role: 'user',
         anima_points_balance: 0,
         full_name: null,
+        avatar_url: null,
         created_at: nowIso,
         updated_at: nowIso,
       },
@@ -43,7 +44,7 @@ export const ensureUserProfile = async (
         onConflict: 'id',
       },
     )
-    .select('full_name, anima_points_balance, role')
+    .select('full_name, anima_points_balance, role, avatar_url')
     .single<UserProfileRow>();
 
   if (insertError) {
@@ -56,7 +57,7 @@ export const ensureUserProfile = async (
 
   const { data: fetched, error: fetchError } = await admin
     .from('users')
-    .select('full_name, anima_points_balance, role')
+    .select('full_name, anima_points_balance, role, avatar_url')
     .eq('id', userId)
     .maybeSingle<UserProfileRow>();
 

@@ -48,7 +48,7 @@ export default async function AdminPage({
       supabaseAdmin
         .from('users')
         .select(
-          'id, email, full_name, anima_points_balance, role, user_cards(card:shop_cards(id, name, rarity, price))',
+          'id, email, full_name, anima_points_balance, role, user_cards(id, card:shop_cards(id, name, rarity, price))',
         ),
       supabaseAdmin
         .from('shop_cards')

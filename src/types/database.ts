@@ -18,6 +18,7 @@ export type WeeklyRankingRow = {
   full_name: string;
   week_start_monday: string;
   weekly_xp: number;
+  avatar_url?: string | null;
 };
 
 export interface Database {

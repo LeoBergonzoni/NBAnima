@@ -57,10 +57,31 @@ export const getWeeklyRankingCurrent = async (): Promise<WeeklyRankingResult> =>
   }
 
   const ranking = (data ?? []) as WeeklyRankingRow[];
+  const userIds = Array.from(new Set(ranking.map((row) => row.user_id))).filter(Boolean);
+
+  let avatarMap = new Map<string, string | null>();
+
+  if (userIds.length > 0) {
+    const { data: avatarsData, error: avatarsError } = await supabaseAdmin
+      .from('users')
+      .select('id, avatar_url')
+      .in('id', userIds);
+
+    if (!avatarsError && avatarsData) {
+      avatarMap = new Map(
+        avatarsData.map((entry) => [entry.id as string, (entry.avatar_url as string | null) ?? null]),
+      );
+    }
+  }
+
+  const rankingWithAvatars = ranking.map((row) => ({
+    ...row,
+    avatar_url: avatarMap.get(row.user_id) ?? row.avatar_url ?? null,
+  }));
 
   return {
     weekStart: ranking[0]?.week_start_monday ?? displayWeekStart,
-    ranking,
+    ranking: rankingWithAvatars,
   };
 };
 

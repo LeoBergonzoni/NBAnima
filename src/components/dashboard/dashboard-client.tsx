@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   CircleDashed,
   Coins,
+  Medal,
   Loader2,
   Sparkles,
   UserCircle2,
@@ -28,7 +29,7 @@ import {
   usePicks,
 } from '@/hooks/usePicks';
 import { useTeamPlayers } from '@/hooks/useTeamPlayers';
-import { LogoutButton } from '@/components/logout-button';
+import { UserNavButton } from '@/components/user-nav-button';
 import { WinnersClient } from './winners-client';
 import type { WeeklyRankingRow } from '@/types/database';
 import type { ShopCard } from '@/types/shop-card';
@@ -860,6 +861,11 @@ export function DashboardClient({
     locale === 'it'
       ? 'Nessun dato settimanale disponibile al momento.'
       : 'No weekly data available yet.';
+  const medals: Array<{ color: string; label: string }> = [
+    { color: 'text-amber-300', label: locale === 'it' ? 'Oro' : 'Gold' },
+    { color: 'text-slate-200', label: locale === 'it' ? 'Argento' : 'Silver' },
+    { color: 'text-orange-400', label: locale === 'it' ? 'Bronzo' : 'Bronze' },
+  ];
 
   const earliestGameStartTs = useMemo(() => {
     const timestamps = games
@@ -1104,9 +1110,9 @@ export function DashboardClient({
               <UserCircle2 className="h-4 w-4 text-accent-gold" />
               <span>{locale.toUpperCase()}</span>
             </div>
-            <LogoutButton
+            <UserNavButton
               locale={locale}
-              label={dictionary.common.logout}
+              label={dictionary.user.title}
               className="bg-navy-900/70 text-xs font-medium"
             />
           </div>
@@ -1529,29 +1535,55 @@ export function DashboardClient({
                     >
                       <thead>
                         <tr className="text-xs uppercase tracking-wide text-slate-400">
-                          <th scope="col" className="px-4 py-2">
-                            {locale === 'it' ? 'Pos' : 'Pos'}
-                          </th>
-                          <th scope="col" className="px-4 py-2">
-                            {locale === 'it' ? 'Giocatore' : 'Player'}
-                          </th>
-                          <th scope="col" className="px-4 py-2 text-right">
-                            XP
-                          </th>
+                          <th scope="col" className="px-3 py-2">{locale === 'it' ? 'Pos' : 'Pos'}</th>
+                          <th scope="col" className="px-3 py-2">{locale === 'it' ? 'Giocatore' : 'Player'}</th>
+                          <th scope="col" className="px-3 py-2 text-right">XP</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {weeklyRanking.map((row, index) => (
-                          <tr key={row.user_id}>
-                            <td className="px-4 py-2 text-slate-300">#{index + 1}</td>
-                            <td className="px-4 py-2">
-                              {row.full_name?.trim()?.length ? row.full_name : '—'}
-                            </td>
-                            <td className="px-4 py-2 text-right font-semibold text-white">
-                              {numberFormatter.format(row.weekly_xp)}
-                            </td>
-                          </tr>
-                        ))}
+                        {weeklyRanking.map((row, index) => {
+                          const medal = medals[index];
+                          return (
+                            <tr key={row.user_id}>
+                              <td className="px-3 py-2 text-slate-300">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-semibold text-slate-200">
+                                    #{index + 1}
+                                  </span>
+                                  {medal ? (
+                                    <Medal
+                                      className={clsx('h-4 w-4', medal.color)}
+                                      aria-label={medal.label}
+                                    />
+                                  ) : null}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-navy-800/70">
+                                    {row.avatar_url ? (
+                                      <Image
+                                        src={row.avatar_url}
+                                        alt={row.full_name ?? 'Avatar'}
+                                        fill
+                                        sizes="32px"
+                                        className="object-cover"
+                                      />
+                                    ) : (
+                                      <UserCircle2 className="h-5 w-5 text-accent-gold" aria-hidden="true" />
+                                    )}
+                                  </div>
+                                  <span className="text-sm font-semibold text-white">
+                                    {row.full_name?.trim()?.length ? row.full_name : '—'}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-right font-semibold text-white">
+                                {numberFormatter.format(row.weekly_xp)}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   )}
