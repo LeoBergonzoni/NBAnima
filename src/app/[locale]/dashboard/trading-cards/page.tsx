@@ -4,15 +4,14 @@ import { TradingCardsClient } from '@/components/trading-cards/trading-cards-cli
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { ensureUserProfile, type UserProfileRow } from '@/lib/server/ensureUserProfile';
 import { createServerSupabase, supabaseAdmin } from '@/lib/supabase';
-import type { Database } from '@/lib/supabase.types';
 import type { ShopCard } from '@/types/shop-card';
 
 export default async function TradingCardsPage({
   params,
 }: {
-  params: Promise<{ locale: string }>;
+  params: { locale: string };
 }) {
-  const { locale: rawLocale } = await params;
+  const { locale: rawLocale } = params;
   const locale = SUPPORTED_LOCALES.includes(rawLocale as Locale) ? (rawLocale as Locale) : undefined;
   if (!locale) {
     notFound();

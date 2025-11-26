@@ -8,9 +8,9 @@ import { getDictionary } from '@/locales/dictionaries';
 export default async function TileFlipGamePage({
   params,
 }: {
-  params: Promise<{ locale: string }>;
+  params: { locale: string };
 }) {
-  const { locale: rawLocale } = await params;
+  const { locale: rawLocale } = params;
   const locale = SUPPORTED_LOCALES.includes(rawLocale as Locale)
     ? (rawLocale as Locale)
     : undefined;

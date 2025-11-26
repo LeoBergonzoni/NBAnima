@@ -7,7 +7,7 @@ import useSWR from 'swr';
 
 import { PicksPlayersTable, type PlayerPickRow } from '@/components/picks/PicksPlayersTable';
 import { PicksTeamsTable, type TeamPickRow } from '@/components/picks/PicksTeamsTable';
-import { matchesTeamIdentity, formatDateNy, formatDateTimeNy } from '@/components/picks/cells';
+import { matchesTeamIdentity } from '@/components/picks/cells';
 import {
   buildLastNDatesEastern,
   getEasternNow,
