@@ -9,7 +9,6 @@ import {
   Medal,
   Loader2,
   Sparkles,
-  UserCircle2,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -29,7 +28,6 @@ import {
   usePicks,
 } from '@/hooks/usePicks';
 import { useTeamPlayers } from '@/hooks/useTeamPlayers';
-import { UserNavButton } from '@/components/user-nav-button';
 import { WinnersClient } from './winners-client';
 import type { WeeklyRankingRow } from '@/types/database';
 import type { ShopCard } from '@/types/shop-card';
@@ -1105,17 +1103,6 @@ export function DashboardClient({
       <section className="hidden space-y-3 sm:block">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-2xl font-semibold text-white">NBAnima</span>
-          <div className="flex items-center gap-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-navy-800/70 px-3 py-1 text-xs text-slate-300">
-              <UserCircle2 className="h-4 w-4 text-accent-gold" />
-              <span>{locale.toUpperCase()}</span>
-            </div>
-            <UserNavButton
-              locale={locale}
-              label={dictionary.user.title}
-              className="bg-navy-900/70 text-xs font-medium"
-            />
-          </div>
         </div>
         <h1 className="text-3xl font-semibold text-white">Dashboard</h1>
       </section>
@@ -1170,15 +1157,13 @@ export function DashboardClient({
             {dictionary.dashboard.weeklyLeaderboardButton}
             <ArrowRight className="h-3 w-3" />
           </button>
-          {role === 'admin' ? (
-            <Link
-              href={`/${locale}/admin`}
-              className="inline-flex items-center gap-2 rounded-full border border-accent-gold/40 px-3 py-1 text-xs font-semibold text-accent-gold hover:border-accent-gold"
-            >
-              {dictionary.common.admin}
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          ) : null}
+          <Link
+            href={`/${locale}/dashboard/tile-flip-game`}
+            className="inline-flex items-center gap-2 rounded-full border border-accent-gold/40 px-3 py-1 text-xs font-semibold text-accent-gold transition hover:border-accent-gold"
+          >
+            {dictionary.tileGame.sectionTitle}
+            <ArrowRight className="h-3 w-3" />
+          </Link>
         </div>
       </section>
       <Link
@@ -1262,28 +1247,6 @@ export function DashboardClient({
                   </a>
                 </div>
               </header>
-
-              <div className="rounded-2xl border border-accent-gold/40 bg-navy-900/50 p-4 sm:p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs uppercase tracking-wide text-accent-gold/80">
-                      {dictionary.tileGame.rewardPointsLabel}
-                    </p>
-                    <h3 className="text-xl font-semibold text-white">
-                      {dictionary.tileGame.sectionTitle}
-                    </h3>
-                    <p className="text-sm text-slate-300">
-                      {dictionary.tileGame.sectionDescription}
-                    </p>
-                  </div>
-                  <Link
-                    href={`/${locale}/dashboard/tile-flip-game`}
-                    className="inline-flex items-center justify-center rounded-full border border-accent-gold/70 px-5 py-2 text-sm font-semibold text-accent-gold transition hover:bg-accent-gold/10"
-                  >
-                    {dictionary.tileGame.sectionCta}
-                  </Link>
-                </div>
-              </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-3">

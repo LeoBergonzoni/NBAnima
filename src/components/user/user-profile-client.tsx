@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
+import { LanguageToggle } from '@/components/language-toggle';
 import { LogoutButton } from '@/components/logout-button';
 import { useLocale } from '@/components/providers/locale-provider';
 import type { Locale } from '@/lib/constants';
@@ -199,6 +200,13 @@ export function UserProfileClient({
               <span>{errorMessage}</span>
             </div>
           ) : null}
+
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+              {dictionary.common.language}
+            </p>
+            <LanguageToggle locale={locale} />
+          </div>
 
           <div className="pt-2">
             <Link

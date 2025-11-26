@@ -8,6 +8,8 @@ import { LocaleProvider } from '@/components/providers/locale-provider';
 import { UserNavButton } from '@/components/user-nav-button';
 import { APP_TITLE, SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { getDictionary } from '@/locales/dictionaries';
+import { createServerSupabase } from '@/lib/supabase';
+import { ensureUserProfile } from '@/lib/server/ensureUserProfile';
 
 const LOGO_SRC = '/logo.png';
 
@@ -25,6 +27,22 @@ export default async function LocaleLayout({
   }
 
   const dictionary = await getDictionary(locale);
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let role: string | null = null;
+  if (user) {
+    try {
+      const profile = await ensureUserProfile(user.id, user.email);
+      role = profile.role ?? null;
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[layout] unable to load user role', error);
+      }
+    }
+  }
 
   return (
     <LocaleProvider value={{ locale, dictionary }}>
@@ -40,10 +58,15 @@ export default async function LocaleLayout({
                 </div>
                 <p className="text-base font-semibold text-white">NBAnima</p>
               </Link>
-              <div className="flex items-center gap-2">
-                <LanguageToggle locale={locale} />
-                <UserNavButton locale={locale} label={dictionary.user.title} />
-              </div>
+              {role === 'admin' ? (
+                <Link
+                  href={`/${locale}/admin`}
+                  className="inline-flex items-center gap-2 rounded-full border border-accent-gold/40 bg-navy-900/60 px-3 py-1 text-xs font-semibold text-accent-gold transition hover:border-accent-gold"
+                >
+                  {dictionary.common.admin}
+                  <span aria-hidden>↗</span>
+                </Link>
+              ) : null}
             </div>
 
             <div className="hidden items-center justify-between gap-4 sm:flex sm:flex-row sm:items-center sm:justify-between">
