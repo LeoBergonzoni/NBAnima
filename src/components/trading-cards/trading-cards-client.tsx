@@ -131,28 +131,28 @@ export const TradingCardsClient = ({
   };
 
   return (
-    <div className="space-y-6 pb-16 pt-3 sm:pt-5 lg:pb-20">
-      <div className="relative mx-auto h-32 w-full max-w-3xl overflow-hidden rounded-xl border border-accent-gold/40 bg-gradient-to-br from-accent-gold/10 via-transparent to-accent-coral/10 sm:h-40">
-        <Image
-          src="/NBAnimaTradingCards.png"
-          alt={dictionary.tradingCards.heroImageAlt}
-          fill
-          priority
-          className="object-contain"
-          sizes="(min-width: 1024px) 50vw, 90vw"
-        />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy-950 via-transparent to-transparent" />
-      </div>
-
-      <header className="overflow-hidden rounded-2xl border border-accent-gold/50 bg-gradient-to-r from-navy-950 via-navy-900 to-navy-850 p-4 shadow-card sm:p-5">
+    <div className="space-y-6 pb-16 pt-1 sm:pt-5 lg:pb-10">
+      <header className="overflow-hidden rounded-2xl border border-accent-gold/50 bg-gradient-to-r from-navy-950 via-navy-900 to-navy-850 px-4 pb-4 pt-0 shadow-card sm:px-5 sm:py-5">
         <div className="space-y-3">
+          <div className="flex items-center justify-center">
+            <div className="relative h-56 w-56 sm:h-64 sm:w-64">
+              <Image
+                src="/NBAnimaTradingCards.png"
+                alt={dictionary.tradingCards.heroImageAlt}
+                fill
+                priority
+                className="object-contain"
+                sizes="228px"
+              />
+            </div>
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="inline-flex items-center gap-2 rounded-full border border-accent-gold/40 bg-accent-gold/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent-gold sm:text-[11px]">
               {dictionary.tradingCards.ctaLabel}
             </span>
             <Link
               href={`/${locale}/dashboard`}
-              className="inline-flex items-center rounded-full border border-accent-gold/60 bg-accent-gold/15 px-3 py-2 text-xs font-semibold text-accent-gold transition hover:bg-accent-gold/25 sm:text-sm"
+              className="hidden items-center rounded-full border border-accent-gold/60 bg-accent-gold/15 px-3 py-2 text-xs font-semibold text-accent-gold transition hover:bg-accent-gold/25 sm:inline-flex sm:text-sm"
             >
               Dashboard
             </Link>
