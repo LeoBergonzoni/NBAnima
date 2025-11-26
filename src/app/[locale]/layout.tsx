@@ -8,17 +8,15 @@ import { LocaleProvider } from '@/components/providers/locale-provider';
 import { UserNavButton } from '@/components/user-nav-button';
 import { APP_TITLE, SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { getDictionary } from '@/locales/dictionaries';
+import type { LayoutProps } from 'next';
 
 const LOGO_SRC = '/logo.png';
 
 export default async function LocaleLayout({
   children,
   params,
-}: {
-  children: React.ReactNode;
-  params: { locale: string };
-}) {
-  const { locale: rawLocale } = params;
+}: LayoutProps<{ locale: string }>) {
+  const { locale: rawLocale } = await params;
   const locale = SUPPORTED_LOCALES.includes(rawLocale as Locale) ? (rawLocale as Locale) : undefined;
   if (!locale) {
     notFound();

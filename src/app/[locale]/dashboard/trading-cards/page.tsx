@@ -5,13 +5,12 @@ import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { ensureUserProfile, type UserProfileRow } from '@/lib/server/ensureUserProfile';
 import { createServerSupabase, supabaseAdmin } from '@/lib/supabase';
 import type { ShopCard } from '@/types/shop-card';
+import type { PageProps } from 'next';
 
 export default async function TradingCardsPage({
   params,
-}: {
-  params: { locale: string };
-}) {
-  const { locale: rawLocale } = params;
+}: PageProps<{ locale: string }>) {
+  const { locale: rawLocale } = await params;
   const locale = SUPPORTED_LOCALES.includes(rawLocale as Locale) ? (rawLocale as Locale) : undefined;
   if (!locale) {
     notFound();
