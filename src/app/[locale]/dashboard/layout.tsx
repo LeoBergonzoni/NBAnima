@@ -13,9 +13,9 @@ export default async function DashboardLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 }) {
-  const { locale: rawLocale } = params;
+  const { locale: rawLocale } = await params;
   const locale = rawLocale as Locale;
   const supabase = await createServerSupabase();
   const {

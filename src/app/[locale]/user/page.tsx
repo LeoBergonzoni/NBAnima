@@ -9,9 +9,9 @@ import { createServerSupabase } from '@/lib/supabase';
 export default async function UserPage({
   params,
 }: {
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 }) {
-  const { locale: rawLocale } = params;
+  const { locale: rawLocale } = await params;
   const locale = SUPPORTED_LOCALES.includes(rawLocale as Locale) ? (rawLocale as Locale) : undefined;
   if (!locale) {
     notFound();
