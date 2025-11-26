@@ -1,7 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 
 import { AdminClient } from '@/components/admin/admin-client';
-import type { PageProps } from 'next';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { createServerSupabase, supabaseAdmin } from '@/lib/supabase';
 import type { Database } from '@/lib/supabase.types';
@@ -9,8 +8,10 @@ import { getDictionary } from '@/locales/dictionaries';
 
 export default async function AdminPage({
   params,
-}: PageProps<{ locale: string }>) {
-  const { locale: rawLocale } = await params;
+}: {
+  params: { locale: string };
+}) {
+  const { locale: rawLocale } = params;
   const locale = SUPPORTED_LOCALES.includes(rawLocale as Locale) ? (rawLocale as Locale) : undefined;
   if (!locale) {
     notFound();

@@ -4,12 +4,13 @@ import { notFound } from 'next/navigation';
 import { TileFlipGameNBAnima } from '@/components/TileFlipGame';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { getDictionary } from '@/locales/dictionaries';
-import type { PageProps } from 'next';
 
 export default async function TileFlipGamePage({
   params,
-}: PageProps<{ locale: string }>) {
-  const { locale: rawLocale } = await params;
+}: {
+  params: { locale: string };
+}) {
+  const { locale: rawLocale } = params;
   const locale = SUPPORTED_LOCALES.includes(rawLocale as Locale)
     ? (rawLocale as Locale)
     : undefined;

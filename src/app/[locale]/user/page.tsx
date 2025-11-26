@@ -5,12 +5,13 @@ import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { DashboardMobileNav } from '@/components/dashboard/dashboard-mobile-nav';
 import { ensureUserProfile, type UserProfileRow } from '@/lib/server/ensureUserProfile';
 import { createServerSupabase } from '@/lib/supabase';
-import type { PageProps } from 'next';
 
 export default async function UserPage({
   params,
-}: PageProps<{ locale: string }>) {
-  const { locale: rawLocale } = await params;
+}: {
+  params: { locale: string };
+}) {
+  const { locale: rawLocale } = params;
   const locale = SUPPORTED_LOCALES.includes(rawLocale as Locale) ? (rawLocale as Locale) : undefined;
   if (!locale) {
     notFound();

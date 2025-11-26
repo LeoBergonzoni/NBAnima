@@ -4,12 +4,13 @@ import { AuthForm } from '@/components/auth/AuthForm';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { getDictionary } from '@/locales/dictionaries';
 import { createServerSupabase } from '@/lib/supabase';
-import type { PageProps } from 'next';
 
 export default async function SignupPage({
   params,
-}: PageProps<{ locale: string }>) {
-  const { locale: rawLocale } = await params;
+}: {
+  params: { locale: string };
+}) {
+  const { locale: rawLocale } = params;
   const locale = SUPPORTED_LOCALES.includes(rawLocale as Locale)
     ? (rawLocale as Locale)
     : undefined;

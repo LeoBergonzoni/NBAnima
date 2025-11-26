@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { DashboardMobileNav } from '@/components/dashboard/dashboard-mobile-nav';
-import type { LayoutProps } from 'next';
 import type { Locale } from '@/lib/constants';
 import { createServerSupabase } from '@/lib/supabase';
 
@@ -12,8 +11,11 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardLayout({
   children,
   params,
-}: LayoutProps<{ locale: string }>) {
-  const { locale: rawLocale } = await params;
+}: {
+  children: React.ReactNode;
+  params: { locale: string };
+}) {
+  const { locale: rawLocale } = params;
   const locale = rawLocale as Locale;
   const supabase = await createServerSupabase();
   const {

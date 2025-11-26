@@ -8,12 +8,13 @@ import {
   supabaseAdmin,
 } from '@/lib/supabase';
 import type { ShopCard } from '@/types/shop-card';
-import type { PageProps } from 'next';
 
 export default async function DashboardPage({
   params,
-}: PageProps<{ locale: string }>) {
-  const { locale: rawLocale } = await params;
+}: {
+  params: { locale: string };
+}) {
+  const { locale: rawLocale } = params;
   const locale = SUPPORTED_LOCALES.includes(rawLocale as Locale) ? (rawLocale as Locale) : undefined;
   if (!locale) {
     notFound();
