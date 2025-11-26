@@ -9,6 +9,7 @@ import {
   Medal,
   Loader2,
   Sparkles,
+  UserCircle2,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
