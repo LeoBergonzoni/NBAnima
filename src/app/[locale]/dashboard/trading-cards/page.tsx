@@ -65,6 +65,7 @@ export default async function TradingCardsPage({
       balance={profile.anima_points_balance}
       shopCards={(shopCards ?? []) as ShopCard[]}
       ownedCardCounts={ownedCardCounts}
+      isAdmin={profile.role === 'admin'}
     />
   );
 }

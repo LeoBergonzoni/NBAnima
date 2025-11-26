@@ -209,6 +209,7 @@ export interface Dictionary {
     ctaDescription: string;
     collectionTab: string;
     shopTab: string;
+    packsTab: string;
     collectionBadge: string;
     shopBadge: string;
     heroImageAlt: string;
@@ -228,6 +229,23 @@ export interface Dictionary {
     confirmMessage: string;
     owned: string;
     errorGeneric: string;
+  };
+  packs: {
+    title: string;
+    description: string;
+    oddsTitle: string;
+    firstCommon: string;
+    openCta: string;
+    adminCta: string;
+    confirmTitle: string;
+    confirmMessage: string;
+    confirmAdminMessage: string;
+    toastOpened: string;
+    swipeHint: string;
+    toCollection: string;
+    errorGeneric: string;
+    errorNoCards: string;
+    onlyAdmin: string;
   };
   admin: {
     title: string;
@@ -466,7 +484,8 @@ const it: Dictionary = {
     ctaLabel: 'Carte Collezionabili',
     ctaDescription: 'Vai alla pagina dedicata per collezione e shop.',
     collectionTab: 'La mia Collezione',
-    shopTab: 'Acquista Cards',
+    shopTab: 'Acquista singole cards',
+    packsTab: 'Bustine',
     collectionBadge: 'cards in collezione',
     shopBadge: 'cards nello shop',
     heroImageAlt: 'Immagine delle carte NBAnima',
@@ -563,6 +582,26 @@ const it: Dictionary = {
     confirmMessage: 'Sei sicuro di voler acquistare questa Card per {price} Anima Points?',
     owned: 'Acquistata',
     errorGeneric: 'Qualcosa è andato storto. Riprova.',
+  },
+  packs: {
+    title: 'Bustine',
+    description:
+      'Apri le bustine NBAnima per ottenere 4 cards casuali seguendo le probabilità indicate.',
+    oddsTitle: 'Probabilità',
+    firstCommon: '4 cards casuali.',
+    openCta: 'Apri la bustina',
+    adminCta: 'Acquista da Admin',
+    confirmTitle: 'Apri questa bustina?',
+    confirmMessage:
+      'Confermi di spendere {price} Anima Points per aprire la {pack}? Troverai 4 cards casuali.',
+    confirmAdminMessage:
+      'Confermi di aprire gratuitamente la {pack} come Admin? Troverai 4 cards casuali.',
+    toastOpened: 'Bustina aperta! Nuove cards aggiunte alla collezione.',
+    swipeHint: 'Swipe a destra o sinistra per vedere tutte le 4 cards.',
+    toCollection: 'Vai alla tua collezione',
+    errorGeneric: 'Impossibile aprire la bustina. Riprova.',
+    errorNoCards: 'Non sono disponibili cards per questa rarità.',
+    onlyAdmin: 'Solo gli Admin possono usare questa opzione.',
   },
   admin: {
     title: 'Console amministratore',
@@ -803,7 +842,8 @@ const en: Dictionary = {
     ctaLabel: 'Trading Cards',
     ctaDescription: 'Open the dedicated page for collection and shop.',
     collectionTab: 'My Collection',
-    shopTab: 'Buy Cards',
+    shopTab: 'Buy single cards',
+    packsTab: 'Packs',
     collectionBadge: 'cards in collection',
     shopBadge: 'cards in shop',
     heroImageAlt: 'NBAnima trading cards preview',
@@ -901,6 +941,26 @@ const en: Dictionary = {
       'Are you sure you want to purchase this Card for {price} Anima Points?',
     owned: 'Purchased',
     errorGeneric: 'Something went wrong. Please try again.',
+  },
+  packs: {
+    title: 'Card Packs',
+    description:
+      'Crack open NBAnima packs to reveal 4 random cards following the listed odds.',
+    oddsTitle: 'Odds',
+    firstCommon: '4 random cards inside.',
+    openCta: 'Open pack',
+    adminCta: 'Buy as Admin',
+    confirmTitle: 'Open this pack?',
+    confirmMessage:
+      'Spend {price} Anima Points to open the {pack}? You will receive 4 random cards.',
+    confirmAdminMessage:
+      'Open the {pack} for free as Admin? You will receive 4 random cards.',
+    toastOpened: 'Pack opened! New cards added to your collection.',
+    swipeHint: 'Swipe left or right to see all 4 cards.',
+    toCollection: 'Go to your collection',
+    errorGeneric: 'Unable to open the pack right now.',
+    errorNoCards: 'No cards available for the requested rarity.',
+    onlyAdmin: 'Only Admins can use this option.',
   },
   admin: {
     title: 'Admin console',

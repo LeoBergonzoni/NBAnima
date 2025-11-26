@@ -118,26 +118,28 @@ export const CollectionGrid = ({
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:grid-cols-3 lg:gap-4">
-              {group.cards.map((card) => (
-                <button
-                  key={card.id}
-                  type="button"
-                  onClick={card.owned ? () => setSelectedCard(card) : undefined}
-                  disabled={!card.owned}
-                  className={clsx(
-                    'group relative overflow-hidden rounded-xl border bg-navy-800/70 p-2 text-left shadow-card transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 sm:p-3',
-                    card.quantity >= 5
-                      ? 'border-accent-gold shadow-[0_0_18px_rgba(255,215,0,0.3)] hover:border-accent-gold'
-                      : card.owned
-                        ? 'border-accent-gold/20 hover:border-accent-gold/40'
-                        : 'border-white/10 opacity-90',
-                  )}
-                >
-                  <div
-                    className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-20"
-                    style={{ backgroundColor: card.accent_color ?? '#8ecae6' }}
-                  />
-                  <div className="absolute right-2 top-2 z-10 rounded-full border border-white/10 bg-black/60 px-2 py-[2px] text-[10px] font-semibold text-white sm:text-[11px]">
+              {group.cards.map((card) => {
+                const isMaxed = card.quantity >= 5;
+                return (
+                  <button
+                    key={card.id}
+                    type="button"
+                    onClick={card.owned ? () => setSelectedCard(card) : undefined}
+                    disabled={!card.owned}
+                    className={clsx(
+                      'group relative overflow-hidden rounded-xl border bg-navy-800/70 p-2 text-left shadow-card transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 sm:p-3',
+                      isMaxed
+                        ? 'border-[#ffd700] shadow-[0_0_30px_rgba(255,215,0,0.55)] ring-2 ring-[#ffd700]/80 ring-offset-2 ring-offset-navy-900 hover:border-[#ffd700]'
+                        : card.owned
+                          ? 'border-accent-gold/20 hover:border-accent-gold/40'
+                          : 'border-white/10 opacity-90',
+                    )}
+                  >
+                    <div
+                      className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-20"
+                      style={{ backgroundColor: card.accent_color ?? '#8ecae6' }}
+                    />
+                    <div className="absolute right-2 top-2 z-10 rounded-full border border-white/10 bg-black/60 px-2 py-[2px] text-[10px] font-semibold text-white sm:text-[11px]">
                     ×{card.quantity}
                   </div>
                   <div className="relative flex min-h-full flex-col gap-3">
@@ -145,7 +147,12 @@ export const CollectionGrid = ({
                       <span>{card.rarity}</span>
                     </div>
                     <div
-                      className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-navy-900/80 p-1"
+                      className={clsx(
+                        'relative w-full overflow-hidden rounded-xl border bg-navy-900/80 p-1',
+                        isMaxed
+                          ? 'border-[#ffd700] shadow-[0_0_24px_rgba(255,215,0,0.6)]'
+                          : 'border-white/10',
+                      )}
                       style={{ aspectRatio: '2 / 3' }}
                     >
                       <Image
@@ -190,8 +197,9 @@ export const CollectionGrid = ({
                       </span>
                     </div>
                   </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -257,7 +265,7 @@ export const ShopGrid = ({
   dictionary: Dictionary;
   locale: Locale;
   ownedCardCounts: Map<string, number>;
-  onPurchaseSuccess: () => void;
+  onPurchaseSuccess: (spent: number) => void;
 }) => {
   const [pendingCard, setPendingCard] = useState<ShopCard | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -310,7 +318,7 @@ export const ShopGrid = ({
         if (result.ok) {
           setPendingCard(null);
           setToastMessage(dictionary.dashboard.toasts.cardPurchased);
-          onPurchaseSuccess();
+          onPurchaseSuccess(pendingCard.price);
           return;
         }
 

@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 
 import { UserProfileClient } from '@/components/user/user-profile-client';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
+import { DashboardMobileNav } from '@/components/dashboard/dashboard-mobile-nav';
 import { ensureUserProfile } from '@/lib/server/ensureUserProfile';
 import { createServerSupabase } from '@/lib/supabase';
 
@@ -29,13 +30,16 @@ export default async function UserPage({
     const profile = await ensureUserProfile(user.id, user.email);
 
     return (
-      <UserProfileClient
-        userId={user.id}
-        email={user.email ?? ''}
-        fullName={profile.full_name}
-        avatarUrl={profile.avatar_url ?? null}
-        locale={locale}
-      />
+      <div className="relative pb-24 sm:pb-0">
+        <UserProfileClient
+          userId={user.id}
+          email={user.email ?? ''}
+          fullName={profile.full_name}
+          avatarUrl={profile.avatar_url ?? null}
+          locale={locale}
+        />
+        <DashboardMobileNav locale={locale} />
+      </div>
     );
   } catch (error) {
     console.error('[user] failed to load profile', error);

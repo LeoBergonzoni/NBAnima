@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 
 import { AuthProvider } from '@/components/auth/AuthProvider';
+import { DashboardMobileNav } from '@/components/dashboard/dashboard-mobile-nav';
+import type { Locale } from '@/lib/constants';
 import { createServerSupabase } from '@/lib/supabase';
 
 export const runtime = 'nodejs';
@@ -11,7 +13,7 @@ export default async function DashboardLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: Promise<{ locale: string }>;
+  params: Promise<{ locale: Locale }>;
 }) {
   const { locale } = await params;
   const supabase = await createServerSupabase();
@@ -23,5 +25,12 @@ export default async function DashboardLayout({
     redirect(`/${locale}/login`);
   }
 
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <AuthProvider>
+      <div className="relative pb-24 sm:pb-0">
+        {children}
+        <DashboardMobileNav locale={locale} />
+      </div>
+    </AuthProvider>
+  );
 }

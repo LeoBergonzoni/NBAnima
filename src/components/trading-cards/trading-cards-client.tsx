@@ -1,15 +1,20 @@
 'use client';
 
 import clsx from 'clsx';
-import { Coins, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Coins, Sparkles, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { TouchEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useLocale } from '@/components/providers/locale-provider';
 import type { Locale } from '@/lib/constants';
 import { CollectionGrid, ShopGrid } from '@/components/trading-cards/trading-cards-grids';
+import {
+  PacksGrid,
+  type PackOpenPayload,
+} from '@/components/trading-cards/trading-packs-grid';
 import type { ShopCard } from '@/types/shop-card';
 
 interface TradingCardsClientProps {
@@ -17,6 +22,7 @@ interface TradingCardsClientProps {
   balance: number;
   shopCards: ShopCard[];
   ownedCardCounts: Record<string, number>;
+  isAdmin: boolean;
 }
 
 export const TradingCardsClient = ({
@@ -24,10 +30,18 @@ export const TradingCardsClient = ({
   balance,
   shopCards,
   ownedCardCounts,
+  isAdmin,
 }: TradingCardsClientProps) => {
   const { dictionary } = useLocale();
   const router = useRouter();
-  const [activeSection, setActiveSection] = useState<'collection' | 'shop'>('collection');
+  const [activeSection, setActiveSection] = useState<'collection' | 'shop' | 'packs'>(
+    'collection',
+  );
+  const [currentBalance, setCurrentBalance] = useState(balance);
+  const [openingPack, setOpeningPack] = useState<PackOpenPayload | null>(null);
+  const [openingStage, setOpeningStage] = useState<'sealed' | 'cards'>('sealed');
+  const [openingCardIndex, setOpeningCardIndex] = useState(0);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const ownedCardCountsMap = useMemo(
     () => new Map(Object.entries(ownedCardCounts ?? {})),
     [ownedCardCounts],
@@ -48,6 +62,73 @@ export const TradingCardsClient = ({
     () => Object.values(ownedCardCounts ?? {}).reduce((sum, value) => sum + Number(value), 0),
     [ownedCardCounts],
   );
+
+  useEffect(() => {
+    setCurrentBalance(balance);
+  }, [balance]);
+
+  useEffect(() => {
+    if (!openingPack) {
+      return;
+    }
+    setOpeningStage('sealed');
+    setOpeningCardIndex(0);
+    const timer = setTimeout(() => setOpeningStage('cards'), 1400);
+    return () => clearTimeout(timer);
+  }, [openingPack]);
+
+  const handlePackOpened = (payload: PackOpenPayload) => {
+    setOpeningPack(payload);
+    setCurrentBalance(payload.newBalance);
+    setActiveSection('packs');
+  };
+
+  const handleCloseOpening = () => {
+    setOpeningPack(null);
+    setOpeningStage('sealed');
+    setOpeningCardIndex(0);
+    setTouchStartX(null);
+    router.refresh();
+  };
+
+  const handleGoToCollection = () => {
+    setActiveSection('collection');
+    handleCloseOpening();
+  };
+
+  const handleNextCard = () => {
+    if (!openingPack) {
+      return;
+    }
+    setOpeningCardIndex((prev) => Math.min(prev + 1, openingPack.cards.length - 1));
+  };
+
+  const handlePrevCard = () => {
+    if (!openingPack) {
+      return;
+    }
+    setOpeningCardIndex((prev) => Math.max(prev - 1, 0));
+  };
+
+  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    setTouchStartX(event.touches[0]?.clientX ?? null);
+  };
+
+  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    if (touchStartX === null) {
+      return;
+    }
+    const deltaX = event.changedTouches[0]?.clientX - touchStartX;
+    if (Math.abs(deltaX) < 40) {
+      return;
+    }
+    if (deltaX < 0) {
+      handleNextCard();
+    } else {
+      handlePrevCard();
+    }
+    setTouchStartX(null);
+  };
 
   return (
     <div className="space-y-6 pb-16 pt-3 sm:pt-5 lg:pb-20">
@@ -92,7 +173,7 @@ export const TradingCardsClient = ({
                   {dictionary.dashboard.animaPoints}
                 </span>
                 <span className="text-base font-semibold text-white sm:text-lg">
-                  {numberFormatter.format(balance)}
+                  {numberFormatter.format(currentBalance)}
                 </span>
               </div>
             </div>
@@ -121,6 +202,7 @@ export const TradingCardsClient = ({
             {(
               [
                 { key: 'collection', label: dictionary.tradingCards.collectionTab },
+                { key: 'packs', label: dictionary.tradingCards.packsTab },
                 { key: 'shop', label: dictionary.tradingCards.shopTab },
               ] as const
             ).map((option) => (
@@ -153,18 +235,164 @@ export const TradingCardsClient = ({
             ) : (
               <CollectionGrid cards={collectionCards} dictionary={dictionary} />
             )
-          ) : (
+          ) : null}
+
+          {activeSection === 'shop' ? (
             <ShopGrid
               cards={shopCards}
-              balance={balance}
+              balance={currentBalance}
               dictionary={dictionary}
               locale={locale}
               ownedCardCounts={ownedCardCountsMap}
-              onPurchaseSuccess={() => router.refresh()}
+              onPurchaseSuccess={(spent) => {
+                setCurrentBalance((prev) => Math.max(prev - spent, 0));
+                router.refresh();
+              }}
             />
-          )}
+          ) : null}
+
+          {activeSection === 'packs' ? (
+            <PacksGrid
+              balance={currentBalance}
+              dictionary={dictionary}
+              locale={locale}
+              isAdmin={isAdmin}
+              onPackOpened={handlePackOpened}
+            />
+          ) : null}
         </section>
       </div>
+
+      {openingPack ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black p-3 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          onClick={handleCloseOpening}
+        >
+          <div
+            className="relative w-full max-w-md overflow-hidden rounded-[1.75rem] border border-accent-gold/30 bg-black p-4 shadow-[0_20px_60px_rgba(0,0,0,0.65)] sm:max-w-4xl sm:p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={handleCloseOpening}
+              className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+              aria-label={dictionary.common.cancel}
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="space-y-3 sm:space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full border border-accent-gold/40 bg-accent-gold/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-gold">
+                  <Sparkles className="h-4 w-4" />
+                  {openingPack.pack.name}
+                </span>
+              </div>
+              <div className="relative max-h-[82vh] rounded-3xl border border-white/10 bg-black p-3 sm:max-h-[85vh] sm:p-4">
+                <div
+                  className={clsx(
+                    'absolute inset-0 flex items-center justify-center transition duration-1200',
+                    openingStage === 'sealed' ? 'opacity-100 scale-100' : 'pointer-events-none opacity-0 scale-105',
+                  )}
+                >
+                  <Image
+                    src={openingPack.pack.image}
+                    alt={openingPack.pack.name}
+                    width={540}
+                    height={360}
+                    className="h-36 w-auto sm:h-60"
+                    priority
+                  />
+                </div>
+                <div
+                  className={clsx(
+                    'relative flex flex-col items-center gap-4 px-3 py-4 transition duration-1200 sm:flex-row sm:gap-6 sm:px-6 sm:py-6',
+                    openingStage === 'cards'
+                      ? 'opacity-100 translate-y-0'
+                      : 'pointer-events-none translate-y-6 opacity-0',
+                  )}
+                  onTouchStart={handleTouchStart}
+                  onTouchEnd={handleTouchEnd}
+                >
+                  <button
+                    type="button"
+                    onClick={handlePrevCard}
+                    disabled={openingCardIndex === 0}
+                    className="hidden h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition hover:bg-white/10 disabled:opacity-40 sm:inline-flex"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <div className="relative w-full flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black p-3 shadow-card sm:p-4">
+                    <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+                      {openingPack.cards[openingCardIndex]?.rarity}
+                    </div>
+                    <div className="flex justify-center">
+                      <Image
+                        src={openingPack.cards[openingCardIndex]?.image_url ?? '/cards/back.png'}
+                        alt={openingPack.cards[openingCardIndex]?.name ?? 'Card'}
+                        width={720}
+                        height={1080}
+                        className="h-[44vh] w-auto max-w-full object-contain sm:h-[60vh]"
+                        priority
+                      />
+                    </div>
+                    <div className="mt-3 space-y-1 text-center sm:text-left">
+                      <h3 className="text-base font-semibold text-white sm:text-lg">
+                        {openingPack.cards[openingCardIndex]?.name}
+                      </h3>
+                      <p className="text-xs text-slate-300 sm:text-sm">
+                        {openingPack.cards[openingCardIndex]?.description}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleNextCard}
+                    disabled={openingCardIndex === openingPack.cards.length - 1}
+                    className="hidden h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition hover:bg-white/10 disabled:opacity-40 sm:inline-flex"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm text-slate-200">
+                  <Sparkles className="h-4 w-4 text-accent-gold" />
+                  <span>{dictionary.packs.swipeHint}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {openingPack.cards.map((card, index) => (
+                    <span
+                      key={card.id + index.toString()}
+                      className={clsx(
+                        'h-2 w-8 rounded-full transition',
+                        index === openingCardIndex
+                          ? 'bg-accent-gold shadow-[0_0_10px_rgba(255,215,0,0.5)]'
+                          : 'bg-white/15',
+                      )}
+                    />
+                  ))}
+                </div>
+                <span className="text-sm font-semibold text-white">
+                  {openingCardIndex + 1}/{openingPack.cards.length}
+                </span>
+              </div>
+              <div className="flex min-h-[60px] items-center justify-center">
+                {openingCardIndex === openingPack.cards.length - 1 ? (
+                  <button
+                    type="button"
+                    onClick={handleGoToCollection}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-accent-gold bg-gradient-to-r from-accent-gold to-accent-coral px-3.5 py-2.5 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110 sm:px-4 sm:py-2 sm:text-sm"
+                  >
+                    {dictionary.packs.toCollection}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

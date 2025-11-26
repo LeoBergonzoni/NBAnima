@@ -1183,7 +1183,7 @@ export function DashboardClient({
       </section>
       <Link
         href={`/${locale}/dashboard/trading-cards`}
-        className="group relative flex w-full max-w-sm self-stretch items-center gap-3 overflow-hidden rounded-xl border-[1.6px] border-[#d4af37] bg-navy-900/70 p-1 shadow-[0_0_25px_rgba(255,215,0,0.18)] transition hover:brightness-110 sm:max-w-xs sm:p-2 lg:max-w-[320px] lg:self-center"
+        className="group relative hidden w-full max-w-sm self-stretch items-center gap-3 overflow-hidden rounded-xl border-[1.6px] border-[#d4af37] bg-navy-900/70 p-1 shadow-[0_0_25px_rgba(255,215,0,0.18)] transition hover:brightness-110 sm:flex sm:max-w-xs sm:p-2 lg:max-w-[320px] lg:self-center"
       >
         <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border border-accent-gold/60 bg-navy-800/80">
           <Image
