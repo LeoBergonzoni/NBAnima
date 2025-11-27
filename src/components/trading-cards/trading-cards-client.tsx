@@ -1,13 +1,15 @@
 'use client';
 
 import clsx from 'clsx';
-import { ChevronLeft, ChevronRight, Coins, Sparkles, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Coins, Loader2, Sparkles, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { TouchEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { claimDailyPearlPackAction } from '@/app/[locale]/dashboard/(shop)/actions';
+import { PACK_DEFINITION_MAP } from '@/config/trading-packs';
 import { useLocale } from '@/components/providers/locale-provider';
 import type { Locale } from '@/lib/constants';
 import { CollectionGrid, ShopGrid } from '@/components/trading-cards/trading-cards-grids';
@@ -23,6 +25,7 @@ interface TradingCardsClientProps {
   shopCards: ShopCard[];
   ownedCardCounts: Record<string, number>;
   isAdmin: boolean;
+  nextDailyPearlPackAvailableAt: string | null;
 }
 
 export const TradingCardsClient = ({
@@ -31,6 +34,7 @@ export const TradingCardsClient = ({
   shopCards,
   ownedCardCounts,
   isAdmin,
+  nextDailyPearlPackAvailableAt,
 }: TradingCardsClientProps) => {
   const { dictionary } = useLocale();
   const router = useRouter();
@@ -42,6 +46,12 @@ export const TradingCardsClient = ({
   const [openingStage, setOpeningStage] = useState<'sealed' | 'cards'>('sealed');
   const [openingCardIndex, setOpeningCardIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [dailyAvailableAt, setDailyAvailableAt] = useState<string | null>(
+    nextDailyPearlPackAvailableAt,
+  );
+  const [isClaimingDailyPack, setIsClaimingDailyPack] = useState(false);
+  const [dailyError, setDailyError] = useState<string | null>(null);
+  const [now, setNow] = useState<number>(() => Date.now());
   const ownedCardCountsMap = useMemo(
     () => new Map(Object.entries(ownedCardCounts ?? {})),
     [ownedCardCounts],
@@ -58,14 +68,45 @@ export const TradingCardsClient = ({
     () => new Intl.NumberFormat(locale === 'it' ? 'it-IT' : 'en-US'),
     [locale],
   );
+  const formatMsToClock = (ms: number) => {
+    if (ms <= 0) {
+      return '00:00:00';
+    }
+    const totalSeconds = Math.max(Math.floor(ms / 1000), 0);
+    const hours = Math.floor(totalSeconds / 3600)
+      .toString()
+      .padStart(2, '0');
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+      .toString()
+      .padStart(2, '0');
+    const seconds = Math.floor(totalSeconds % 60)
+      .toString()
+      .padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  };
   const totalOwnedCards = useMemo(
     () => Object.values(ownedCardCounts ?? {}).reduce((sum, value) => sum + Number(value), 0),
     [ownedCardCounts],
   );
+  const dailyRemainingMs = useMemo(
+    () => (dailyAvailableAt ? new Date(dailyAvailableAt).getTime() - now : 0),
+    [dailyAvailableAt, now],
+  );
+  const dailyCountdownLabel = formatMsToClock(dailyRemainingMs);
+  const isDailyOnCooldown = dailyRemainingMs > 0;
 
   useEffect(() => {
     setCurrentBalance(balance);
   }, [balance]);
+
+  useEffect(() => {
+    setDailyAvailableAt(nextDailyPearlPackAvailableAt);
+  }, [nextDailyPearlPackAvailableAt]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!openingPack) {
@@ -130,6 +171,47 @@ export const TradingCardsClient = ({
     setTouchStartX(null);
   };
 
+  const handleClaimDailyPack = () => {
+    if (isDailyOnCooldown || isClaimingDailyPack) {
+      return;
+    }
+    setIsClaimingDailyPack(true);
+    setDailyError(null);
+    claimDailyPearlPackAction({ locale })
+      .then((result) => {
+        if (result.ok) {
+          setDailyAvailableAt(result.nextAvailableAt);
+          handlePackOpened({
+            pack: PACK_DEFINITION_MAP.pearl,
+            cards: result.cards,
+            newBalance: result.newBalance,
+          });
+          return;
+        }
+        if (result.nextAvailableAt) {
+          setDailyAvailableAt(result.nextAvailableAt);
+        }
+        if (result.error === 'DAILY_LIMIT') {
+          setDailyError(
+            dictionary.tradingCards.dailyPackCountdown.replace(
+              '{time}',
+              formatMsToClock(
+                (result.nextAvailableAt ? new Date(result.nextAvailableAt).getTime() : now) - now,
+              ),
+            ),
+          );
+          return;
+        }
+        setDailyError(dictionary.tradingCards.dailyPackError);
+      })
+      .catch(() => {
+        setDailyError(dictionary.tradingCards.dailyPackError);
+      })
+      .finally(() => {
+        setIsClaimingDailyPack(false);
+      });
+  };
+
   return (
     <div className="space-y-6 pb-16 pt-1 sm:pt-5 lg:pb-10">
       <header className="overflow-hidden rounded-2xl border border-accent-gold/50 bg-gradient-to-r from-navy-950 via-navy-900 to-navy-850 px-4 pb-4 pt-0 shadow-card sm:px-5 sm:py-5">
@@ -191,6 +273,54 @@ export const TradingCardsClient = ({
           </div>
         </div>
       </header>
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={handleClaimDailyPack}
+          disabled={isDailyOnCooldown || isClaimingDailyPack}
+          className={clsx(
+            'group relative flex w-full items-center overflow-hidden rounded-[1.25rem] border p-3 text-left shadow-card transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 sm:p-4',
+            isDailyOnCooldown || isClaimingDailyPack
+              ? 'border-white/10 bg-navy-900/70 text-slate-300'
+              : 'border-accent-gold/60 bg-gradient-to-r from-navy-950 via-navy-900 to-navy-850 text-white hover:border-accent-gold',
+          )}
+        >
+          <div className="relative flex items-center gap-3 sm:gap-4">
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-black/40 p-1.5 shadow-inner sm:h-16 sm:w-16">
+              <Image src="/PackagePearl.png" alt="Pearl Pack" fill className="object-contain" sizes="64px" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[12px] uppercase tracking-wide text-accent-gold sm:text-xs">
+                {dictionary.tradingCards.dailyPackTitle}
+              </p>
+              <p className="text-sm font-semibold sm:text-base">
+                {isDailyOnCooldown
+                  ? dictionary.tradingCards.dailyPackCountdown.replace('{time}', dailyCountdownLabel)
+                  : dictionary.tradingCards.dailyPackCta}
+              </p>
+              <p className="text-[12px] text-slate-300 sm:text-[13px]">
+                {dictionary.tradingCards.dailyPackSubtitle}
+              </p>
+            </div>
+          </div>
+          <div className="relative ml-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-2 text-[12px] font-semibold uppercase tracking-wide text-accent-gold">
+            {isClaimingDailyPack ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            <span>
+              {isDailyOnCooldown
+                ? dictionary.tradingCards.dailyPackLocked
+                : dictionary.tradingCards.dailyPackBadge}
+            </span>
+          </div>
+        </button>
+        {dailyError ? (
+          <p className="text-sm text-red-300">{dailyError}</p>
+        ) : null}
+      </div>
 
       <div className="space-y-4">
         <div
@@ -301,7 +431,7 @@ export const TradingCardsClient = ({
                     alt={openingPack.pack.name}
                     width={540}
                     height={360}
-                    className="h-36 w-auto sm:h-60"
+                    className="h-[44vh] w-auto max-w-full object-contain sm:h-[60vh]"
                     priority
                   />
                 </div>
@@ -341,9 +471,6 @@ export const TradingCardsClient = ({
                       <h3 className="text-base font-semibold text-white sm:text-lg">
                         {openingPack.cards[openingCardIndex]?.name}
                       </h3>
-                      <p className="text-xs text-slate-300 sm:text-sm">
-                        {openingPack.cards[openingCardIndex]?.description}
-                      </p>
                     </div>
                   </div>
                   <button

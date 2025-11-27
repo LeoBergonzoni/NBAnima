@@ -213,6 +213,13 @@ export interface Dictionary {
     collectionBadge: string;
     shopBadge: string;
     heroImageAlt: string;
+    dailyPackTitle: string;
+    dailyPackSubtitle: string;
+    dailyPackCta: string;
+    dailyPackCountdown: string;
+    dailyPackBadge: string;
+    dailyPackLocked: string;
+    dailyPackError: string;
   };
   collection: {
     empty: string;
@@ -489,6 +496,13 @@ const it: Dictionary = {
     collectionBadge: 'cards in collezione',
     shopBadge: 'cards nello shop',
     heroImageAlt: 'Immagine delle carte NBAnima',
+    dailyPackTitle: 'Pearl Pack giornaliero',
+    dailyPackSubtitle: 'Apri gratis 1 Pearl Pack ogni 24 ore.',
+    dailyPackCta: 'Riscatta la tua bustina giornaliera',
+    dailyPackCountdown: '{time} all’apertura della tua prossima bustina giornaliera',
+    dailyPackBadge: 'Gratis',
+    dailyPackLocked: 'In attesa',
+    dailyPackError: 'Non siamo riusciti ad aprire la bustina. Riprova tra poco.',
   },
   play: {
     title: 'Preparati alla prossima notte NBA',
@@ -847,6 +861,13 @@ const en: Dictionary = {
     collectionBadge: 'cards in collection',
     shopBadge: 'cards in shop',
     heroImageAlt: 'NBAnima trading cards preview',
+    dailyPackTitle: 'Daily Pearl Pack',
+    dailyPackSubtitle: 'Open 1 Pearl Pack for free every 24 hours.',
+    dailyPackCta: 'Claim your daily pack',
+    dailyPackCountdown: '{time} until your next daily pack',
+    dailyPackBadge: 'Free',
+    dailyPackLocked: 'Cooling down',
+    dailyPackError: 'We could not open the pack. Please try again in a moment.',
   },
   play: {
     title: 'Gear up for the next NBA night',
