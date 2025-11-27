@@ -34,14 +34,27 @@ export default async function TradingCardsPage({
     redirect(`/${locale}/login`);
   }
 
-  const [{ data: userCards, error: cardsError }, { data: shopCards, error: shopError }] =
-    await Promise.all([
-      supabaseAdmin.from('user_cards').select('card_id').eq('user_id', user.id),
-      supabaseAdmin.from('shop_cards').select('*').order('price', { ascending: true }),
-    ]);
+  const [
+    { data: userCards, error: cardsError },
+    { data: shopCards, error: shopError },
+    { data: dailyLedgerRows, error: dailyLedgerError },
+  ] = await Promise.all([
+    supabaseAdmin.from('user_cards').select('card_id').eq('user_id', user.id),
+    supabaseAdmin.from('shop_cards').select('*').order('price', { ascending: true }),
+    supabaseAdmin
+      .from('anima_points_ledger')
+      .select('created_at')
+      .eq('user_id', user.id)
+      .eq('reason', 'daily_pearl_pack')
+      .order('created_at', { ascending: false })
+      .limit(1),
+  ]);
 
-  if (cardsError || shopError || !profile) {
-    console.error('[trading-cards] failed to load profile context', cardsError || shopError);
+  if (cardsError || shopError || dailyLedgerError || !profile) {
+    console.error(
+      '[trading-cards] failed to load profile context',
+      cardsError || shopError || dailyLedgerError,
+    );
     redirect(`/${locale}/login`);
   }
 
@@ -65,6 +78,11 @@ export default async function TradingCardsPage({
       shopCards={(shopCards ?? []) as ShopCard[]}
       ownedCardCounts={ownedCardCounts}
       isAdmin={profile.role === 'admin'}
+      nextDailyPearlPackAvailableAt={
+        dailyLedgerRows?.[0]?.created_at
+          ? new Date(new Date(dailyLedgerRows[0].created_at).getTime() + 24 * 60 * 60 * 1000).toISOString()
+          : null
+      }
     />
   );
 }
