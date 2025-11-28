@@ -195,6 +195,11 @@ const computeTeamAbbr = (team: GameTeam): string => {
 const normalizeProvider = (provider?: string): GameMeta['provider'] =>
   provider === 'balldontlie' ? 'balldontlie' : 'stub';
 
+const getDefaultDashboardTab = () =>
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches
+    ? 'weekly'
+    : 'play';
+
 const SectionStatus = ({ complete }: { complete: boolean }) =>
   complete ? (
     <CheckCircle2 className="h-5 w-5 text-lime-400" />
@@ -712,7 +717,9 @@ export function DashboardClient({
   );
   const ownedCount = ownedCards.length;
   const shopCount = shopCards.length;
-  const [activeTab, setActiveTab] = useState<'play' | 'myPicks' | 'winners' | 'weekly'>('play');
+  const [activeTab, setActiveTab] = useState<'play' | 'myPicks' | 'winners' | 'weekly'>(() =>
+    getDefaultDashboardTab(),
+  );
   const [teamSelections, setTeamSelections] = useState<Record<string, string>>({});
   const [playerSelections, setPlayerSelections] = useState<PlayerSelections>({});
   const [highlightSelections, setHighlightSelections] = useState<string[]>(() =>
@@ -764,6 +771,12 @@ export function DashboardClient({
   useEffect(() => {
     const id = window.setInterval(() => setNowTs(Date.now()), 1000);
     return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (getDefaultDashboardTab() === 'weekly') {
+      setActiveTab((current) => (current === 'play' ? 'weekly' : current));
+    }
   }, []);
 
   useEffect(() => {
@@ -1176,6 +1189,20 @@ export function DashboardClient({
     const id = window.setTimeout(() => setMobileSaveToast(null), 2500);
     return () => window.clearTimeout(id);
   }, [mobileSaveToast]);
+
+  useEffect(() => {
+    if (!mobilePicker) {
+      return undefined;
+    }
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [mobilePicker]);
 
   const tabs: Array<{
     key: 'play' | 'myPicks' | 'winners' | 'weekly';

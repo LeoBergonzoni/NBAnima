@@ -87,6 +87,13 @@ export function PlayerSelect({
     return undefined;
   }, [open]);
 
+  useEffect(() => {
+    if (!open) {
+      setQuery('');
+      setDebouncedQuery('');
+    }
+  }, [open]);
+
   const filteredOptions = useMemo(() => {
     const lower = options.filter((option) => matchesQuery(option, debouncedQuery));
     return lower;
@@ -122,7 +129,7 @@ export function PlayerSelect({
 
   const handleSelect = (id: string | null) => {
     onChange(id);
-    setOpen(false);
+    handleOpenChange(false);
   };
 
   const handleOpenChange = (next: boolean) => {
@@ -131,10 +138,6 @@ export function PlayerSelect({
     }
     setOpen(next);
     onDialogOpenChange?.(next);
-    if (!next) {
-      setQuery('');
-      setDebouncedQuery('');
-    }
   };
 
   return (

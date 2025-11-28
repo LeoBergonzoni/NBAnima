@@ -544,7 +544,7 @@ const it: Dictionary = {
     changesHint:
       'Modifiche effettuate oggi: {count}. Puoi aggiornare le tue picks tutte le volte che vuoi fino all’inizio delle partite.',
     lockCountdown: {
-      label: 'Tempo rimanente per salvare/modificare le picks:',
+      label: 'Tempo rimanente per salvare le picks:',
       pending: 'In attesa dell’orario ufficiale delle partite...',
       closed: 'Le picks si chiudono 5 minuti prima della prima partita.',
     },
@@ -909,7 +909,7 @@ const en: Dictionary = {
     changesHint:
       'Changes made today: {count}. You can keep updating your picks freely until tip-off.',
     lockCountdown: {
-      label: 'Time left to edit your picks:',
+      label: 'Time left to save/edit your picks:',
       pending: 'Waiting for today’s schedule...',
       closed: 'Picks lock 5 minutes before the first game.',
     },

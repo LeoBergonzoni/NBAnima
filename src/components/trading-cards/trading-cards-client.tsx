@@ -70,19 +70,16 @@ export const TradingCardsClient = ({
   );
   const formatMsToClock = (ms: number) => {
     if (ms <= 0) {
-      return '00:00:00';
+      return '00:00';
     }
-    const totalSeconds = Math.max(Math.floor(ms / 1000), 0);
-    const hours = Math.floor(totalSeconds / 3600)
+    const totalMinutes = Math.max(Math.floor(ms / 1000 / 60), 0);
+    const hours = Math.floor(totalMinutes / 60)
       .toString()
       .padStart(2, '0');
-    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const minutes = Math.floor(totalMinutes % 60)
       .toString()
       .padStart(2, '0');
-    const seconds = Math.floor(totalSeconds % 60)
-      .toString()
-      .padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
+    return `${hours}:${minutes}`;
   };
   const totalOwnedCards = useMemo(
     () => Object.values(ownedCardCounts ?? {}).reduce((sum, value) => sum + Number(value), 0),
@@ -294,11 +291,6 @@ export const TradingCardsClient = ({
               <p className="text-[12px] uppercase tracking-wide text-accent-gold sm:text-xs">
                 {dictionary.tradingCards.dailyPackTitle}
               </p>
-              <p className="text-sm font-semibold sm:text-base">
-                {isDailyOnCooldown
-                  ? dictionary.tradingCards.dailyPackCountdown.replace('{time}', dailyCountdownLabel)
-                  : dictionary.tradingCards.dailyPackCta}
-              </p>
               <p className="text-[12px] text-slate-300 sm:text-[13px]">
                 {dictionary.tradingCards.dailyPackSubtitle}
               </p>
@@ -312,7 +304,7 @@ export const TradingCardsClient = ({
             )}
             <span>
               {isDailyOnCooldown
-                ? dictionary.tradingCards.dailyPackLocked
+                ? dailyCountdownLabel
                 : dictionary.tradingCards.dailyPackBadge}
             </span>
           </div>
