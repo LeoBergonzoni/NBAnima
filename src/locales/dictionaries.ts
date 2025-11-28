@@ -441,7 +441,7 @@ const it: Dictionary = {
     animaPoints: 'Anima Points',
     playTab: 'Gioca',
     myPicksTab: 'Le mie scelte',
-    winnersTab: 'Vincenti',
+    winnersTab: 'Risultati Vincenti',
     collectionTab: 'Collezione',
     shopTab: 'Acquista Cards',
     weeklyXpBalance: 'Weekly XP',

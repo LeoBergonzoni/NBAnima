@@ -3,6 +3,8 @@
 import clsx from 'clsx';
 import {
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   CircleDashed,
   Coins,
@@ -10,10 +12,11 @@ import {
   Loader2,
   Sparkles,
   UserCircle2,
+  X,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
 import useSWR from 'swr';
 
 import { PlayerSelect, type PlayerOptionSection } from '@/components/ui/PlayerSelect';
@@ -696,7 +699,6 @@ export function DashboardClient({
   balance,
   ownedCards,
   shopCards,
-  role,
 }: DashboardClientProps) {
   const { dictionary } = useLocale();
   const highlightsEnabled = FEATURES.HIGHLIGHTS_ENABLED;
@@ -720,6 +722,9 @@ export function DashboardClient({
   const [isSaving, setIsSaving] = useState(false);
   const [isTeamsOpen, setIsTeamsOpen] = useState(false);
   const [isPlayersOpen, setIsPlayersOpen] = useState(false);
+  const [mobilePicker, setMobilePicker] = useState<'teams' | 'players' | null>(null);
+  const [mobileSlideIndex, setMobileSlideIndex] = useState(0);
+  const [mobileTouchStartX, setMobileTouchStartX] = useState<number | null>(null);
   const [nowTs, setNowTs] = useState(() => Date.now());
 
   const pickDate = useMemo(
@@ -951,6 +956,56 @@ export function DashboardClient({
     });
   };
 
+  const totalMobileSlides = mobilePicker ? Math.max(games.length, 1) : 0;
+
+  const openMobilePicker = (mode: 'teams' | 'players') => {
+    if (games.length === 0) {
+      return;
+    }
+    setMobilePicker(mode);
+    setMobileSlideIndex(0);
+    setMobileTouchStartX(null);
+  };
+
+  const closeMobilePicker = () => {
+    setMobilePicker(null);
+    setMobileSlideIndex(0);
+    setMobileTouchStartX(null);
+  };
+
+  const handleMobileNext = () => {
+    if (!mobilePicker || totalMobileSlides === 0) {
+      return;
+    }
+    setMobileSlideIndex((previous) => Math.min(previous + 1, totalMobileSlides - 1));
+  };
+
+  const handleMobilePrev = () => {
+    if (!mobilePicker || totalMobileSlides === 0) {
+      return;
+    }
+    setMobileSlideIndex((previous) => Math.max(previous - 1, 0));
+  };
+
+  const handleMobileTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    setMobileTouchStartX(event.touches[0]?.clientX ?? null);
+  };
+
+  const handleMobileTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    if (mobileTouchStartX === null) {
+      return;
+    }
+    const deltaX = (event.changedTouches[0]?.clientX ?? 0) - mobileTouchStartX;
+    if (Math.abs(deltaX) > 40) {
+      if (deltaX < 0) {
+        handleMobileNext();
+      } else {
+        handleMobilePrev();
+      }
+    }
+    setMobileTouchStartX(null);
+  };
+
   const hasExistingPicks = Boolean(picks && picks.teams.length > 0);
   const dailyChanges = picks?.changesCount ?? 0;
   const changeHintMessage = dictionary.play.changesHint.replace(
@@ -981,9 +1036,19 @@ export function DashboardClient({
   }, [dictionary.play.lockCountdown, lockWindowDeadlineTs, nowTs]);
   const canSubmit = teamsComplete && !isSaving && !lockWindowActive;
 
-  const handleSave = async () => {
-    if (!canSubmit) {
-      return;
+  const handleSave = async (options?: { allowPartialTeams?: boolean }) => {
+    const allowPartialTeams = options?.allowPartialTeams ?? false;
+    if (
+      isSaving ||
+      lockWindowActive ||
+      picksLoading ||
+      gamesLoading ||
+      (games.length === 0 && !allowPartialTeams)
+    ) {
+      return false;
+    }
+    if (!allowPartialTeams && !teamsComplete) {
+      return false;
     }
 
     const gamesMeta: GameMeta[] = games.map((game) => {
@@ -1071,6 +1136,7 @@ export function DashboardClient({
       gameUuids,
     };
 
+    let success = false;
     setIsSaving(true);
     setErrorMessage(null);
     try {
@@ -1081,10 +1147,19 @@ export function DashboardClient({
         await saveInitialPicks(payload);
         setPicksToast(dictionary.dashboard.toasts.picksSaved);
       }
+      success = true;
     } catch (error) {
       setErrorMessage((error as Error).message);
     } finally {
       setIsSaving(false);
+    }
+    return success;
+  };
+
+  const handleMobileSave = async () => {
+    const saved = await handleSave({ allowPartialTeams: mobilePicker === 'players' });
+    if (saved) {
+      closeMobilePicker();
     }
   };
 
@@ -1093,9 +1168,9 @@ export function DashboardClient({
     label: string;
   }> = [
     { key: 'play', label: dictionary.dashboard.playTab },
+    { key: 'weekly', label: dictionary.dashboard.weeklyRanking },
     { key: 'myPicks', label: dictionary.dashboard.myPicksTab },
     { key: 'winners', label: dictionary.dashboard.winnersTab },
-    { key: 'weekly', label: dictionary.dashboard.weeklyRanking },
   ];
 
   return (
@@ -1160,7 +1235,7 @@ export function DashboardClient({
           </button>
           <Link
             href={`/${locale}/dashboard/tile-flip-game`}
-            className="inline-flex items-center gap-2 rounded-full border border-accent-gold/40 px-3 py-1 text-xs font-semibold text-accent-gold transition hover:border-accent-gold"
+            className="hidden items-center gap-2 rounded-full border border-accent-gold/40 px-3 py-1 text-xs font-semibold text-accent-gold transition hover:border-accent-gold sm:inline-flex"
           >
             {dictionary.tileGame.sectionTitle}
             <ArrowRight className="h-3 w-3" />
@@ -1197,6 +1272,124 @@ export function DashboardClient({
       </Link>
       </div>
 
+      <div className="sm:hidden">
+        <div className="flex snap-x gap-4 overflow-x-auto px-3 pb-3 pt-1 [-webkit-overflow-scrolling:touch]">
+          <button
+            type="button"
+            onClick={() => openMobilePicker('teams')}
+            disabled={games.length === 0}
+            className={clsx(
+              'group relative min-w-[220px] snap-center overflow-hidden rounded-3xl border px-3.5 py-3.5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900',
+              teamsComplete
+                ? 'border-lime-300/70 ring-2 ring-lime-400/60 shadow-[0_18px_60px_rgba(132,204,22,0.35)]'
+                : 'border-white/10 hover:scale-[1.01] hover:border-accent-gold/50',
+              games.length === 0 ? 'cursor-not-allowed opacity-60' : 'active:scale-[0.99]',
+            )}
+            aria-pressed={mobilePicker === 'teams'}
+            aria-disabled={games.length === 0}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-300/60 via-teal-300/60 to-sky-400/60" />
+            <div className="absolute inset-0 bg-white/5" />
+            <div className="relative space-y-3 pt-12">
+              <span className="absolute left-3 top-2 inline-flex items-center gap-1.5 rounded-full border border-white/50 bg-black/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                {dictionary.play.teams.rewardBadge}
+              </span>
+              <span
+                className={clsx(
+                  'absolute right-3 top-2 flex aspect-square h-7 items-center justify-center rounded-full border-2',
+                  teamsComplete
+                    ? 'border-lime-200 bg-lime-200/25 shadow-[0_0_16px_rgba(132,204,22,0.45)]'
+                    : 'border-white/60 bg-black/15',
+                )}
+              >
+                {teamsComplete ? (
+                  <CheckCircle2 className="h-5 w-5 text-lime-300 drop-shadow" />
+                ) : (
+                  <CircleDashed className="h-5 w-5 text-white/90" />
+                )}
+              </span>
+              <div className="space-y-1">
+                <p className="text-base font-semibold text-white drop-shadow">
+                  {dictionary.play.teams.title}
+                </p>
+                <p className="text-[11px] leading-snug text-slate-100/90">
+                  {dictionary.play.teams.description}
+                </p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openMobilePicker('players')}
+            disabled={games.length === 0}
+            className={clsx(
+              'group relative min-w-[220px] snap-center overflow-hidden rounded-3xl border px-3.5 py-3.5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900',
+              playersComplete
+                ? 'border-lime-300/70 ring-2 ring-lime-400/60 shadow-[0_18px_60px_rgba(132,204,22,0.35)]'
+                : 'border-white/10 hover:scale-[1.01] hover:border-accent-gold/50',
+              games.length === 0 ? 'cursor-not-allowed opacity-60' : 'active:scale-[0.99]',
+            )}
+            aria-pressed={mobilePicker === 'players'}
+            aria-disabled={games.length === 0}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-300/60 via-violet-300/60 to-sky-300/55" />
+            <div className="absolute inset-0 bg-white/5" />
+            <div className="relative space-y-3 pt-12">
+              <span className="absolute left-3 top-2 inline-flex items-center gap-1.5 rounded-full border border-white/50 bg-black/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                {dictionary.play.players.rewardBadge}
+              </span>
+              <span
+                className={clsx(
+                  'absolute right-3 top-2 flex aspect-square h-7 items-center justify-center rounded-full border-2',
+                  playersComplete
+                    ? 'border-lime-200 bg-lime-200/25 shadow-[0_0_16px_rgba(132,204,22,0.45)]'
+                    : 'border-white/60 bg-black/15',
+                )}
+              >
+                {playersComplete ? (
+                  <CheckCircle2 className="h-5 w-5 text-lime-300 drop-shadow" />
+                ) : (
+                  <CircleDashed className="h-5 w-5 text-white/90" />
+                )}
+              </span>
+              <div className="space-y-1">
+                <p className="text-base font-semibold text-white drop-shadow">
+                  {dictionary.play.players.title}
+                </p>
+                <p className="text-[11px] leading-snug text-slate-100/90">
+                  {dictionary.play.players.description}
+                </p>
+              </div>
+            </div>
+          </button>
+
+          <Link
+            href={`/${locale}/dashboard/tile-flip-game`}
+            className={clsx(
+              'group relative min-w-[220px] snap-center overflow-hidden rounded-3xl border px-3.5 py-3.5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900',
+              'border-white/12 hover:scale-[1.01] hover:border-accent-gold/50 active:scale-[0.99]',
+            )}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-300/70 via-orange-400/60 to-rose-400/60" />
+            <div className="absolute inset-0 bg-white/5" />
+            <div className="relative space-y-3 pt-12">
+              <span className="absolute left-3 top-2 inline-flex items-center gap-1.5 rounded-full border border-white/50 bg-black/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                {dictionary.tileGame.rewardPointsLabel}
+              </span>
+              <div className="space-y-1">
+                <p className="text-base font-semibold text-white drop-shadow">
+                  {dictionary.tileGame.sectionTitle}
+                </p>
+                <p className="text-[11px] leading-snug text-slate-100/90">
+                  {dictionary.tileGame.rewardHint}
+                </p>
+              </div>
+            </div>
+          </Link>
+        </div>
+      </div>
+
       <section
         ref={tabsSectionRef}
         className="rounded-[2rem] border border-white/10 bg-navy-900/50 p-4 shadow-card"
@@ -1209,7 +1402,8 @@ export function DashboardClient({
               onClick={() => setActiveTab(tab.key)}
               aria-pressed={activeTab === tab.key}
               className={clsx(
-                'rounded-full border px-5 py-2 text-sm font-semibold transition min-h-[40px]',
+                'rounded-full border px-4 py-1.5 text-xs font-semibold transition min-h-[34px]',
+                tab.key === 'play' ? 'hidden sm:inline-flex' : 'inline-flex',
                 activeTab === tab.key
                   ? 'border-accent-gold bg-accent-gold/20 text-accent-gold'
                   : 'border-white/10 bg-navy-800/70 text-slate-300 hover:border-accent-gold/30',
@@ -1222,7 +1416,7 @@ export function DashboardClient({
 
         <div className="mt-6">
           {activeTab === 'play' ? (
-            <div className="space-y-6">
+            <div className="hidden space-y-6 sm:block">
               <header className="space-y-2">
               <h2 className="text-2xl font-semibold text-white">
                 {dictionary.play.title}
@@ -1430,7 +1624,7 @@ export function DashboardClient({
                 </div>
                 <button
                   type="button"
-                  onClick={handleSave}
+                  onClick={() => handleSave()}
                   disabled={
                     !canSubmit || picksLoading || gamesLoading || isSaving || lockWindowActive
                   }
@@ -1558,6 +1752,178 @@ export function DashboardClient({
         </div>
       </section>
       </div>
+
+      {mobilePicker ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black p-2 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeMobilePicker}
+        >
+          <div
+            className="relative flex h-[calc(100vh-1rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-black p-3 shadow-[0_25px_80px_rgba(0,0,0,0.7)] sm:h-[calc(100vh-2rem)] sm:p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={closeMobilePicker}
+              className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+              aria-label={dictionary.common.cancel}
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="space-y-4 sm:space-y-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1 pr-12 sm:pr-20">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-accent-gold/40 bg-accent-gold/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-gold">
+                    {mobilePicker === 'teams'
+                      ? dictionary.play.teams.rewardBadge
+                      : dictionary.play.players.rewardBadge}
+                  </div>
+                  <h3 className="text-xl font-semibold text-white sm:text-2xl">
+                    {mobilePicker === 'teams'
+                      ? dictionary.play.teams.title
+                      : dictionary.play.players.title}
+                  </h3>
+                  <p className="text-sm text-slate-300 sm:max-w-3xl">
+                    {mobilePicker === 'teams'
+                      ? dictionary.play.teams.description
+                      : dictionary.play.players.description}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <div className={clsx(
+                    'flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold',
+                    mobilePicker === 'teams' ? (teamsComplete ? 'border-lime-300 bg-lime-300/20 text-lime-200' : 'border-white/10 bg-white/5 text-slate-200') : (playersComplete ? 'border-lime-300 bg-lime-300/20 text-lime-200' : 'border-white/10 bg-white/5 text-slate-200'),
+                  )}>
+                    <SectionStatus complete={mobilePicker === 'teams' ? teamsComplete : playersComplete} />
+                    <span>{locale === 'it' ? 'Completo' : 'Complete'}</span>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200">
+                    {Math.min(mobileSlideIndex + 1, totalMobileSlides || 1)}/{totalMobileSlides || 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleMobileSave}
+                    disabled={
+                      lockWindowActive ||
+                      isSaving ||
+                      picksLoading ||
+                      gamesLoading ||
+                      games.length === 0 ||
+                      (mobilePicker === 'teams' && !teamsComplete)
+                    }
+                    className={clsx(
+                      'inline-flex items-center justify-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition sm:text-sm',
+                      lockWindowActive
+                        ? 'cursor-not-allowed border-rose-500/60 bg-rose-500/15 text-rose-100'
+                        : mobilePicker === 'teams'
+                          ? teamsComplete
+                            ? 'border-lime-400/80 bg-lime-400/20 text-lime-300 hover:bg-lime-400/30'
+                            : 'border-white/10 bg-white/5 text-slate-300'
+                          : 'border-lime-400/80 bg-lime-400/20 text-lime-300 hover:bg-lime-400/30',
+                    )}
+                    aria-busy={isSaving}
+                  >
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {hasExistingPicks ? dictionary.play.update : dictionary.play.submit}
+                  </button>
+                </div>
+              </div>
+
+              <div className="relative flex-1 overflow-hidden rounded-3xl border border-white/10 bg-black/60 p-3 sm:p-5">
+                <div className="absolute left-2 top-1/2 flex -translate-y-1/2">
+                  <button
+                    type="button"
+                    onClick={handleMobilePrev}
+                    disabled={mobileSlideIndex === 0}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-40 sm:h-11 sm:w-11"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                </div>
+                <div className="absolute right-2 top-1/2 flex -translate-y-1/2">
+                  <button
+                    type="button"
+                    onClick={handleMobileNext}
+                    disabled={mobileSlideIndex === Math.max(totalMobileSlides - 1, 0)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-40 sm:h-11 sm:w-11"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <div className="h-full overflow-y-auto pb-4" onTouchStart={handleMobileTouchStart} onTouchEnd={handleMobileTouchEnd}>
+                  <div className="space-y-4 sm:space-y-5">
+                    {gamesLoading ? (
+                      <div className="flex items-center justify-center gap-2 text-sm text-slate-300">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>{dictionary.common.loading}</span>
+                      </div>
+                    ) : games.length === 0 ? (
+                      <p className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm text-slate-200">
+                        {locale === 'it'
+                          ? 'Nessuna partita disponibile al momento.'
+                          : 'No games available right now.'}
+                      </p>
+                    ) : (
+                      (() => {
+                        const game = games[mobileSlideIndex];
+                        return (
+                          <div className="space-y-3 sm:space-y-4">
+                            {mobilePicker === 'teams' ? (
+                              <GameTeamsRow
+                                locale={locale}
+                                game={game}
+                                selection={teamSelections[game.id]}
+                                onSelect={(teamId) => handleTeamsSelect(game.id, teamId)}
+                              />
+                            ) : (
+                              <GamePlayersCard
+                                locale={locale}
+                                dictionary={dictionary}
+                                game={game}
+                                playerSelections={playerSelections[game.id] ?? {}}
+                                onChange={(category, playerId) =>
+                                  handlePlayerSelect(game.id, category, playerId)
+                                }
+                                onPlayersLoaded={onPlayersLoaded}
+                              />
+                            )}
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
+                </div>
+              </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+                  <span>
+                    {locale === 'it'
+                      ? 'Swipe o usa le frecce per scorrere i match.'
+                      : 'Swipe or use arrows to move across games.'}
+                  </span>
+                  <div className="flex flex-1 items-center justify-end gap-2">
+                    {Array.from({ length: Math.max(totalMobileSlides, 1) }).map((_, index) => (
+                    <span
+                      key={index}
+                      className={clsx(
+                        'h-2 rounded-full transition',
+                        index === mobileSlideIndex
+                          ? 'w-8 bg-accent-gold shadow-[0_0_12px_rgba(212,175,55,0.5)]'
+                          : 'w-4 bg-white/15',
+                      )}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {picksToast ? (
         <div className="fixed bottom-6 left-6 z-40 flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-200 shadow-card">
           <CheckCircle2 className="h-4 w-4" />
