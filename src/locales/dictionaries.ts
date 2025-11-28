@@ -440,12 +440,12 @@ const it: Dictionary = {
     welcome: 'Bentornato su NBAnima!',
     animaPoints: 'Anima Points',
     playTab: 'Gioca',
-    myPicksTab: 'Le mie scelte',
-    winnersTab: 'Risultati Vincenti',
+    myPicksTab: 'Scelte',
+    winnersTab: 'Vincenti',
     collectionTab: 'Collezione',
     shopTab: 'Acquista Cards',
     weeklyXpBalance: 'Weekly XP',
-    weeklyRanking: 'Classifica settimanale',
+    weeklyRanking: 'Classifica',
     weeklyRangeCaption: 'Settimana del {date} (Lun–Dom, ET)',
     weeklyXpExplainer:
       'I Weekly XP rispecchiano solo i punti da settlement, coprono la settimana Lun–Dom (ET) e si azzerano ogni lunedì.',
@@ -544,7 +544,7 @@ const it: Dictionary = {
     changesHint:
       'Modifiche effettuate oggi: {count}. Puoi aggiornare le tue picks tutte le volte che vuoi fino all’inizio delle partite.',
     lockCountdown: {
-      label: 'Tempo rimanente per modificare le picks:',
+      label: 'Tempo rimanente per salvare/modificare le picks:',
       pending: 'In attesa dell’orario ufficiale delle partite...',
       closed: 'Le picks si chiudono 5 minuti prima della prima partita.',
     },

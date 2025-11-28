@@ -27,6 +27,7 @@ type PlayerSelectProps = {
   disabled?: boolean;
   searchPlaceholder?: string;
   debounceMs?: number;
+  onDialogOpenChange?: (open: boolean) => void;
 };
 
 const DEFAULT_DEBOUNCE_MS = 200;
@@ -51,6 +52,7 @@ export function PlayerSelect({
   disabled = false,
   searchPlaceholder = 'Cerca giocatore...',
   debounceMs = DEFAULT_DEBOUNCE_MS,
+  onDialogOpenChange,
 }: PlayerSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -128,6 +130,7 @@ export function PlayerSelect({
       return;
     }
     setOpen(next);
+    onDialogOpenChange?.(next);
     if (!next) {
       setQuery('');
       setDebouncedQuery('');
@@ -165,7 +168,9 @@ export function PlayerSelect({
         >
           <div className="flex w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-navy-900 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <span className="text-sm font-semibold text-white">Seleziona giocatore</span>
+              <Dialog.Title className="text-sm font-semibold text-white">
+                Seleziona giocatore
+              </Dialog.Title>
               <button
                 type="button"
                 onClick={() => setOpen(false)}

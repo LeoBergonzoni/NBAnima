@@ -303,6 +303,7 @@ const GamePlayersCard = ({
   playerSelections,
   onChange,
   onPlayersLoaded,
+  onSelectOpenChange,
 }: {
   locale: Locale;
   dictionary: Dictionary;
@@ -310,6 +311,7 @@ const GamePlayersCard = ({
   playerSelections: Record<string, string>;
   onChange: (category: string, playerId: string) => void;
   onPlayersLoaded: (gameId: string, players: PlayerSummary[]) => void;
+  onSelectOpenChange?: (open: boolean) => void;
 }) => {
   const homeTeamId = String(game.homeTeam.id);
   const awayTeamId = String(game.awayTeam.id);
@@ -592,6 +594,7 @@ const awayKey = useMemo(
                   onChange={(playerId) => onChange(category, playerId ?? '')}
                   placeholder="-"
                   disabled={combinedPlayers.length === 0 && isLoading}
+                  onDialogOpenChange={onSelectOpenChange}
                 />
               </label>
             );
@@ -725,6 +728,8 @@ export function DashboardClient({
   const [mobilePicker, setMobilePicker] = useState<'teams' | 'players' | null>(null);
   const [mobileSlideIndex, setMobileSlideIndex] = useState(0);
   const [mobileTouchStartX, setMobileTouchStartX] = useState<number | null>(null);
+  const [mobileSaveToast, setMobileSaveToast] = useState<string | null>(null);
+  const [mobileSwipeLocked, setMobileSwipeLocked] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
 
   const pickDate = useMemo(
@@ -988,11 +993,12 @@ export function DashboardClient({
   };
 
   const handleMobileTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    if (mobileSwipeLocked) return;
     setMobileTouchStartX(event.touches[0]?.clientX ?? null);
   };
 
   const handleMobileTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
-    if (mobileTouchStartX === null) {
+    if (mobileSwipeLocked || mobileTouchStartX === null) {
       return;
     }
     const deltaX = (event.changedTouches[0]?.clientX ?? 0) - mobileTouchStartX;
@@ -1159,9 +1165,17 @@ export function DashboardClient({
   const handleMobileSave = async () => {
     const saved = await handleSave({ allowPartialTeams: mobilePicker === 'players' });
     if (saved) {
-      closeMobilePicker();
+      setMobileSaveToast(
+        hasExistingPicks ? dictionary.dashboard.toasts.picksUpdated : dictionary.dashboard.toasts.picksSaved,
+      );
     }
   };
+
+  useEffect(() => {
+    if (!mobileSaveToast) return undefined;
+    const id = window.setTimeout(() => setMobileSaveToast(null), 2500);
+    return () => window.clearTimeout(id);
+  }, [mobileSaveToast]);
 
   const tabs: Array<{
     key: 'play' | 'myPicks' | 'winners' | 'weekly';
@@ -1270,6 +1284,20 @@ export function DashboardClient({
           {dictionary.tradingCards.ctaLabel}
         </span>
       </Link>
+      </div>
+
+      {/* Mobile lock timer */}
+      <div className="sm:hidden px-1">
+        <div className="mb-3 rounded-2xl border border-white/10 bg-navy-900/70 px-3 py-2 text-xs text-slate-300 shadow-card">
+          {lockCountdownInfo.status === 'running' ? (
+            <>
+              {lockCountdownInfo.label}{' '}
+              <span className="font-semibold text-white">{lockCountdownInfo.time}</span>
+            </>
+          ) : (
+            lockCountdownInfo.label
+          )}
+        </div>
       </div>
 
       <div className="sm:hidden">
@@ -1402,7 +1430,7 @@ export function DashboardClient({
               onClick={() => setActiveTab(tab.key)}
               aria-pressed={activeTab === tab.key}
               className={clsx(
-                'rounded-full border px-4 py-1.5 text-xs font-semibold transition min-h-[34px]',
+                'rounded-full border px-3 py-1 text-[10px] font-semibold transition min-h-[34px]',
                 tab.key === 'play' ? 'hidden sm:inline-flex' : 'inline-flex',
                 activeTab === tab.key
                   ? 'border-accent-gold bg-accent-gold/20 text-accent-gold'
@@ -1764,6 +1792,13 @@ export function DashboardClient({
             className="relative flex h-[calc(100vh-1rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-black p-3 shadow-[0_25px_80px_rgba(0,0,0,0.7)] sm:h-[calc(100vh-2rem)] sm:p-5"
             onClick={(event) => event.stopPropagation()}
           >
+            {mobileSaveToast ? (
+              <div className="pointer-events-none absolute inset-x-3 top-3 z-50 flex justify-center">
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/50 bg-emerald-500/80 px-3 py-2 text-xs font-semibold text-white shadow-lg">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>{mobileSaveToast}</span>
+                </div>\n              </div>
+            ) : null}
             <button
               type="button"
               onClick={closeMobilePicker}
@@ -1882,18 +1917,23 @@ export function DashboardClient({
                             ) : (
                               <GamePlayersCard
                                 locale={locale}
-                                dictionary={dictionary}
-                                game={game}
-                                playerSelections={playerSelections[game.id] ?? {}}
-                                onChange={(category, playerId) =>
-                                  handlePlayerSelect(game.id, category, playerId)
+                              dictionary={dictionary}
+                              game={game}
+                              playerSelections={playerSelections[game.id] ?? {}}
+                              onChange={(category, playerId) =>
+                                handlePlayerSelect(game.id, category, playerId)
+                              }
+                              onPlayersLoaded={onPlayersLoaded}
+                              onSelectOpenChange={(open) => {
+                                if (mobilePicker === 'players') {
+                                  setMobileSwipeLocked(open);
                                 }
-                                onPlayersLoaded={onPlayersLoaded}
-                              />
-                            )}
-                          </div>
-                        );
-                      })()
+                              }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })()
                     )}
                   </div>
                 </div>
