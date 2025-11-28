@@ -767,6 +767,7 @@ export const WinnersClient = ({
   const totalWins = teamWins + playerWins;
   const multiplierRule = useMemo(() => resolveMultiplierRule(totalWins), [totalWins]);
   const appliedMultiplier = multiplierRule.multiplier;
+  const totalMultiplier = appliedMultiplier;
   const basePointsTotal = baseTeamPoints + basePlayerPoints;
   const multipliedPoints = basePointsTotal * appliedMultiplier;
   const multiplierDescription =
@@ -812,340 +813,478 @@ export const WinnersClient = ({
               </select>
             </label>
           </header>
-        </div>
       </div>
+    </div>
 
       <div className="space-y-6 pt-4 md:pt-6">
-        {showWinnersSummary &&
-          (winnersLoading ? (
-            <LoadingGrid count={4} />
-          ) : winnersError ? (
-            <ErrorBanner
-              message={(winnersError as Error).message ?? 'Failed to load winners.'}
-              onRetry={() => {
-                void reloadWinners();
-              }}
-            />
-          ) : hasResults ? (
-          <div className="space-y-6">
-            <section className="space-y-3">
-              <h3 className="text-lg font-semibold text-white">
-                {dictionary.play.teams.title}
-              </h3>
-              <ResponsiveTable
-                headers={
-                  <thead className="bg-navy-900/80 text-[11px] uppercase tracking-wide text-slate-400">
-                    <tr>
-                      <th className="whitespace-nowrap px-4 py-3 text-left">Matchup</th>
-                      <th className="whitespace-nowrap px-4 py-3 text-left">Winner</th>
-                      <th className="whitespace-nowrap px-4 py-3 text-left">
-                        {dictionary.dashboard.winners.myPick}
-                      </th>
-                      <th className="whitespace-nowrap px-4 py-3 text-left">Esito</th>
-                    </tr>
-                  </thead>
-                }
-              >
-                <tbody className="divide-y divide-white/10 text-sm text-slate-200">
-                  {teamSummaryCards.map((summary) => {
-                    const homeAbbr =
-                      summary.homeDisplay.abbreviation ??
-                      summary.homeDisplay.name ??
-                      'HOME';
-                    const awayAbbr =
-                      summary.awayDisplay.abbreviation ??
-                      summary.awayDisplay.name ??
-                      'AWAY';
-                    const homeName =
-                      summary.homeDisplay.name ?? summary.homeDisplay.abbreviation ?? 'Home Team';
-                    const awayName =
-                      summary.awayDisplay.name ?? summary.awayDisplay.abbreviation ?? 'Away Team';
-                    const winnerName = summary.winnerDisplay.name ?? '—';
-                    const winnerAbbr = summary.winnerDisplay.abbreviation ?? '—';
-                    const pickName = summary.pickDisplay.name ?? '—';
-                    const pickAbbr = summary.pickDisplay.abbreviation ?? '—';
-                    const outcome = resolveOutcomeDisplay(summary.status);
-                    return (
-                      <tr key={summary.team.game_id}>
-                        <td className="px-4 py-3 align-top">
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-white">
-                              {awayAbbr} @ {homeAbbr}
-                            </span>
-                            <span className="text-xs text-slate-400">
-                              {awayName} · {homeName}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <div className="font-semibold text-white">{winnerName}</div>
-                          <div className="text-xs text-slate-400">{winnerAbbr}</div>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <div className="font-semibold text-white">{pickName}</div>
-                          <div className="text-xs text-slate-400">{pickAbbr}</div>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <span className={clsx('font-semibold', outcome.className)}>
-                            {outcome.label}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </ResponsiveTable>
-              <MobileList>
-                {teamSummaryCards.map((summary, index) => {
-                  const homeAbbr =
-                    summary.homeDisplay.abbreviation ??
-                    summary.homeDisplay.name ??
-                    'HOME';
-                  const awayAbbr =
-                    summary.awayDisplay.abbreviation ??
-                    summary.awayDisplay.name ??
-                    'AWAY';
-                  const homeName =
-                    summary.homeDisplay.name ?? summary.homeDisplay.abbreviation ?? 'Home Team';
-                  const awayName =
-                    summary.awayDisplay.name ?? summary.awayDisplay.abbreviation ?? 'Away Team';
-                  const winnerName = summary.winnerDisplay.name ?? '—';
-                  const winnerAbbr = summary.winnerDisplay.abbreviation ?? '—';
-                  const pickName = summary.pickDisplay.name ?? '—';
-                  const pickAbbr = summary.pickDisplay.abbreviation ?? '—';
-                  const outcome = resolveOutcomeDisplay(summary.status);
-                  return (
-                    <li
-                      key={`team-winner-${summary.team.game_id}-${index}`}
-                      className="rounded-xl border border-white/10 bg-white/5 p-3"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                            <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
-                              {awayAbbr}
-                            </span>
-                            <span className="text-[11px] uppercase text-slate-500">
-                              vs
-                            </span>
-                            <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
-                              {homeAbbr}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-xs text-slate-400">
-                            {awayName} @ {homeName}
-                          </p>
-                        </div>
-                        <span className="text-[11px] uppercase tracking-wide text-slate-400">
-                          {outcome.label}
-                        </span>
-                      </div>
-                      <div className="mt-3 space-y-1 text-sm text-slate-200">
-                        <p>
-                          <span className="text-xs uppercase tracking-wide text-slate-400">
-                            Scelta:
-                          </span>{' '}
-                          <span className="font-semibold text-white">
-                            {pickName}
-                          </span>
-                          <span className="ml-2 text-xs text-slate-400">{pickAbbr}</span>
-                        </p>
-                        <p>
-                          <span className="text-xs uppercase tracking-wide text-slate-400">
-                            Esito:
-                          </span>{' '}
-                          <span className={clsx('font-semibold', outcome.className)}>
-                            {outcome.label}
-                          </span>
-                        </p>
-                      </div>
-                      <p className="mt-2 text-xs text-slate-400">
-                        {slateDisplay} · Changes: {changeCount ?? 0} · Winner:{' '}
-                        {winnerAbbr !== '—' ? winnerAbbr : winnerName}
-                      </p>
-                    </li>
-                  );
-                })}
-              </MobileList>
+        {showWinnersSummary ? (
+          <>
+            <section className="rounded-2xl border border-accent-gold/30 bg-navy-900/60 p-4 shadow-card">
+              {pointsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>{dictionary.common.loading}</span>
+                </div>
+              ) : pointsError ? (
+                <ErrorBanner
+                  message={(pointsError as Error).message ?? 'Failed to load points.'}
+                  onRetry={() => {
+                    void reloadPoints();
+                  }}
+                />
+              ) : (
+                <p className="text-sm text-slate-300">
+                  {dictionary.dashboard.winners.pointsOfDay}:{' '}
+                  <span className="font-semibold text-white">{pointsValue}</span>
+                </p>
+              )}
             </section>
 
-            <section className="space-y-3">
-              <h3 className="text-lg font-semibold text-white">
-                {dictionary.play.players.title}
-              </h3>
-              <ResponsiveTable
-                headers={
-                  <thead className="bg-navy-900/80 text-[11px] uppercase tracking-wide text-slate-400">
-                    <tr>
-                      <th className="whitespace-nowrap px-4 py-3 text-left">Matchup</th>
-                      <th className="whitespace-nowrap px-4 py-3 text-left">Categoria</th>
-                      <th className="whitespace-nowrap px-4 py-3 text-left">Winner</th>
-                      <th className="whitespace-nowrap px-4 py-3 text-left">
-                        {dictionary.dashboard.winners.myPick}
-                      </th>
-                      <th className="whitespace-nowrap px-4 py-3 text-left">Esito</th>
-                    </tr>
-                  </thead>
-                }
-              >
-                <tbody className="divide-y divide-white/10 text-sm text-slate-200">
-                  {playerSummaryCardsVisible.map((summary) => {
-                    const userGame = summary.userPick?.game ?? null;
-                    const teamMeta = teamWinnersByGameId.get(summary.gameId);
-                    const homeAbbr =
-                      (userGame?.home_team_abbr ?? teamMeta?.home_team_abbr ?? 'HOME')?.toUpperCase();
-                    const awayAbbr =
-                      (userGame?.away_team_abbr ?? teamMeta?.away_team_abbr ?? 'AWY')?.toUpperCase();
-                    const homeName =
-                      userGame?.home_team_name ?? teamMeta?.home_team_name ?? 'Home Team';
-                    const awayName =
-                      userGame?.away_team_name ?? teamMeta?.away_team_name ?? 'Away Team';
-                    const outcome = resolveOutcomeDisplay(summary.status);
-                    const pickName =
-                      summary.userPickNameInfo?.fullName ?? summary.userPick?.player_id ?? '—';
-                    const pickTeam =
-                      summary.userPickTeamDisplay.abbreviation ??
-                      summary.userPickTeamDisplay.name ??
-                      '—';
-                    return (
-                      <tr key={summary.key}>
-                        <td className="px-4 py-3 align-top">
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-white">
-                              {awayAbbr} @ {homeAbbr}
-                            </span>
-                            <span className="text-xs text-slate-400">
-                              {awayName} · {homeName}
+            {showPointsFooter ? (
+              <section className="rounded-2xl border border-accent-gold/20 bg-navy-900/60 p-5 shadow-card">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">
+                      {dictionary.dashboard.howCalculatedBoth}
+                    </h3>
+                    <p className="text-sm text-slate-300">
+                      {dictionary.dashboard.winners.breakdown.subtitle}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {dictionary.dashboard.weeklyXpExplainer}
+                    </p>
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-accent-gold/30 bg-accent-gold/10 px-4 py-2 text-sm font-semibold text-accent-gold">
+                    <span>{dictionary.dashboard.winners.breakdown.totalWins}</span>
+                    <span className="text-white">{totalWins}</span>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  {breakdownLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>{dictionary.common.loading}</span>
+                    </div>
+                  ) : breakdownError ? (
+                    <ErrorBanner
+                      message={(breakdownError as Error).message ?? 'Failed to load winners breakdown.'}
+                      onRetry={() => {
+                        void reloadWinners();
+                        void reloadPicks();
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4">
+                          <div className="text-xs uppercase tracking-wide text-slate-400">
+                            {dictionary.dashboard.winners.breakdown.teamsLabel}
+                          </div>
+                          <div className="mt-2 flex items-baseline justify-between text-white">
+                            <span className="text-2xl font-semibold">{teamWins}</span>
+                            <span className="text-sm text-slate-300">
+                              × {SCORING.TEAMS_HIT} {dictionary.dashboard.winners.breakdown.pointsUnit}
                             </span>
                           </div>
-                        </td>
-                        <td className="px-4 py-3 align-top text-xs uppercase tracking-wide text-slate-400">
-                          {getCategoryLabel(dictionary, summary.category)}
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <div className="flex flex-col gap-1">
-                            {summary.winners.map((winner) => {
-                              const winnerTeam =
-                                winner.teamDisplay.abbreviation ?? winner.teamDisplay.name ?? '—';
-                              const winnerName =
-                                winner.nameInfo.fullName ?? winner.player.player_id;
-                              return (
-                                <div key={winner.player.player_id} className="flex items-center gap-2">
-                                  <span className="font-semibold text-white">{winnerName}</span>
-                                  <span className="text-xs text-slate-400">{winnerTeam}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <div className="font-semibold text-white">{pickName}</div>
-                          <div className="text-xs text-slate-400">{pickTeam}</div>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <span className={clsx('font-semibold', outcome.className)}>
-                            {outcome.label}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </ResponsiveTable>
-              <MobileList>
-                {playerSummaryCardsVisible.map((summary, index) => {
-                  const userGame = summary.userPick?.game ?? null;
-                  const teamMeta = teamWinnersByGameId.get(summary.gameId);
-                  const homeAbbr =
-                    (userGame?.home_team_abbr ?? teamMeta?.home_team_abbr ?? 'HOME').toUpperCase();
-                  const awayAbbr =
-                    (userGame?.away_team_abbr ?? teamMeta?.away_team_abbr ?? 'AWY').toUpperCase();
-                  const homeName =
-                    userGame?.home_team_name ?? teamMeta?.home_team_name ?? 'Home Team';
-                  const awayName =
-                    userGame?.away_team_name ?? teamMeta?.away_team_name ?? 'Away Team';
-                  const categoryLabel = getCategoryLabel(dictionary, summary.category);
-                  const outcome = resolveOutcomeDisplay(summary.status);
-                  const pickName =
-                    summary.userPickNameInfo?.fullName ?? summary.userPick?.player_id ?? '—';
-                  const pickTeam =
-                    summary.userPickTeamDisplay.abbreviation ??
-                    summary.userPickTeamDisplay.name ??
-                    '—';
-                  return (
-                    <li
-                      key={`player-winner-${summary.key}-${index}`}
-                      className="rounded-xl border border-white/10 bg-white/5 p-3"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                            <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
-                              {awayAbbr}
-                            </span>
-                            <span className="text-[11px] uppercase text-slate-500">vs</span>
-                            <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
-                              {homeAbbr}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-xs text-slate-400">
-                            {awayName} @ {homeName}
+                          <p className="mt-1 text-sm text-slate-300">
+                            {dictionary.dashboard.winners.breakdown.pointsLabel}{' '}
+                            <span className="font-semibold text-white">{baseTeamPoints}</span>
                           </p>
                         </div>
-                        <span className="text-[11px] uppercase tracking-wide text-slate-400">
-                          {categoryLabel}
-                        </span>
-                      </div>
-                      <div className="mt-3 space-y-2 text-sm text-slate-200">
-                        <div>
-                          <span className="text-xs uppercase tracking-wide text-slate-400">
-                            Winners
-                          </span>
-                          <div className="mt-1 space-y-1">
-                            {summary.winners.map((winner) => {
-                              const winnerTeam =
-                                winner.teamDisplay.abbreviation ?? winner.teamDisplay.name ?? '—';
-                              const winnerName =
-                                winner.nameInfo.fullName ?? winner.player.player_id;
-                              return (
-                                <div key={winner.player.player_id} className="flex items-center gap-2">
-                                  <span className="font-semibold text-white">{winnerName}</span>
-                                  <span className="text-xs text-slate-400">{winnerTeam}</span>
-                                </div>
-                              );
-                            })}
+                        <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4">
+                          <div className="text-xs uppercase tracking-wide text-slate-400">
+                            {dictionary.dashboard.winners.breakdown.playersLabel}
                           </div>
+                          <div className="mt-2 flex items-baseline justify-between text-white">
+                            <span className="text-2xl font-semibold">{playerWins}</span>
+                            <span className="text-sm text-slate-300">
+                              × {SCORING.PLAYER_HIT} {dictionary.dashboard.winners.breakdown.pointsUnit}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-slate-300">
+                            {dictionary.dashboard.winners.breakdown.pointsLabel}{' '}
+                            <span className="font-semibold text-white">{basePlayerPoints}</span>
+                          </p>
                         </div>
-                        <div>
-                          <span className="text-xs uppercase tracking-wide text-slate-400">
+                        <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4">
+                          <div className="text-xs uppercase tracking-wide text-slate-400">
+                            {dictionary.dashboard.winners.breakdown.multiplierLabel}
+                          </div>
+                          <div className="mt-2 flex items-baseline justify-between text-white">
+                            <span className="text-2xl font-semibold">
+                              ×{Math.max(1, totalMultiplier).toFixed(0)}
+                            </span>
+                            <span className="text-sm text-slate-300">
+                              {multiplierDescription}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-slate-300">
+                            {dictionary.dashboard.winners.breakdown.totalPointsLabel}:{' '}
+                            <span className="font-semibold text-white">{multipliedPoints}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4 space-y-2 rounded-xl border border-white/10 bg-white/[0.06] p-4 text-sm text-slate-200">
+                        <p className="font-semibold text-white">
+                          {dictionary.dashboard.winners.breakdown.formulaLabel}
+                        </p>
+                        <p>
+                          {dictionary.dashboard.winners.breakdown.basePointsLabel}{' '}
+                          <span className="font-semibold text-white">{basePointsTotal}</span>
+                        </p>
+                        <p>
+                          {dictionary.dashboard.winners.breakdown.multiplierShort}{' '}
+                          <span className="font-semibold text-white">
+                            ×{Math.max(1, totalMultiplier).toFixed(0)}
+                          </span>
+                        </p>
+                        <p>
+                          {dictionary.dashboard.winners.breakdown.totalPointsLabel}{' '}
+                          <span className="font-semibold text-white">{multipliedPoints}</span>
+                        </p>
+                        {totalWins === 0 ? (
+                          <p className="mt-2 text-sm text-slate-400">
+                            {dictionary.dashboard.winners.breakdown.noWins}
+                          </p>
+                        ) : null}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </section>
+            ) : null}
+
+            {winnersLoading ? (
+              <LoadingGrid count={4} />
+            ) : winnersError ? (
+              <ErrorBanner
+                message={(winnersError as Error).message ?? 'Failed to load winners.'}
+                onRetry={() => {
+                  void reloadWinners();
+                }}
+              />
+            ) : hasResults ? (
+              <div className="space-y-6">
+                <section className="space-y-3">
+                  <h3 className="text-lg font-semibold text-white">
+                    {dictionary.play.teams.title}
+                  </h3>
+                  <ResponsiveTable
+                    headers={
+                      <thead className="bg-navy-900/80 text-[11px] uppercase tracking-wide text-slate-400">
+                        <tr>
+                          <th className="whitespace-nowrap px-4 py-3 text-left">Matchup</th>
+                          <th className="whitespace-nowrap px-4 py-3 text-left">Winner</th>
+                          <th className="whitespace-nowrap px-4 py-3 text-left">
                             {dictionary.dashboard.winners.myPick}
-                          </span>
-                          <div className="mt-1 text-sm font-semibold text-white">
-                            {pickName}
+                          </th>
+                          <th className="whitespace-nowrap px-4 py-3 text-left">Esito</th>
+                        </tr>
+                      </thead>
+                    }
+                  >
+                    <tbody className="divide-y divide-white/10 text-sm text-slate-200">
+                      {teamSummaryCards.map((summary) => {
+                        const homeAbbr =
+                          summary.homeDisplay.abbreviation ??
+                          summary.homeDisplay.name ??
+                          'HOME';
+                        const awayAbbr =
+                          summary.awayDisplay.abbreviation ??
+                          summary.awayDisplay.name ??
+                          'AWAY';
+                        const homeName =
+                          summary.homeDisplay.name ?? summary.homeDisplay.abbreviation ?? 'Home Team';
+                        const awayName =
+                          summary.awayDisplay.name ?? summary.awayDisplay.abbreviation ?? 'Away Team';
+                        const winnerName = summary.winnerDisplay.name ?? '—';
+                        const winnerAbbr = summary.winnerDisplay.abbreviation ?? '—';
+                        const pickName = summary.pickDisplay.name ?? '—';
+                        const pickAbbr = summary.pickDisplay.abbreviation ?? '—';
+                        const outcome = resolveOutcomeDisplay(summary.status);
+                        return (
+                          <tr key={summary.team.game_id}>
+                            <td className="px-4 py-3 align-top">
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-white">
+                                  {awayAbbr} @ {homeAbbr}
+                                </span>
+                                <span className="text-xs text-slate-400">
+                                  {awayName} · {homeName}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              <div className="font-semibold text-white">{winnerName}</div>
+                              <div className="text-xs text-slate-400">{winnerAbbr}</div>
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              <div className="font-semibold text-white">{pickName}</div>
+                              <div className="text-xs text-slate-400">{pickAbbr}</div>
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              <span className={clsx('font-semibold', outcome.className)}>
+                                {outcome.label}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </ResponsiveTable>
+                  <MobileList>
+                    {teamSummaryCards.map((summary, index) => {
+                      const homeAbbr =
+                        summary.homeDisplay.abbreviation ??
+                        summary.homeDisplay.name ??
+                        'HOME';
+                      const awayAbbr =
+                        summary.awayDisplay.abbreviation ??
+                        summary.awayDisplay.name ??
+                        'AWAY';
+                      const homeName =
+                        summary.homeDisplay.name ?? summary.homeDisplay.abbreviation ?? 'Home Team';
+                      const awayName =
+                        summary.awayDisplay.name ?? summary.awayDisplay.abbreviation ?? 'Away Team';
+                      const winnerName = summary.winnerDisplay.name ?? '—';
+                      const winnerAbbr = summary.winnerDisplay.abbreviation ?? '—';
+                      const pickName = summary.pickDisplay.name ?? '—';
+                      const pickAbbr = summary.pickDisplay.abbreviation ?? '—';
+                      const outcome = resolveOutcomeDisplay(summary.status);
+                      return (
+                        <li
+                          key={`team-winner-${summary.team.game_id}-${index}`}
+                          className="rounded-xl border border-white/10 bg-white/5 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                                <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
+                                  {awayAbbr}
+                                </span>
+                                <span className="text-[11px] uppercase text-slate-500">
+                                  vs
+                                </span>
+                                <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
+                                  {homeAbbr}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-xs text-slate-400">
+                                {awayName} @ {homeName}
+                              </p>
+                            </div>
+                            <span className="text-[11px] uppercase tracking-wide text-slate-400">
+                              {outcome.label}
+                            </span>
                           </div>
-                          <div className="text-xs text-slate-400">{pickTeam}</div>
-                        </div>
-                        <div>
-                          <span className="text-xs uppercase tracking-wide text-slate-400">
-                            Esito
-                          </span>
-                          <div className={clsx('text-sm font-semibold', outcome.className)}>
-                            {outcome.label}
+                          <div className="mt-3 space-y-1 text-sm text-slate-200">
+                            <p>
+                              <span className="text-xs uppercase tracking-wide text-slate-400">
+                                Scelta:
+                              </span>{' '}
+                              <span className="font-semibold text-white">
+                                {pickName}
+                              </span>
+                              <span className="ml-2 text-xs text-slate-400">{pickAbbr}</span>
+                            </p>
+                            <p>
+                              <span className="text-xs uppercase tracking-wide text-slate-400">
+                                Esito:
+                              </span>{' '}
+                              <span className={clsx('font-semibold', outcome.className)}>
+                                {outcome.label}
+                              </span>
+                            </p>
                           </div>
-                        </div>
-                      </div>
-                      <p className="mt-2 text-xs text-slate-400">
-                        {slateDisplay} · Changes: {changeCount ?? 0}
-                      </p>
-                    </li>
-                  );
-                })}
-              </MobileList>
-            </section>
-          </div>
-        ) : (
-          <p className="text-sm text-slate-300">{dictionary.dashboard.winners.empty}</p>
-        ))}
+                          <p className="mt-2 text-xs text-slate-400">
+                            {slateDisplay} · Changes: {changeCount ?? 0} · Winner:{' '}
+                            {winnerAbbr !== '—' ? winnerAbbr : winnerName}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </MobileList>
+                </section>
+
+                <section className="space-y-3">
+                  <h3 className="text-lg font-semibold text-white">
+                    {dictionary.play.players.title}
+                  </h3>
+                  <ResponsiveTable
+                    headers={
+                      <thead className="bg-navy-900/80 text-[11px] uppercase tracking-wide text-slate-400">
+                        <tr>
+                          <th className="whitespace-nowrap px-4 py-3 text-left">Matchup</th>
+                          <th className="whitespace-nowrap px-4 py-3 text-left">Categoria</th>
+                          <th className="whitespace-nowrap px-4 py-3 text-left">Winner</th>
+                          <th className="whitespace-nowrap px-4 py-3 text-left">
+                            {dictionary.dashboard.winners.myPick}
+                          </th>
+                          <th className="whitespace-nowrap px-4 py-3 text-left">Esito</th>
+                        </tr>
+                      </thead>
+                    }
+                  >
+                    <tbody className="divide-y divide-white/10 text-sm text-slate-200">
+                      {playerSummaryCardsVisible.map((summary) => {
+                        const userGame = summary.userPick?.game ?? null;
+                        const teamMeta = teamWinnersByGameId.get(summary.gameId);
+                        const homeAbbr =
+                          (userGame?.home_team_abbr ?? teamMeta?.home_team_abbr ?? 'HOME')?.toUpperCase();
+                        const awayAbbr =
+                          (userGame?.away_team_abbr ?? teamMeta?.away_team_abbr ?? 'AWY')?.toUpperCase();
+                        const homeName =
+                          userGame?.home_team_name ?? teamMeta?.home_team_name ?? 'Home Team';
+                        const awayName =
+                          userGame?.away_team_name ?? teamMeta?.away_team_name ?? 'Away Team';
+                        const outcome = resolveOutcomeDisplay(summary.status);
+                        const pickName =
+                          summary.userPickNameInfo?.fullName ?? summary.userPick?.player_id ?? '—';
+                        const pickTeam =
+                          summary.userPickTeamDisplay.abbreviation ??
+                          summary.userPickTeamDisplay.name ??
+                          '—';
+                        return (
+                          <tr key={summary.key}>
+                            <td className="px-4 py-3 align-top">
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-white">
+                                  {awayAbbr} @ {homeAbbr}
+                                </span>
+                                <span className="text-xs text-slate-400">
+                                  {awayName} · {homeName}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 align-top text-xs uppercase tracking-wide text-slate-400">
+                              {getCategoryLabel(dictionary, summary.category)}
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              <div className="flex flex-col gap-1">
+                                {summary.winners.map((winner) => {
+                                  const winnerTeam =
+                                    winner.teamDisplay.abbreviation ?? winner.teamDisplay.name ?? '—';
+                                  const winnerName =
+                                    winner.nameInfo.fullName ?? winner.player.player_id;
+                                  return (
+                                    <div key={winner.player.player_id} className="flex items-center gap-2">
+                                      <span className="font-semibold text-white">{winnerName}</span>
+                                      <span className="text-xs text-slate-400">{winnerTeam}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              <div className="font-semibold text-white">{pickName}</div>
+                              <div className="text-xs text-slate-400">{pickTeam}</div>
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              <span className={clsx('font-semibold', outcome.className)}>
+                                {outcome.label}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </ResponsiveTable>
+                  <MobileList>
+                    {playerSummaryCardsVisible.map((summary, index) => {
+                      const userGame = summary.userPick?.game ?? null;
+                      const teamMeta = teamWinnersByGameId.get(summary.gameId);
+                      const homeAbbr =
+                        (userGame?.home_team_abbr ?? teamMeta?.home_team_abbr ?? 'HOME').toUpperCase();
+                      const awayAbbr =
+                        (userGame?.away_team_abbr ?? teamMeta?.away_team_abbr ?? 'AWY').toUpperCase();
+                      const homeName =
+                        userGame?.home_team_name ?? teamMeta?.home_team_name ?? 'Home Team';
+                      const awayName =
+                        userGame?.away_team_name ?? teamMeta?.away_team_name ?? 'Away Team';
+                      const categoryLabel = getCategoryLabel(dictionary, summary.category);
+                      const outcome = resolveOutcomeDisplay(summary.status);
+                      const pickName =
+                        summary.userPickNameInfo?.fullName ?? summary.userPick?.player_id ?? '—';
+                      const pickTeam =
+                        summary.userPickTeamDisplay.abbreviation ??
+                        summary.userPickTeamDisplay.name ??
+                        '—';
+                      return (
+                        <li
+                          key={`player-winner-${summary.key}-${index}`}
+                          className="rounded-xl border border-white/10 bg-white/5 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                                <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
+                                  {awayAbbr}
+                                </span>
+                                <span className="text-[11px] uppercase text-slate-500">vs</span>
+                                <span className="inline-flex min-w-[3rem] justify-center rounded-full border border-white/10 bg-navy-900/60 px-2 py-1 text-xs uppercase">
+                                  {homeAbbr}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-xs text-slate-400">
+                                {awayName} @ {homeName}
+                              </p>
+                            </div>
+                            <span className="text-[11px] uppercase tracking-wide text-slate-400">
+                              {categoryLabel}
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-2 text-sm text-slate-200">
+                            <div>
+                              <span className="text-xs uppercase tracking-wide text-slate-400">
+                                Winners
+                              </span>
+                              <div className="mt-1 space-y-1">
+                                {summary.winners.map((winner) => {
+                                  const winnerTeam =
+                                    winner.teamDisplay.abbreviation ?? winner.teamDisplay.name ?? '—';
+                                  const winnerName =
+                                    winner.nameInfo.fullName ?? winner.player.player_id;
+                                  return (
+                                    <div key={winner.player.player_id} className="flex items-center gap-2">
+                                      <span className="font-semibold text-white">{winnerName}</span>
+                                      <span className="text-xs text-slate-400">{winnerTeam}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-xs uppercase tracking-wide text-slate-400">
+                                {dictionary.dashboard.winners.myPick}
+                              </span>
+                              <div className="mt-1 text-sm font-semibold text-white">
+                                {pickName}
+                              </div>
+                              <div className="text-xs text-slate-400">{pickTeam}</div>
+                            </div>
+                            <div>
+                              <span className="text-xs uppercase tracking-wide text-slate-400">
+                                Esito
+                              </span>
+                              <div className={clsx('text-sm font-semibold', outcome.className)}>
+                                {outcome.label}
+                              </div>
+                            </div>
+                          </div>
+                          <p className="mt-2 text-xs text-slate-400">
+                            {slateDisplay} · Changes: {changeCount ?? 0}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </MobileList>
+                </section>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-300">{dictionary.dashboard.winners.empty}</p>
+            )}
+          </>
+        ) : null}
 
         {showMyPicksSection ? (
           <section className="space-y-3">
@@ -1310,140 +1449,7 @@ export const WinnersClient = ({
           )}
           </section>
         ) : null}
-
-        {showPointsFooter ? (
-          <>
-            <section className="rounded-2xl border border-accent-gold/20 bg-navy-900/60 p-5 shadow-card">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-white">
-                    {dictionary.dashboard.howCalculatedBoth}
-                  </h3>
-                  <p className="text-sm text-slate-300">
-                    {dictionary.dashboard.winners.breakdown.subtitle}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {dictionary.dashboard.weeklyXpExplainer}
-                  </p>
-                </div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-accent-gold/30 bg-accent-gold/10 px-4 py-2 text-sm font-semibold text-accent-gold">
-                  <span>{dictionary.dashboard.winners.breakdown.totalWins}</span>
-                  <span className="text-white">{totalWins}</span>
-                </div>
-              </div>
-              <div className="mt-4">
-                {breakdownLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>{dictionary.common.loading}</span>
-                  </div>
-                ) : breakdownError ? (
-                  <ErrorBanner
-                    message={(breakdownError as Error).message ?? 'Failed to load winners breakdown.'}
-                    onRetry={() => {
-                      void reloadWinners();
-                      void reloadPicks();
-                    }}
-                  />
-                ) : (
-                  <>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4">
-                        <div className="text-xs uppercase tracking-wide text-slate-400">
-                          {dictionary.dashboard.winners.breakdown.teamsLabel}
-                        </div>
-                        <div className="mt-2 flex items-baseline justify-between text-white">
-                          <span className="text-2xl font-semibold">{teamWins}</span>
-                          <span className="text-sm text-slate-300">
-                            × {SCORING.TEAMS_HIT} {dictionary.dashboard.winners.breakdown.pointsUnit}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-sm text-slate-300">
-                          {dictionary.dashboard.winners.breakdown.pointsLabel}{' '}
-                          <span className="font-semibold text-white">{baseTeamPoints}</span>
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4">
-                        <div className="text-xs uppercase tracking-wide text-slate-400">
-                          {dictionary.dashboard.winners.breakdown.playersLabel}
-                        </div>
-                        <div className="mt-2 flex items-baseline justify-between text-white">
-                          <span className="text-2xl font-semibold">{playerWins}</span>
-                          <span className="text-sm text-slate-300">
-                            × {SCORING.PLAYER_HIT} {dictionary.dashboard.winners.breakdown.pointsUnit}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-sm text-slate-300">
-                          {dictionary.dashboard.winners.breakdown.pointsLabel}{' '}
-                          <span className="font-semibold text-white">{basePlayerPoints}</span>
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-accent-gold/30 bg-accent-gold/10 p-4">
-                        <div className="text-xs uppercase tracking-wide text-accent-gold">
-                          {dictionary.dashboard.winners.breakdown.multiplierLabel}
-                        </div>
-                        <div className="mt-2 flex items-baseline justify-between text-white">
-                          <span className="text-2xl font-semibold">×{appliedMultiplier}</span>
-                          <span className="text-sm text-accent-gold/80">{multiplierDescription}</span>
-                        </div>
-                        <p className="mt-1 text-sm text-accent-gold/80">
-                          {dictionary.dashboard.winners.breakdown.totalPointsLabel}:{' '}
-                          <span className="font-semibold text-white">{multipliedPoints}</span>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.06] p-4 text-sm text-slate-300">
-                      <div className="text-xs uppercase tracking-wide text-slate-400">
-                        {dictionary.dashboard.winners.breakdown.formulaLabel}
-                      </div>
-                      <p className="mt-2 text-sm text-slate-300">
-                        (
-                        <span className="font-semibold text-white">{teamWins}</span> × {SCORING.TEAMS_HIT}) + (
-                        <span className="font-semibold text-white">{playerWins}</span> × {SCORING.PLAYER_HIT}) ={' '}
-                        <span className="font-semibold text-white">{basePointsTotal}</span>
-                      </p>
-                      <p className="mt-1 text-sm text-slate-300">
-                        {dictionary.dashboard.winners.breakdown.basePointsLabel}{' '}
-                        <span className="font-semibold text-white">{basePointsTotal}</span> ·{' '}
-                        {dictionary.dashboard.winners.breakdown.multiplierShort}{' '}
-                        <span className="font-semibold text-white">×{appliedMultiplier}</span> →{' '}
-                        {dictionary.dashboard.winners.breakdown.totalPointsLabel}{' '}
-                        <span className="font-semibold text-white">{multipliedPoints}</span>
-                      </p>
-                      {totalWins === 0 ? (
-                        <p className="mt-2 text-sm text-slate-400">
-                          {dictionary.dashboard.winners.breakdown.noWins}
-                        </p>
-                      ) : null}
-                    </div>
-                  </>
-                )}
-              </div>
-            </section>
-            <footer className="mt-4 rounded-2xl border border-accent-gold/30 bg-navy-900/60 p-4 shadow-card">
-              {pointsLoading ? (
-                <div className="flex items-center gap-2 text-sm text-slate-400">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>{dictionary.common.loading}</span>
-                </div>
-              ) : pointsError ? (
-                <ErrorBanner
-                  message={(pointsError as Error).message ?? 'Failed to load points.'}
-                  onRetry={() => {
-                    void reloadPoints();
-                  }}
-                />
-              ) : (
-                <p className="text-sm text-slate-300">
-                  {dictionary.dashboard.winners.pointsOfDay}:{' '}
-                  <span className="font-semibold text-white">{pointsValue}</span>
-                </p>
-              )}
-            </footer>
-          </>
-        ) : null}
       </div>
     </div>
   );
-
 };
