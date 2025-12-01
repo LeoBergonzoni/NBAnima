@@ -775,40 +775,77 @@ export function DashboardClient({
     if (!picks) {
       return [] as GameSummary[];
     }
-    const map = new Map<string, GameSummary>();
 
-    const maybeAdd = (entry: { game_id: string; game?: GameMeta | null }) => {
-      if (!entry.game_id || !entry.game) {
-        return;
-      }
-      if (map.has(entry.game_id)) {
-        return;
-      }
-      const game = entry.game;
-      map.set(entry.game_id, {
-        id: entry.game_id,
-        startsAt: game.gameDateISO ?? pickDate,
-        status: 'locked',
-        arena: null,
-        homeTeam: {
-          id: game.home?.abbr ?? 'home',
-          name: game.home?.name ?? 'Home',
-          city: null,
-          logo: null,
-          abbreviation: game.home?.abbr ?? undefined,
-        },
-        awayTeam: {
-          id: game.away?.abbr ?? 'away',
-          name: game.away?.name ?? 'Away',
-          city: null,
-          logo: null,
-          abbreviation: game.away?.abbr ?? undefined,
-        },
-      });
+    type LegacyPickGame = {
+      home_team_name?: string | null;
+      away_team_name?: string | null;
+      home_team_abbr?: string | null;
+      away_team_abbr?: string | null;
     };
 
-    picks.teams.forEach(maybeAdd);
-    picks.players.forEach(maybeAdd);
+    const map = new Map<string, GameSummary>();
+
+    const normalizeFromGameMeta = (game: GameMeta, gameId: string): GameSummary => ({
+      id: gameId,
+      startsAt: game.gameDateISO ?? pickDate,
+      status: 'locked',
+      arena: null,
+      homeTeam: {
+        id: game.home?.abbr ?? 'home',
+        name: game.home?.name ?? 'Home',
+        city: null,
+        logo: null,
+        abbreviation: game.home?.abbr ?? undefined,
+      },
+      awayTeam: {
+        id: game.away?.abbr ?? 'away',
+        name: game.away?.name ?? 'Away',
+        city: null,
+        logo: null,
+        abbreviation: game.away?.abbr ?? undefined,
+      },
+    });
+
+    const normalizeFromLegacy = (game: LegacyPickGame, gameId: string): GameSummary => ({
+      id: gameId,
+      startsAt: pickDate,
+      status: 'locked',
+      arena: null,
+      homeTeam: {
+        id: 'home',
+        name: game.home_team_name ?? 'Home',
+        city: null,
+        logo: null,
+        abbreviation: game.home_team_abbr ?? undefined,
+      },
+      awayTeam: {
+        id: 'away',
+        name: game.away_team_name ?? 'Away',
+        city: null,
+        logo: null,
+        abbreviation: game.away_team_abbr ?? undefined,
+      },
+    });
+
+    const maybeAdd = (gameId: string, game?: GameMeta | LegacyPickGame | null) => {
+      if (!gameId || !game || map.has(gameId)) {
+        return;
+      }
+      const isMeta = (candidate: unknown): candidate is GameMeta =>
+        typeof (candidate as GameMeta)?.provider === 'string' &&
+        typeof (candidate as GameMeta)?.providerGameId === 'string';
+
+      const summary = isMeta(game)
+        ? normalizeFromGameMeta(game, gameId)
+        : normalizeFromLegacy(game as LegacyPickGame, gameId);
+
+      map.set(gameId, summary);
+    };
+
+    picks.teams.forEach((entry) => maybeAdd(entry.game_id, entry.game as GameMeta | LegacyPickGame | null));
+    picks.players.forEach((entry) =>
+      maybeAdd(entry.game_id, entry.game as GameMeta | LegacyPickGame | null),
+    );
 
     return Array.from(map.values());
   }, [games, picks, pickDate]);
