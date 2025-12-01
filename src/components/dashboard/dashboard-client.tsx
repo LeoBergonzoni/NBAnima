@@ -842,10 +842,15 @@ export function DashboardClient({
       map.set(gameId, summary);
     };
 
-    picks.teams.forEach((entry) => maybeAdd(entry.game_id, entry.game as GameMeta | LegacyPickGame | null));
-    picks.players.forEach((entry) =>
-      maybeAdd(entry.game_id, entry.game as GameMeta | LegacyPickGame | null),
-    );
+    const teamGameById = new Map<string, GameMeta | LegacyPickGame | null>();
+    picks.teams.forEach((entry) => {
+      teamGameById.set(entry.game_id, (entry.game as GameMeta | LegacyPickGame | null) ?? null);
+      maybeAdd(entry.game_id, entry.game as GameMeta | LegacyPickGame | null);
+    });
+    picks.players.forEach((entry) => {
+      const fromTeam = teamGameById.get(entry.game_id) ?? null;
+      maybeAdd(entry.game_id, fromTeam);
+    });
 
     return Array.from(map.values());
   }, [games, picks, pickDate]);
