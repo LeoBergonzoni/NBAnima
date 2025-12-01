@@ -768,6 +768,57 @@ export function DashboardClient({
     updatePicks,
   } = usePicks(pickDate);
 
+  const displayGames = useMemo(() => {
+    if (games.length > 0) {
+      return games;
+    }
+    if (!picks) {
+      return [] as GameSummary[];
+    }
+    const map = new Map<string, GameSummary>();
+
+    const maybeAdd = (entry: { game_id: string; game?: GameMeta | null }) => {
+      if (!entry.game_id || !entry.game) {
+        return;
+      }
+      if (map.has(entry.game_id)) {
+        return;
+      }
+      const game = entry.game;
+      map.set(entry.game_id, {
+        id: entry.game_id,
+        startsAt: game.starts_at ?? game.locked_at ?? pickDate,
+        status: 'locked',
+        arena: null,
+        homeTeam: {
+          id: game.home_team_id ?? 'home',
+          name: game.home_team_name ?? 'Home',
+          city: null,
+          logo: null,
+          abbreviation: game.home_team_abbr ?? undefined,
+        },
+        awayTeam: {
+          id: game.away_team_id ?? 'away',
+          name: game.away_team_name ?? 'Away',
+          city: null,
+          logo: null,
+          abbreviation: game.away_team_abbr ?? undefined,
+        },
+      });
+    };
+
+    picks.teams.forEach(maybeAdd);
+    picks.players.forEach(maybeAdd);
+
+    return Array.from(map.values());
+  }, [games, picks, pickDate]);
+
+  useEffect(() => {
+    if (mobileSlideIndex >= Math.max(displayGames.length, 1)) {
+      setMobileSlideIndex(0);
+    }
+  }, [displayGames.length, mobileSlideIndex]);
+
   useEffect(() => {
     const id = window.setInterval(() => setNowTs(Date.now()), 1000);
     return () => window.clearInterval(id);
@@ -914,17 +965,17 @@ export function DashboardClient({
   }, [lockWindowDeadlineTs, nowTs]);
 
   const teamsComplete = useMemo(
-    () => games.length > 0 && games.every((game) => !!teamSelections[game.id]),
-    [games, teamSelections],
+    () => displayGames.length > 0 && displayGames.every((game) => !!teamSelections[game.id]),
+    [displayGames, teamSelections],
   );
 
   const playersComplete = useMemo(
     () =>
-      games.length > 0 &&
-      games.every((game) =>
+      displayGames.length > 0 &&
+      displayGames.every((game) =>
         PLAYER_CATEGORIES.every((category) => Boolean(playerSelections[game.id]?.[category])),
       ),
-    [games, playerSelections],
+    [displayGames, playerSelections],
   );
 
   const highlightsComplete = useMemo(() => {
@@ -974,7 +1025,7 @@ export function DashboardClient({
     });
   };
 
-  const totalMobileSlides = mobilePicker ? Math.max(games.length, 1) : 0;
+  const totalMobileSlides = mobilePicker ? Math.max(displayGames.length, 1) : 0;
 
   const openMobilePicker = (mode: 'teams' | 'players') => {
     if (games.length === 0) {
@@ -1332,16 +1383,16 @@ export function DashboardClient({
           <button
             type="button"
             onClick={() => openMobilePicker('teams')}
-            disabled={games.length === 0}
+            disabled={displayGames.length === 0}
             className={clsx(
               'group relative min-w-[220px] snap-center overflow-hidden rounded-3xl border px-3.5 py-3.5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900',
               teamsComplete
                 ? 'border-lime-300/70 ring-2 ring-lime-400/60 shadow-[0_18px_60px_rgba(132,204,22,0.35)]'
                 : 'border-white/10 hover:scale-[1.01] hover:border-accent-gold/50',
-              games.length === 0 ? 'cursor-not-allowed opacity-60' : 'active:scale-[0.99]',
+              displayGames.length === 0 ? 'cursor-not-allowed opacity-60' : 'active:scale-[0.99]',
             )}
             aria-pressed={mobilePicker === 'teams'}
-            aria-disabled={games.length === 0}
+            aria-disabled={displayGames.length === 0}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-300/60 via-teal-300/60 to-sky-400/60" />
             <div className="absolute inset-0 bg-white/5" />
@@ -1377,16 +1428,16 @@ export function DashboardClient({
           <button
             type="button"
             onClick={() => openMobilePicker('players')}
-            disabled={games.length === 0}
+            disabled={displayGames.length === 0}
             className={clsx(
               'group relative min-w-[220px] snap-center overflow-hidden rounded-3xl border px-3.5 py-3.5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900',
               playersComplete
                 ? 'border-lime-300/70 ring-2 ring-lime-400/60 shadow-[0_18px_60px_rgba(132,204,22,0.35)]'
                 : 'border-white/10 hover:scale-[1.01] hover:border-accent-gold/50',
-              games.length === 0 ? 'cursor-not-allowed opacity-60' : 'active:scale-[0.99]',
+              displayGames.length === 0 ? 'cursor-not-allowed opacity-60' : 'active:scale-[0.99]',
             )}
             aria-pressed={mobilePicker === 'players'}
-            aria-disabled={games.length === 0}
+            aria-disabled={displayGames.length === 0}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-300/60 via-violet-300/60 to-sky-300/55" />
             <div className="absolute inset-0 bg-white/5" />
@@ -1873,7 +1924,7 @@ export function DashboardClient({
                       isSaving ||
                       picksLoading ||
                       gamesLoading ||
-                      games.length === 0 ||
+                      displayGames.length === 0 ||
                       (mobilePicker === 'teams' && !teamsComplete)
                     }
                     className={clsx(
@@ -1918,12 +1969,12 @@ export function DashboardClient({
 
                 <div className="h-full overflow-y-auto pb-4" onTouchStart={handleMobileTouchStart} onTouchEnd={handleMobileTouchEnd}>
                   <div className="space-y-4 sm:space-y-5">
-                    {gamesLoading ? (
+                    {gamesLoading && displayGames.length === 0 ? (
                       <div className="flex items-center justify-center gap-2 text-sm text-slate-300">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>{dictionary.common.loading}</span>
                       </div>
-                    ) : games.length === 0 ? (
+                    ) : displayGames.length === 0 ? (
                       <p className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm text-slate-200">
                         {locale === 'it'
                           ? 'Nessuna partita disponibile al momento.'
@@ -1931,7 +1982,8 @@ export function DashboardClient({
                       </p>
                     ) : (
                       (() => {
-                        const game = games[mobileSlideIndex];
+                        const safeIndex = Math.min(mobileSlideIndex, displayGames.length - 1);
+                        const game = displayGames[safeIndex];
                         return (
                           <div className="space-y-3 sm:space-y-4">
                             {mobilePicker === 'teams' ? (

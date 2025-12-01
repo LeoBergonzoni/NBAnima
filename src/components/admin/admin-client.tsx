@@ -19,6 +19,7 @@ import {
   publishPlayerWinners,
   type LoadTeamWinnersResult,
   type LoadPlayerWinnersResult,
+  type PlayerWinnerOption,
 } from '@/app/[locale]/admin/actions';
 import { PicksPlayersTable } from '@/components/picks/PicksPlayersTable';
 import { PicksTeamsTable } from '@/components/picks/PicksTeamsTable';
@@ -158,6 +159,32 @@ type PlayerWinnerOverridesState = Record<
   string,
   Record<string, Array<PlayerSelectResult | null>>
 >;
+
+type SummaryPerformer = {
+  player: { id: number; first_name: string; last_name: string } | null;
+  team: { abbreviation?: string | null } | null;
+  value: number;
+};
+
+type SummaryGame = {
+  id: number;
+  home_team: { abbreviation?: string | null };
+  visitor_team: { abbreviation?: string | null };
+  home_team_score: number;
+  visitor_team_score: number;
+  status: string;
+  date: string;
+  topPerformers: {
+    points: SummaryPerformer[];
+    rebounds: SummaryPerformer[];
+    assists: SummaryPerformer[];
+  };
+};
+
+type GamesSummaryResponse = {
+  date: string;
+  games: Array<{ game: SummaryGame; topPerformers: SummaryGame['topPerformers'] }>;
+};
 
 function ResponsiveTable({
   headers,
@@ -952,17 +979,220 @@ export const AdminClient = ({
     );
   };
 
+  const loadGamesSummary = useCallback(
+    async (): Promise<GamesSummaryResponse | null> => {
+      try {
+        const response = await fetch(
+          `/api/admin/games-summary?date=${encodeURIComponent(winnersDate)}`,
+          { cache: 'no-store' },
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error ?? 'Impossibile recuperare il games summary');
+        }
+        return payload as GamesSummaryResponse;
+      } catch (error) {
+        setStatusMessage({
+          kind: 'error',
+          message:
+            (error as Error)?.message ?? 'Errore durante il caricamento del games summary.',
+        });
+        return null;
+      }
+    },
+    [winnersDate],
+  );
+
+  const autofillTeamWinners = useCallback(async () => {
+    const summary = await loadGamesSummary();
+    if (!summary || !teamWinnersData) {
+      return;
+    }
+
+    const overrides: Record<string, string> = {};
+    teamWinnersData.games.forEach((game) => {
+      const homeAbbr = game.homeTeam.abbr?.toUpperCase() ?? '';
+      const awayAbbr = game.awayTeam.abbr?.toUpperCase() ?? '';
+
+      const match = summary.games.find(
+        (entry) =>
+          entry.game.home_team.abbreviation?.toUpperCase() === homeAbbr &&
+          entry.game.visitor_team.abbreviation?.toUpperCase() === awayAbbr,
+      );
+
+      if (!match) {
+        return;
+      }
+
+      const { game: summaryGame } = match;
+      const homeScore = summaryGame.home_team_score ?? 0;
+      const awayScore = summaryGame.visitor_team_score ?? 0;
+      if (homeScore === awayScore) {
+        return;
+      }
+      const winnerTeamId =
+        homeScore > awayScore ? game.homeTeam.id : game.awayTeam.id;
+      overrides[game.id] = winnerTeamId;
+    });
+
+    setTeamWinnerOverrides(overrides);
+    setStatusMessage({
+      kind: 'success',
+      message: dictionary.admin.fillFromGamesSummary,
+    });
+  }, [loadGamesSummary, teamWinnersData, dictionary.admin.fillFromGamesSummary]);
+
+  const normalizeName = (value?: string | null) =>
+    (value ?? '').toLowerCase().replace(/[^a-z]/g, '').trim();
+
+  const normalizeToken = (value?: string | number | null) =>
+    (value ?? '').toString().toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+
+  const matchPerformerToOption = (
+    performer: SummaryPerformer,
+    options: PlayerWinnerOption[],
+  ): PlayerSelectResult | null => {
+    const performerId = normalizeToken(performer.player?.id);
+    const first = normalizeName(performer.player?.first_name);
+    const last = normalizeName(performer.player?.last_name);
+    const target = `${first}${last}`.trim();
+    const teamAbbr = performer.team?.abbreviation?.toUpperCase() ?? null;
+
+    let best: PlayerWinnerOption | null = null;
+    if (performerId) {
+      best =
+        options.find(
+          (option) => normalizeToken(option.value) === performerId,
+        ) ?? null;
+    }
+    if (target && first && last) {
+      best =
+        options.find((option) => {
+          const label = normalizeName(option.label);
+          return label.includes(first) && label.includes(last);
+        }) ?? null;
+    }
+    if (!best && target) {
+      best =
+        options.find((option) =>
+          normalizeName(option.label).includes(target),
+        ) ?? null;
+    }
+    if (!best && teamAbbr) {
+      best =
+        options.find((option) =>
+          normalizeName(option.label).includes(teamAbbr.toLowerCase()),
+        ) ?? null;
+    }
+
+    if (best) {
+      return {
+        id: best.value,
+        label: best.label,
+        source: 'supabase',
+        supabaseId: best.value,
+        providerPlayerId: best.value,
+        teamAbbr,
+        firstName: performer.player?.first_name ?? undefined,
+        lastName: performer.player?.last_name ?? undefined,
+      };
+    }
+
+    if (!performer.player) {
+      return null;
+    }
+
+    const name = `${performer.player.first_name ?? ''} ${performer.player.last_name ?? ''}`.trim();
+    const label = teamAbbr ? `${name} — ${teamAbbr}` : name || String(performer.player.id);
+    return {
+      id: String(performer.player.id),
+      label,
+      source: 'roster',
+      providerPlayerId: String(performer.player.id),
+      teamAbbr,
+      firstName: performer.player.first_name ?? undefined,
+      lastName: performer.player.last_name ?? undefined,
+    };
+  };
+
+  const categoryKeyToSummary = (category: string) => {
+    const normalized = category.toLowerCase();
+    if (normalized.includes('assist')) {
+      return 'assists' as const;
+    }
+    if (normalized.includes('rebound')) {
+      return 'rebounds' as const;
+    }
+    return 'points' as const;
+  };
+
+  const autofillPlayerWinners = useCallback(async () => {
+    const summary = await loadGamesSummary();
+    if (!summary || !playerWinnersData) {
+      return;
+    }
+
+    const overrides: PlayerWinnerOverridesState = {};
+
+    playerWinnersData.games.forEach((game) => {
+      const homeAbbr = game.homeTeam.abbr?.toUpperCase() ?? '';
+      const awayAbbr = game.awayTeam.abbr?.toUpperCase() ?? '';
+
+      const match = summary.games.find(
+        (entry) =>
+          entry.game.home_team.abbreviation?.toUpperCase() === homeAbbr &&
+          entry.game.visitor_team.abbreviation?.toUpperCase() === awayAbbr,
+      );
+
+      if (!match) {
+        return;
+      }
+
+      const perCategory: Record<string, Array<PlayerSelectResult | null>> = {};
+      game.categories.forEach((category) => {
+        const key = categoryKeyToSummary(category.category);
+        const performers =
+          match.topPerformers[key as keyof SummaryGame['topPerformers']] ?? [];
+        const selections = performers
+          .map((performer) => matchPerformerToOption(performer, category.options))
+          .filter((value): value is PlayerSelectResult => Boolean(value));
+
+        if (selections.length > 0) {
+          perCategory[category.category] = selections;
+        }
+      });
+
+      if (Object.keys(perCategory).length > 0) {
+        overrides[game.id] = perCategory;
+      }
+    });
+
+    setPlayerWinnerOverrides(overrides);
+    setStatusMessage({
+      kind: 'success',
+      message: dictionary.admin.fillFromGamesSummary,
+    });
+  }, [loadGamesSummary, playerWinnersData, dictionary.admin.fillFromGamesSummary]);
+
   return (
     <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 py-4 md:py-6">
       <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 md:mx-0 bg-navy-950/80 backdrop-blur supports-[backdrop-filter]:bg-navy-950/60">
         <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 py-3">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <Link
-              href={`/${locale}/dashboard`}
-              className="inline-flex min-h-[40px] items-center justify-center rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-sm font-semibold text-white transition hover:border-accent-gold/50 hover:text-accent-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-gold"
-            >
-              {dictionary.admin.backToDashboard}
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/${locale}/dashboard`}
+                className="inline-flex min-h-[40px] items-center justify-center rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-sm font-semibold text-white transition hover:border-accent-gold/50 hover:text-accent-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-gold"
+              >
+                {dictionary.admin.backToDashboard}
+              </Link>
+              <Link
+                href={`/${locale}/admin/games-summary`}
+                className="inline-flex min-h-[40px] items-center justify-center rounded-full border border-accent-gold/50 bg-accent-gold/15 px-4 py-1.5 text-sm font-semibold text-accent-gold transition hover:border-accent-gold hover:bg-accent-gold/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-gold"
+              >
+                {dictionary.admin.gamesSummaryLink}
+              </Link>
+            </div>
             <header className="flex w-full flex-1 gap-2 overflow-x-auto pb-1 text-sm text-white touch-scroll">
               {ADMIN_TABS.map((tab) => {
                 const label =
@@ -1497,6 +1727,13 @@ export const AdminClient = ({
                 onChange={(event) => handleWinnersDateChange(event.target.value)}
                 className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
               />
+              <button
+                type="button"
+                onClick={autofillTeamWinners}
+                className="inline-flex items-center justify-center rounded-lg border border-accent-gold/50 bg-accent-gold/10 px-3 py-2 text-sm font-semibold text-accent-gold transition hover:border-accent-gold hover:bg-accent-gold/20"
+              >
+                {dictionary.admin.fillFromGamesSummary}
+              </button>
             </div>
             {statusMessage ? (
               <div
@@ -1705,6 +1942,13 @@ export const AdminClient = ({
                 onChange={(event) => handleWinnersDateChange(event.target.value)}
                 className="h-10 rounded-lg border border-white/10 bg-white/5 px-3 text-base text-white focus:border-accent-gold focus:outline-none"
               />
+              <button
+                type="button"
+                onClick={autofillPlayerWinners}
+                className="inline-flex items-center justify-center rounded-lg border border-accent-gold/50 bg-accent-gold/10 px-3 py-2 text-sm font-semibold text-accent-gold transition hover:border-accent-gold hover:bg-accent-gold/20"
+              >
+                {dictionary.admin.fillFromGamesSummary}
+              </button>
             </div>
             {statusMessage ? (
               <div

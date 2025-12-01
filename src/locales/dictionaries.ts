@@ -104,12 +104,16 @@ export interface Dictionary {
       title: string;
       dateLabel: string;
       pointsOfDay: string;
-      myPick: string;
-      empty: string;
-      breakdown: {
-        title: string;
-        subtitle: string;
-        teamsLabel: string;
+    myPick: string;
+    empty: string;
+    gameSummaryCta: string;
+    gameSummaryTitle: string;
+    gameSummaryEmpty: string;
+    gameSummaryError: string;
+    breakdown: {
+      title: string;
+      subtitle: string;
+      teamsLabel: string;
         playersLabel: string;
         multiplierLabel: string;
         multiplierBase: string;
@@ -260,6 +264,8 @@ export interface Dictionary {
     picksTab: string;
     highlightsTab: string;
     backToDashboard: string;
+    gamesSummaryLink: string;
+    fillFromGamesSummary: string;
     searchPlaceholder: string;
     balance: string;
     cards: string;
@@ -461,6 +467,10 @@ const it: Dictionary = {
       pointsOfDay: 'Anima Points ottenuti in questa giornata',
       myPick: 'My Pick',
       empty: 'Nessun risultato disponibile per questa data.',
+      gameSummaryCta: 'Riepilogo partite',
+      gameSummaryTitle: 'Riepilogo partite',
+      gameSummaryEmpty: 'Nessuna partita finalizzata trovata per questa data.',
+      gameSummaryError: 'Impossibile caricare il riepilogo partite.',
       breakdown: {
         title: 'Come sono stati calcolati i tuoi Anima Points e i Weekly XP',
         subtitle: 'Riepilogo delle scommesse vinte e del moltiplicatore attivo.',
@@ -623,6 +633,8 @@ const it: Dictionary = {
     picksTab: 'Picks',
     highlightsTab: 'Highlights',
     backToDashboard: 'Torna alla dashboard',
+    gamesSummaryLink: 'Riepilogo partite',
+    fillFromGamesSummary: 'Compila da games summary',
     searchPlaceholder: 'Cerca utente…',
     balance: 'Saldo',
     cards: 'Cards',
@@ -826,6 +838,10 @@ const en: Dictionary = {
       pointsOfDay: 'Anima Points earned this date',
       myPick: 'My Pick',
       empty: 'No results available for this date.',
+      gameSummaryCta: 'Game summary',
+      gameSummaryTitle: 'Game summary',
+      gameSummaryEmpty: 'No finished games found for this date.',
+      gameSummaryError: 'Unable to load game summary.',
       breakdown: {
         title: 'How your Anima Points and Weekly XP were calculated',
         subtitle: 'Breakdown of winning picks and the active multiplier.',
@@ -989,6 +1005,8 @@ const en: Dictionary = {
     picksTab: 'Picks',
     highlightsTab: 'Winners Highlights',
     backToDashboard: 'Back to dashboard',
+    gamesSummaryLink: 'Games summary',
+    fillFromGamesSummary: 'Fill from games summary',
     searchPlaceholder: 'Search user…',
     balance: 'Balance',
     cards: 'Cards',
