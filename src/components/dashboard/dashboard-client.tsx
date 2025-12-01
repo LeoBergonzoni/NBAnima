@@ -787,22 +787,22 @@ export function DashboardClient({
       const game = entry.game;
       map.set(entry.game_id, {
         id: entry.game_id,
-        startsAt: game.starts_at ?? game.locked_at ?? pickDate,
+        startsAt: game.gameDateISO ?? pickDate,
         status: 'locked',
         arena: null,
         homeTeam: {
-          id: game.home_team_id ?? 'home',
-          name: game.home_team_name ?? 'Home',
+          id: game.home?.abbr ?? 'home',
+          name: game.home?.name ?? 'Home',
           city: null,
           logo: null,
-          abbreviation: game.home_team_abbr ?? undefined,
+          abbreviation: game.home?.abbr ?? undefined,
         },
         awayTeam: {
-          id: game.away_team_id ?? 'away',
-          name: game.away_team_name ?? 'Away',
+          id: game.away?.abbr ?? 'away',
+          name: game.away?.name ?? 'Away',
           city: null,
           logo: null,
-          abbreviation: game.away_team_abbr ?? undefined,
+          abbreviation: game.away?.abbr ?? undefined,
         },
       });
     };
