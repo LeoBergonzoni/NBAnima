@@ -1042,11 +1042,20 @@ export const AdminClient = ({
     });
   }, [loadGamesSummary, teamWinnersData, dictionary.admin.fillFromGamesSummary]);
 
+  const stripDiacritics = (value: string) =>
+    value.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+
   const normalizeName = (value?: string | null) =>
-    (value ?? '').toLowerCase().replace(/[^a-z]/g, '').trim();
+    stripDiacritics(value ?? '')
+      .toLowerCase()
+      .replace(/[^a-z]/g, '')
+      .trim();
 
   const normalizeToken = (value?: string | number | null) =>
-    (value ?? '').toString().toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    stripDiacritics((value ?? '').toString())
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .trim();
 
   const matchPerformerToOption = (
     performer: SummaryPerformer,
@@ -1055,35 +1064,38 @@ export const AdminClient = ({
     const performerId = normalizeToken(performer.player?.id);
     const first = normalizeName(performer.player?.first_name);
     const last = normalizeName(performer.player?.last_name);
-    const target = `${first}${last}`.trim();
+    const fullName = normalizeName(`${performer.player?.first_name ?? ''} ${performer.player?.last_name ?? ''}`);
     const teamAbbr = performer.team?.abbreviation?.toUpperCase() ?? null;
+    const teamToken = normalizeName(teamAbbr);
 
-    let best: PlayerWinnerOption | null = null;
-    if (performerId) {
-      best =
-        options.find(
-          (option) => normalizeToken(option.value) === performerId,
-        ) ?? null;
-    }
-    if (target && first && last) {
-      best =
-        options.find((option) => {
-          const label = normalizeName(option.label);
-          return label.includes(first) && label.includes(last);
-        }) ?? null;
-    }
-    if (!best && target) {
-      best =
-        options.find((option) =>
-          normalizeName(option.label).includes(target),
-        ) ?? null;
-    }
-    if (!best && teamAbbr) {
-      best =
-        options.find((option) =>
-          normalizeName(option.label).includes(teamAbbr.toLowerCase()),
-        ) ?? null;
-    }
+    const scored = options
+      .map((option) => {
+        const optionId = normalizeToken(option.value);
+        const optionLabel = normalizeName(option.label);
+
+        let score = 0;
+        if (performerId && optionId && performerId === optionId) {
+          score += 6;
+        }
+        if (fullName && optionLabel.includes(fullName)) {
+          score += 4;
+        }
+        if (first && last && optionLabel.includes(first) && optionLabel.includes(last)) {
+          score += 3;
+        }
+        if (last && optionLabel.includes(last)) {
+          score += 1.5;
+        }
+        if (teamToken && optionLabel.includes(teamToken)) {
+          score += 0.5;
+        }
+
+        return { option, score };
+      })
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score || a.option.label.length - b.option.label.length);
+
+    const best = scored[0]?.option ?? null;
 
     if (best) {
       return {

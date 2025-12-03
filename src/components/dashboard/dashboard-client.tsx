@@ -22,6 +22,7 @@ import useSWR from 'swr';
 import { PlayerSelect, type PlayerOptionSection } from '@/components/ui/PlayerSelect';
 import { useLocale } from '@/components/providers/locale-provider';
 import { FEATURES, type Locale } from '@/lib/constants';
+import { getTeamEmojiByAbbr } from '@/lib/teamEmojis';
 import type { Dictionary } from '@/locales/dictionaries';
 import { useGames } from '@/hooks/useGames';
 import {
@@ -227,6 +228,11 @@ const TeamButton = ({
       .toUpperCase();
   }, [team.name]);
 
+  const emoji = useMemo(() => {
+    const abbr = team.abbreviation ?? computeTeamAbbr(team);
+    return getTeamEmojiByAbbr(abbr);
+  }, [team.abbreviation, team.name]);
+
   return (
     <button
       type="button"
@@ -239,8 +245,12 @@ const TeamButton = ({
           : 'border-white/10 bg-navy-800/60 hover:border-accent-gold/60',
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-navy-900 text-lg font-bold text-accent-gold">
-        {team.logo ? (
+      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-navy-900 text-2xl font-bold text-accent-gold">
+        {emoji ? (
+          <span aria-hidden="true" className="leading-none">
+            {emoji}
+          </span>
+        ) : team.logo ? (
           <Image
             src={team.logo}
             alt={`${team.name} logo`}
