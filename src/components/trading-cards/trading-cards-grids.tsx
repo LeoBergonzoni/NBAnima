@@ -24,6 +24,11 @@ type GroupedCards<T extends ShopCard> = {
   cards: T[];
 };
 
+type GroupedCollectionCards<T extends ShopCard> = {
+  category: CardCategory;
+  cards: T[];
+};
+
 const orderIndex = <T extends string>(value: T, order: readonly T[]) => {
   const index = order.indexOf(value);
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
@@ -73,6 +78,30 @@ const groupCardsByCategory = <T extends ShopCard>(cards: T[]): GroupedCards<T>[]
   return Array.from(groups.values());
 };
 
+const groupCollectionCardsByCategory = <T extends ShopCard>(
+  cards: T[],
+): GroupedCollectionCards<T>[] => {
+  const sorted = sortCards(cards);
+  const groups = new Map<CardCategory, GroupedCollectionCards<T>>();
+
+  for (const card of sorted) {
+    const key = card.category as CardCategory;
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.cards.push(card);
+      continue;
+    }
+
+    groups.set(key, {
+      category: card.category as CardCategory,
+      cards: [card],
+    });
+  }
+
+  return Array.from(groups.values());
+};
+
 export const CollectionGrid = ({
   cards,
   dictionary,
@@ -83,7 +112,7 @@ export const CollectionGrid = ({
   const [selectedCard, setSelectedCard] = useState<
     (ShopCard & { owned: boolean; quantity: number }) | null
   >(null);
-  const groupedCards = useMemo(() => groupCardsByCategory(cards), [cards]);
+  const groupedCards = useMemo(() => groupCollectionCardsByCategory(cards), [cards]);
 
   useEffect(() => {
     if (!selectedCard) {
@@ -108,13 +137,10 @@ export const CollectionGrid = ({
     <>
       <div className="space-y-6">
         {groupedCards.map((group) => (
-          <div key={`${group.category}-${group.conference}`} className="space-y-3">
+          <div key={group.category} className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent-gold sm:text-[11px]">
                 {group.category}
-              </span>
-              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-200 sm:text-[11px]">
-                {group.conference}
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:grid-cols-3 lg:gap-4">
@@ -139,64 +165,62 @@ export const CollectionGrid = ({
                       className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-20"
                       style={{ backgroundColor: card.accent_color ?? '#8ecae6' }}
                     />
-                    <div className="absolute right-2 top-2 z-10 rounded-full border border-white/10 bg-black/60 px-2 py-[2px] text-[10px] font-semibold text-white sm:text-[11px]">
-                    ×{card.quantity}
-                  </div>
-                  <div className="relative flex min-h-full flex-col gap-3">
-                    <div className="flex items-center justify-between text-[7px] uppercase tracking-wide text-slate-400 sm:text-[8px]">
-                      <span>{card.rarity}</span>
-                    </div>
-                    <div
-                      className={clsx(
-                        'relative w-full overflow-hidden rounded-xl border bg-navy-900/80 p-1',
-                        isMaxed
-                          ? 'border-[#ffd700] shadow-[0_0_24px_rgba(255,215,0,0.6)]'
-                          : 'border-white/10',
-                      )}
-                      style={{ aspectRatio: '2 / 3' }}
-                    >
-                      <Image
-                        src={card.owned ? card.image_url : '/cards/back.png'}
-                        alt={card.name}
-                        fill
-                        className={clsx('object-contain transition', card.owned ? '' : 'saturate-50')}
-                        sizes="(min-width: 1024px) 20vw, (min-width: 640px) 35vw, 80vw"
-                      />
-                      {!card.owned ? (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-navy-900/70 text-slate-200">
-                          <Lock className="h-3.5 w-3.5" />
-                          <span className="text-[8px] font-semibold uppercase tracking-wide sm:text-[9px]">
-                            {dictionary.collection.locked}
-                          </span>
-                        </div>
-                      ) : null}
-                    </div>
-                    <div>
-                      <h3 className="text-xs font-semibold text-white sm:text-sm">{card.name}</h3>
-                    </div>
-                    <div className="mt-auto flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: 5 }).map((_, index) => {
-                          const filled = card.quantity > index;
-                          return (
-                            <Star
-                              key={index}
-                              className={clsx(
-                                'h-3 w-3 sm:h-3.5 sm:w-3.5',
-                                filled
-                                  ? 'text-accent-gold drop-shadow-[0_0_6px_rgba(255,215,0,0.45)]'
-                                  : 'text-slate-600',
-                              )}
-                              fill={filled ? 'currentColor' : 'none'}
-                            />
-                          );
-                        })}
+                    <div className="relative flex min-h-full flex-col gap-3">
+                      <div className="flex items-center justify-between text-[7px] uppercase tracking-wide text-slate-400 sm:text-[8px]">
+                        <span>{card.rarity}</span>
+                        <span className="rounded-full border border-white/10 bg-black/60 px-2 py-[2px] text-[10px] font-semibold text-white sm:text-[11px]">
+                          ×{card.quantity}
+                        </span>
                       </div>
-                      <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-300 sm:text-[9px]">
-                        {Math.min(card.quantity, 5)}/5
-                      </span>
+                      <div
+                        className={clsx(
+                          'relative w-full overflow-hidden rounded-xl border bg-navy-900/80 p-1',
+                          isMaxed
+                            ? 'border-[#ffd700] shadow-[0_0_24px_rgba(255,215,0,0.6)]'
+                            : 'border-white/10',
+                        )}
+                        style={{ aspectRatio: '2 / 3' }}
+                      >
+                        <Image
+                          src={card.owned ? card.image_url : '/cards/back.png'}
+                          alt={card.name}
+                          fill
+                          className={clsx('object-contain transition', card.owned ? '' : 'saturate-50')}
+                          sizes="(min-width: 1024px) 20vw, (min-width: 640px) 35vw, 80vw"
+                        />
+                        {!card.owned ? (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-navy-900/70 text-slate-200">
+                            <Lock className="h-3.5 w-3.5" />
+                            <span className="text-[8px] font-semibold uppercase tracking-wide sm:text-[9px]">
+                              {dictionary.collection.locked}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                      <h3 className="sr-only">{card.name}</h3>
+                      <div className="mt-auto flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: 5 }).map((_, index) => {
+                            const filled = card.quantity > index;
+                            return (
+                              <Star
+                                key={index}
+                                className={clsx(
+                                  'h-3 w-3 sm:h-3.5 sm:w-3.5',
+                                  filled
+                                    ? 'text-accent-gold drop-shadow-[0_0_6px_rgba(255,215,0,0.45)]'
+                                    : 'text-slate-600',
+                                )}
+                                fill={filled ? 'currentColor' : 'none'}
+                              />
+                            );
+                          })}
+                        </div>
+                        <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-300 sm:text-[9px]">
+                          {Math.min(card.quantity, 5)}/5
+                        </span>
+                      </div>
                     </div>
-                  </div>
                   </button>
                 );
               })}
