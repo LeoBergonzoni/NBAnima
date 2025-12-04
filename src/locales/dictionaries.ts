@@ -230,6 +230,13 @@ export interface Dictionary {
     title: string;
     download: string;
     locked: string;
+    filters: {
+      title: string;
+      rarity: string;
+      category: string;
+      conference: string;
+      all: string;
+    };
   };
   shop: {
     title: string;
@@ -596,6 +603,13 @@ const it: Dictionary = {
     title: 'La tua Collezione',
     download: 'Scarica',
     locked: 'Non acquistata',
+    filters: {
+      title: 'Filtra',
+      rarity: 'Rarità',
+      category: 'Categoria',
+      conference: 'Conference',
+      all: 'Tutte',
+    },
   },
   shop: {
     title: 'Shop Cards',
@@ -967,6 +981,13 @@ const en: Dictionary = {
     title: 'Your Collection',
     download: 'Download',
     locked: 'Locked',
+    filters: {
+      title: 'Filter',
+      rarity: 'Rarity',
+      category: 'Category',
+      conference: 'Conference',
+      all: 'All',
+    },
   },
   shop: {
     title: 'Shop Cards',
