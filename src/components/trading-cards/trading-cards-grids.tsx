@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { CheckCircle2, Coins, Loader2, Lock, Star, X } from 'lucide-react';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
-import type { MouseEvent } from 'react';
+import type { ChangeEvent, MouseEvent } from 'react';
 
 import { buyCardAction } from '@/app/[locale]/dashboard/(shop)/actions';
 import type { Locale } from '@/lib/constants';
@@ -17,6 +17,10 @@ const CONFERENCE_ORDER: CardConference[] = [
   'Western Conference',
   'Special',
 ];
+
+const RARITY_FILTER_OPTIONS = ['Common', 'Rare', 'Legendary'] as const;
+const CATEGORY_FILTER_OPTIONS: CardCategory[] = ['Rosters', 'Celebrations', 'Courtside', 'Iconic'];
+const CONFERENCE_FILTER_OPTIONS: CardConference[] = ['Eastern Conference', 'Western Conference'];
 
 type GroupedCards<T extends ShopCard> = {
   category: CardCategory;
@@ -112,7 +116,37 @@ export const CollectionGrid = ({
   const [selectedCard, setSelectedCard] = useState<
     (ShopCard & { owned: boolean; quantity: number }) | null
   >(null);
-  const groupedCards = useMemo(() => groupCollectionCardsByCategory(cards), [cards]);
+  const [filters, setFilters] = useState({ rarity: '', category: '', conference: '' });
+
+  const filteredCards = useMemo(() => {
+    const normalize = (value: string) => value.toLowerCase();
+
+    return cards.filter((card) => {
+      const matchesRarity = filters.rarity
+        ? normalize(card.rarity) === filters.rarity
+        : true;
+      const matchesCategory = filters.category
+        ? card.category === filters.category
+        : true;
+      const matchesConference = filters.conference
+        ? card.conference === filters.conference
+        : true;
+
+      return matchesRarity && matchesCategory && matchesConference;
+    });
+  }, [cards, filters]);
+
+  const groupedCards = useMemo(
+    () => groupCollectionCardsByCategory(filteredCards),
+    [filteredCards],
+  );
+
+  const handleFilterChange = (
+    key: 'rarity' | 'category' | 'conference',
+  ) =>
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      setFilters((previous) => ({ ...previous, [key]: event.target.value }));
+    };
 
   useEffect(() => {
     if (!selectedCard) {
@@ -136,6 +170,58 @@ export const CollectionGrid = ({
   return (
     <>
       <div className="space-y-6">
+        <div className="flex flex-wrap gap-3 rounded-xl border border-white/10 bg-navy-900/40 p-3 sm:p-4">
+          <div className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-200 sm:text-[11px]">
+            <label htmlFor="collection-rarity-filter">{dictionary.collection.filters.rarity}</label>
+            <select
+              id="collection-rarity-filter"
+              value={filters.rarity}
+              onChange={handleFilterChange('rarity')}
+              className="min-w-[140px] rounded-lg border border-white/10 bg-navy-900/70 px-3 py-2 text-xs font-semibold text-white shadow-card transition focus:outline-none focus:ring-2 focus:ring-accent-gold/60"
+            >
+              <option value="">{dictionary.collection.filters.all}</option>
+              {RARITY_FILTER_OPTIONS.map((option) => (
+                <option key={option.toLowerCase()} value={option.toLowerCase()}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-200 sm:text-[11px]">
+            <label htmlFor="collection-category-filter">{dictionary.collection.filters.category}</label>
+            <select
+              id="collection-category-filter"
+              value={filters.category}
+              onChange={handleFilterChange('category')}
+              className="min-w-[140px] rounded-lg border border-white/10 bg-navy-900/70 px-3 py-2 text-xs font-semibold text-white shadow-card transition focus:outline-none focus:ring-2 focus:ring-accent-gold/60"
+            >
+              <option value="">{dictionary.collection.filters.all}</option>
+              {CATEGORY_FILTER_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-200 sm:text-[11px]">
+            <label htmlFor="collection-conference-filter">
+              {dictionary.collection.filters.conference}
+            </label>
+            <select
+              id="collection-conference-filter"
+              value={filters.conference}
+              onChange={handleFilterChange('conference')}
+              className="min-w-[160px] rounded-lg border border-white/10 bg-navy-900/70 px-3 py-2 text-xs font-semibold text-white shadow-card transition focus:outline-none focus:ring-2 focus:ring-accent-gold/60"
+            >
+              <option value="">{dictionary.collection.filters.all}</option>
+              {CONFERENCE_FILTER_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         {groupedCards.map((group) => (
           <div key={group.category} className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
