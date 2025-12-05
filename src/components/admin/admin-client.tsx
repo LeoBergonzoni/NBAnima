@@ -145,6 +145,7 @@ const ADMIN_TABS = [
   'winnersPlayers',
   'highlights',
   'storage',
+  'rosters',
 ] as const;
 
 type AdminTab = (typeof ADMIN_TABS)[number];
@@ -1218,32 +1219,34 @@ export const AdminClient = ({
                 const label =
                   tab === 'users'
                     ? dictionary.admin.usersTab
-                  : tab === 'picks'
-                    ? dictionary.admin.picksTab
-                  : tab === 'winnersTeams'
-                    ? 'Winners Teams'
-                  : tab === 'winnersPlayers'
-                    ? 'Winners Players'
-                    : tab === 'storage'
-                      ? 'Storage'
-                      : dictionary.admin.highlightsTab;
-              return (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={clsx(
-                    'flex-none whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition min-h-[44px]',
-                    activeTab === tab
-                      ? 'border-accent-gold bg-accent-gold/20 text-accent-gold'
-                      : 'border-white/10 bg-navy-800/70 text-slate-300 hover:border-accent-gold/40',
-                  )}
-                  aria-pressed={activeTab === tab}
-                >
-                  {label}
-                </button>
-              );
-            })}
+                    : tab === 'picks'
+                      ? dictionary.admin.picksTab
+                      : tab === 'winnersTeams'
+                        ? 'Winners Teams'
+                        : tab === 'winnersPlayers'
+                          ? 'Winners Players'
+                          : tab === 'storage'
+                            ? 'Storage'
+                            : tab === 'rosters'
+                              ? 'Rosters'
+                              : dictionary.admin.highlightsTab;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab)}
+                    className={clsx(
+                      'flex-none whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition min-h-[44px]',
+                      activeTab === tab
+                        ? 'border-accent-gold bg-accent-gold/20 text-accent-gold'
+                        : 'border-white/10 bg-navy-800/70 text-slate-300 hover:border-accent-gold/40',
+                    )}
+                    aria-pressed={activeTab === tab}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </header>
           </div>
         </div>
@@ -2239,6 +2242,22 @@ export const AdminClient = ({
             <h2 className="text-2xl font-semibold text-white">Storage Supabase</h2>
           </div>
           <AdminStorageDashboard />
+        </section>
+      ) : null}
+
+      {activeTab === 'rosters' ? (
+        <section className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <h2 className="text-2xl font-semibold text-white">Rosters</h2>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/${locale}/admin/rosters`}
+              className="inline-flex items-center justify-center rounded-full border border-accent-gold/50 bg-accent-gold/15 px-4 py-2 text-sm font-semibold text-accent-gold transition hover:border-accent-gold hover:bg-accent-gold/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-gold"
+            >
+              Vai a /admin/rosters
+            </Link>
+          </div>
         </section>
       ) : null}
     </div>

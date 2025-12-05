@@ -9,6 +9,7 @@ export type UpsertablePlayer = {
   first_name: string;
   last_name: string;
   position?: string | null;
+  active?: boolean;
 };
 
 const dedupePlayers = (players: UpsertablePlayer[]): UpsertablePlayer[] => {

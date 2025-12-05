@@ -68,7 +68,7 @@ export type BLGame = {
   visitor_team_score?: number;
 };
 
-type BLList<T> = { data: T[]; meta?: { next_cursor?: number | null } };
+type BLList<T> = { data: T[]; meta?: { next_page?: number | null; next_cursor?: number | null } };
 
 const PER_PAGE = 100;
 
@@ -76,17 +76,20 @@ export async function listTeamPlayers(
   teamId: number,
   season: number,
 ): Promise<BLPlayer[]> {
-  let next: number | null | undefined = 0;
+  // Balldontlie usa paginazione page/next_page e il filtro season con "seasons[]"
+  let page = 1;
   const all: BLPlayer[] = [];
 
-  while (next !== null) {
-    const cursorParam: string =
-      typeof next === 'number' && next > 0 ? `&cursor=${next}` : '';
-    const page = await blFetch<BLList<BLPlayer>>(
-      `/players?team_ids[]=${teamId}&season=${season}&per_page=${PER_PAGE}${cursorParam}`,
+  while (true) {
+    const payload = await blFetch<BLList<BLPlayer>>(
+      `/players?team_ids[]=${teamId}&seasons[]=${season}&active=true&per_page=${PER_PAGE}&page=${page}`,
     );
-    all.push(...(page.data ?? []));
-    next = page.meta?.next_cursor ?? null;
+    all.push(...(payload.data ?? []));
+    const nextPage = payload.meta?.next_page;
+    if (!nextPage || nextPage === page) {
+      break;
+    }
+    page = nextPage;
   }
 
   return all;
