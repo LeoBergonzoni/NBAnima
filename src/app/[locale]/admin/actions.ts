@@ -97,6 +97,8 @@ export type PlayerWinnerOption = {
   label: string;
   meta?: {
     position?: string | null;
+    providerPlayerId?: string | null;
+    teamAbbr?: string | null;
   };
 };
 
@@ -396,6 +398,8 @@ const fetchPlayerRecordsByIds = async (
       first_name: string | null;
       last_name: string | null;
       position: string | null;
+      provider_player_id: string | null;
+      team_abbr: string | null;
     }
   >
 > => {
@@ -405,24 +409,93 @@ const fetchPlayerRecordsByIds = async (
 
   const { data, error } = await supabaseAdmin
     .from('player')
-    .select('id, first_name, last_name, position')
+    .select('id, first_name, last_name, position, provider_player_id, team:team_id (abbr)')
     .in('id', Array.from(new Set(playerIds)));
 
   if (error) {
     throw error;
   }
 
+  type PlayerRowWithTeam = {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    position: string | null;
+    provider_player_id: string | null;
+    team?: { abbr?: string | null } | null;
+  };
+  const rows = (data ?? []) as PlayerRowWithTeam[];
+
   return new Map(
-    (data ?? []).map((player) => [
+    rows.map((player) => [
       player.id,
       {
         first_name: player.first_name,
         last_name: player.last_name,
         position: player.position,
+        provider_player_id: player.provider_player_id,
+        team_abbr: (() => {
+          const abbr = (player as { team?: { abbr?: string | null } | null }).team?.abbr;
+          return abbr ? abbr.toUpperCase() : null;
+        })(),
       },
     ]),
   );
 };
+
+async function fetchRosterOptionsForTeams(
+  teamIds: string[],
+): Promise<Map<string, PlayerWinnerOption[]>> {
+  if (teamIds.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('player')
+    .select('id, provider_player_id, first_name, last_name, position, team_id, team:team_id (abbr)')
+    .in('team_id', Array.from(new Set(teamIds)));
+
+  if (error) {
+    throw error;
+  }
+
+  type PlayerRowWithTeam = {
+    id: string;
+    provider_player_id: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    position: string | null;
+    team_id: string | null;
+    team?: { abbr?: string | null } | null;
+  };
+  const rows = (data ?? []) as PlayerRowWithTeam[];
+
+  const byTeam = new Map<string, PlayerWinnerOption[]>();
+  rows.forEach((player) => {
+    if (!player.team_id) {
+      return;
+    }
+    const teamAbbr = (() => {
+      const abbr = (player as { team?: { abbr?: string | null } | null }).team?.abbr;
+      return abbr ? abbr.toUpperCase() : null;
+    })();
+    const option: PlayerWinnerOption = {
+      value: player.id,
+      label: buildPlayerLabel(player, player.provider_player_id ?? player.id, teamAbbr),
+      meta: {
+        position: player.position ?? null,
+        providerPlayerId: player.provider_player_id ?? null,
+        teamAbbr,
+      },
+    };
+    const existing = byTeam.get(player.team_id) ?? [];
+    existing.push(option);
+    byTeam.set(player.team_id, existing);
+  });
+
+  byTeam.forEach((options) => options.sort((a, b) => a.label.localeCompare(b.label)));
+  return byTeam;
+}
 
 const buildPlayerLabel = (
   record:
@@ -433,11 +506,15 @@ const buildPlayerLabel = (
     | null
     | undefined,
   fallback: string,
+  teamAbbr?: string | null,
 ) => {
   const first = record?.first_name ?? '';
   const last = record?.last_name ?? '';
-  const label = `${first} ${last}`.trim();
-  return label || fallback;
+  const label = `${first} ${last}`.trim() || fallback;
+  if (teamAbbr) {
+    return `${label} — ${teamAbbr.toUpperCase()}`;
+  }
+  return label;
 };
 
 const applySettlementForDate = async (dateNY: string) => {
@@ -838,8 +915,11 @@ export const loadPlayerWinners = async (
   const pickDate = DATE_SCHEMA.parse(dateNY);
   const games = await fetchGamesForDate(pickDate);
   const gameIds = games.map((game) => game.id);
+  const teamIds = games
+    .flatMap((game) => [game.home_team_id, game.away_team_id])
+    .filter((value): value is string => Boolean(value));
 
-  const [{ data: playerPicksRaw, error: playerPicksError }, playerResults] =
+  const [{ data: playerPicksRaw, error: playerPicksError }, playerResults, rosterOptionsByTeamId] =
     await Promise.all([
       supabaseAdmin
         .from('picks_players')
@@ -848,12 +928,13 @@ export const loadPlayerWinners = async (
             'game_id',
             'category',
             'player_id',
-            'player:player_id(first_name,last_name,position)',
+            'player:player_id(first_name,last_name,position,provider_player_id,team:team_id (abbr))',
           ].join(', '),
         )
         .eq('pick_date', pickDate)
         .returns<PlayerPickWithMeta[]>(),
       fetchPlayerResultsForGames(gameIds),
+      fetchRosterOptionsForTeams(teamIds),
     ]);
 
   if (playerPicksError) {
@@ -866,6 +947,8 @@ export const loadPlayerWinners = async (
       first_name: string | null;
       last_name: string | null;
       position: string | null;
+      provider_player_id: string | null;
+      team_abbr: string | null;
     }
   >();
 
@@ -874,6 +957,8 @@ export const loadPlayerWinners = async (
       first_name?: string | null;
       last_name?: string | null;
       position?: string | null;
+      provider_player_id?: string | null;
+      team?: { abbr?: string | null } | null;
     } | null;
   };
 
@@ -913,25 +998,32 @@ export const loadPlayerWinners = async (
 
     const info =
       entry.player ??
-      ({
+      ({ 
         first_name: null,
         last_name: null,
         position: null,
+        provider_player_id: null,
+        team: { abbr: null },
       } as const);
+    const teamAbbr = info?.team?.abbr ? info.team.abbr.toUpperCase() : null;
 
     playerInfoMap.set(entry.player_id, {
       first_name: info?.first_name ?? null,
       last_name: info?.last_name ?? null,
       position: info?.position ?? null,
+      provider_player_id: info?.provider_player_id ?? null,
+      team_abbr: teamAbbr,
     });
 
     if (!tracker.has(entry.player_id)) {
       tracker.add(entry.player_id);
       existing.push({
         value: entry.player_id,
-        label: buildPlayerLabel(info, entry.player_id),
+        label: buildPlayerLabel(info, entry.player_id, teamAbbr),
         meta: {
           position: info?.position ?? null,
+          providerPlayerId: info?.provider_player_id ?? null,
+          teamAbbr,
         },
       });
     }
@@ -975,20 +1067,46 @@ export const loadPlayerWinners = async (
 
     const categories = Array.from(categorySet).sort((a, b) => a.localeCompare(b));
 
+    const rosterOptions: PlayerWinnerOption[] = [
+      ...(game.home_team_id ? rosterOptionsByTeamId.get(game.home_team_id) ?? [] : []),
+      ...(game.away_team_id ? rosterOptionsByTeamId.get(game.away_team_id) ?? [] : []),
+    ];
+
+    const mergeOptions = (...lists: PlayerWinnerOption[][]) => {
+      const seen = new Set<string>();
+      const merged: PlayerWinnerOption[] = [];
+      lists.forEach((list) => {
+        list.forEach((option) => {
+          if (!seen.has(option.value)) {
+            seen.add(option.value);
+            merged.push(option);
+          }
+        });
+      });
+      return merged;
+    };
+
     const perCategory: PlayerWinnerCategoryRow[] = categories.map((category) => {
       const key = `${game.id}:${category}`;
       const winners = resultMap.get(key) ?? [];
-      const options =
+      const baseOptions =
         optionsByGameCategory.get(game.id)?.get(category)?.slice() ?? [];
+      const options = mergeOptions(baseOptions, rosterOptions);
 
       winners.forEach((winner) => {
         if (!options.some((option) => option.value === winner.player_id)) {
           const info = playerInfoMap.get(winner.player_id) ?? null;
           options.push({
             value: winner.player_id,
-            label: buildPlayerLabel(info ?? undefined, winner.player_id),
+            label: buildPlayerLabel(
+              info ?? undefined,
+              winner.player_id,
+              info?.team_abbr ?? null,
+            ),
             meta: {
               position: info?.position ?? null,
+              providerPlayerId: info?.provider_player_id ?? null,
+              teamAbbr: info?.team_abbr ?? null,
             },
           });
         }
