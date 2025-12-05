@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
         .eq('provider', 'balldontlie')
         .eq('team_id', teamId)
         .in('provider_player_id', missing)
-        .select('id', { count: 'exact', head: true } as never);
+        .select('id', { count: 'exact' });
 
       if (deactivateError) {
         console.warn('[sync-rosters] failed to deactivate players', {
