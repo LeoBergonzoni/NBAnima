@@ -1072,8 +1072,13 @@ export const AdminClient = ({
       .map((option) => {
         const optionId = normalizeToken(option.value);
         const optionLabel = normalizeName(option.label);
+        const optionProviderId = normalizeToken(option.meta?.providerPlayerId);
+        const optionTeamToken = normalizeName(option.meta?.teamAbbr);
 
         let score = 0;
+        if (performerId && optionProviderId && performerId === optionProviderId) {
+          score += 8;
+        }
         if (performerId && optionId && performerId === optionId) {
           score += 6;
         }
@@ -1086,7 +1091,9 @@ export const AdminClient = ({
         if (last && optionLabel.includes(last)) {
           score += 1.5;
         }
-        if (teamToken && optionLabel.includes(teamToken)) {
+        if (teamToken && optionTeamToken && optionTeamToken === teamToken) {
+          score += 1;
+        } else if (teamToken && optionLabel.includes(teamToken)) {
           score += 0.5;
         }
 
@@ -1103,10 +1110,11 @@ export const AdminClient = ({
         label: best.label,
         source: 'supabase',
         supabaseId: best.value,
-        providerPlayerId: best.value,
-        teamAbbr,
+        providerPlayerId: best.meta?.providerPlayerId ?? best.value,
+        teamAbbr: best.meta?.teamAbbr ?? teamAbbr,
         firstName: performer.player?.first_name ?? undefined,
         lastName: performer.player?.last_name ?? undefined,
+        position: best.meta?.position ?? undefined,
       };
     }
 
