@@ -139,6 +139,7 @@ export interface Database {
           first_name: string;
           last_name: string;
           position: string | null;
+          active: boolean;
           created_at: string;
         };
         Insert: {
@@ -149,10 +150,53 @@ export interface Database {
           first_name: string;
           last_name: string;
           position?: string | null;
+          active?: boolean;
           created_at?: string;
         };
         Update: Partial<Omit<Database['public']['Tables']['player']['Row'], 'id'>>;
         Relationships: [];
+      };
+      player_team_history: {
+        Row: {
+          id: string;
+          player_id: string;
+          from_team_id: string | null;
+          to_team_id: string;
+          moved_at: string;
+        };
+        Insert: {
+          id?: string;
+          player_id: string;
+          from_team_id?: string | null;
+          to_team_id: string;
+          moved_at?: string;
+        };
+        Update: Partial<
+          Omit<Database['public']['Tables']['player_team_history']['Row'], 'id'>
+        >;
+        Relationships: [
+          {
+            foreignKeyName: 'player_team_history_player_id_fkey';
+            columns: ['player_id'];
+            referencedRelation: 'player';
+            referencedColumns: ['id'];
+            isOneToOne: false;
+          },
+          {
+            foreignKeyName: 'player_team_history_from_team_id_fkey';
+            columns: ['from_team_id'];
+            referencedRelation: 'teams';
+            referencedColumns: ['id'];
+            isOneToOne: false;
+          },
+          {
+            foreignKeyName: 'player_team_history_to_team_id_fkey';
+            columns: ['to_team_id'];
+            referencedRelation: 'teams';
+            referencedColumns: ['id'];
+            isOneToOne: false;
+          },
+        ];
       };
       picks_teams: {
         Row: {
@@ -345,6 +389,32 @@ export interface Database {
         };
         Update: Partial<
           Omit<Database['public']['Tables']['results_highlights']['Row'], 'id'>
+        >;
+        Relationships: [];
+      };
+      sync_runs: {
+        Row: {
+          id: string;
+          source: string;
+          run_started_at: string;
+          run_finished_at: string | null;
+          status: string;
+          note: string | null;
+          success_count: number;
+          failure_count: number;
+        };
+        Insert: {
+          id?: string;
+          source: string;
+          run_started_at?: string;
+          run_finished_at?: string | null;
+          status?: string;
+          note?: string | null;
+          success_count?: number;
+          failure_count?: number;
+        };
+        Update: Partial<
+          Omit<Database['public']['Tables']['sync_runs']['Row'], 'id'>
         >;
         Relationships: [];
       };
