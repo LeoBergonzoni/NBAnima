@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Log team changes
-    const historyRows =
+    const historyRows = (
       moveCandidates
         .map((player) => {
           const existing = existingByProvider.get(player.provider_player_id);
@@ -246,7 +246,8 @@ export async function POST(request: NextRequest) {
             to_team_id: player.team_id,
           };
         })
-        .filter(Boolean) ?? [];
+        .filter((row): row is { player_id: string; from_team_id: string; to_team_id: string } => Boolean(row))
+    );
 
     if (historyRows.length > 0) {
       const { error: historyError } = await supabaseAdmin
