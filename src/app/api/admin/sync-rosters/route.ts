@@ -271,13 +271,13 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const { error: deactivateError, count } = await supabaseAdmin
+      const { data: deactivatedRows, error: deactivateError } = await supabaseAdmin
         .from('player')
         .update({ active: false })
         .eq('provider', 'balldontlie')
         .eq('team_id', teamId)
         .in('provider_player_id', missing)
-        .select('id', { count: 'exact' });
+        .select('id');
 
       if (deactivateError) {
         console.warn('[sync-rosters] failed to deactivate players', {
@@ -285,8 +285,8 @@ export async function POST(request: NextRequest) {
           missingCount: missing.length,
           error: deactivateError.message,
         });
-      } else if (typeof count === 'number') {
-        deactivatedCount += count;
+      } else if (Array.isArray(deactivatedRows)) {
+        deactivatedCount += deactivatedRows.length;
       }
     }
 
