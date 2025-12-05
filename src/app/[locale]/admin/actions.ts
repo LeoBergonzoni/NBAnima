@@ -416,8 +416,18 @@ const fetchPlayerRecordsByIds = async (
     throw error;
   }
 
+  type PlayerRowWithTeam = {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    position: string | null;
+    provider_player_id: string | null;
+    team?: { abbr?: string | null } | null;
+  };
+  const rows = (data ?? []) as PlayerRowWithTeam[];
+
   return new Map(
-    (data ?? []).map((player) => [
+    rows.map((player) => [
       player.id,
       {
         first_name: player.first_name,
@@ -449,8 +459,19 @@ async function fetchRosterOptionsForTeams(
     throw error;
   }
 
+  type PlayerRowWithTeam = {
+    id: string;
+    provider_player_id: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    position: string | null;
+    team_id: string | null;
+    team?: { abbr?: string | null } | null;
+  };
+  const rows = (data ?? []) as PlayerRowWithTeam[];
+
   const byTeam = new Map<string, PlayerWinnerOption[]>();
-  (data ?? []).forEach((player) => {
+  rows.forEach((player) => {
     if (!player.team_id) {
       return;
     }
