@@ -21,13 +21,26 @@ export interface GameSummary {
   awayTeam: GameTeam;
 }
 
-const fetcher = async (url: string) => {
+type GamesApiResponse = GameSummary[] | { games?: GameSummary[] | null; warnings?: unknown };
+
+const fetcher = async (url: string): Promise<GameSummary[]> => {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.error ?? 'Failed to load games');
   }
-  return response.json();
+  const payload: GamesApiResponse = await response.json();
+
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (Array.isArray(payload?.games)) {
+    return payload.games;
+  }
+
+  console.warn('[useGames] Unexpected games payload', payload);
+  return [];
 };
 
 export const useGames = (_locale?: Locale) => {
