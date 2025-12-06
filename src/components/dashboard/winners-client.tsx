@@ -319,9 +319,6 @@ export const WinnersClient = ({
     dedupingInterval: 60_000,
   });
 
-  const hasResults =
-    (winners?.teams?.length ?? 0) > 0 || (winners?.players?.length ?? 0) > 0;
-
   const summaryGames = summaryData?.games ?? [];
 
   const renderSummaryPerformer = useCallback(
@@ -674,6 +671,11 @@ export const WinnersClient = ({
     });
   }, [winners?.teams, teamSelectionsByGameId, teamOutcomes, resolveTeamDisplay]);
 
+  const teamSummaryCardsVisible = useMemo(
+    () => teamSummaryCards.filter((summary) => summary.status !== 'pending'),
+    [teamSummaryCards],
+  );
+
   const playerSummaryCards = useMemo(() => {
     const grouped = new Map<string, WinnersResponse['players'][number][]>();
     (winners?.players ?? []).forEach((player) => {
@@ -739,6 +741,11 @@ export const WinnersClient = ({
   const playerSummaryCardsVisible = useMemo(
     () => playerSummaryCards.filter((summary) => summary.status !== 'pending'),
     [playerSummaryCards],
+  );
+
+  const hasResults = useMemo(
+    () => teamSummaryCardsVisible.length > 0 || playerSummaryCardsVisible.length > 0,
+    [teamSummaryCardsVisible, playerSummaryCardsVisible],
   );
 
   const pickDate = picks?.date ?? selectedDate;
@@ -1085,7 +1092,7 @@ export const WinnersClient = ({
                     }
                   >
                     <tbody className="divide-y divide-white/10 text-sm text-slate-200">
-                      {teamSummaryCards.map((summary) => {
+                      {teamSummaryCardsVisible.map((summary) => {
                         const homeAbbr =
                           summary.homeDisplay.abbreviation ??
                           summary.homeDisplay.name ??
@@ -1134,7 +1141,7 @@ export const WinnersClient = ({
                     </tbody>
                   </ResponsiveTable>
                   <MobileList>
-                    {teamSummaryCards.map((summary, index) => {
+                    {teamSummaryCardsVisible.map((summary, index) => {
                       const homeAbbr =
                         summary.homeDisplay.abbreviation ??
                         summary.homeDisplay.name ??

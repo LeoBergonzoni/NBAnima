@@ -62,6 +62,7 @@ const gameMetaTeamSchema = z
   .object({
     abbr: z.string().min(1),
     name: z.string().min(1),
+    providerTeamId: z.string().min(1).optional(),
   })
   .passthrough();
 
@@ -90,7 +91,7 @@ export const picksPayloadSchema = z.object({
     .array(highlightPickSchema)
     .max(5, 'Up to 5 highlight picks are allowed'),
   gamesMeta: z.array(gameMetaSchema).optional(),
-  gameUuids: z.array(z.string().uuid()),
+  gameUuids: z.array(z.string().min(1)),
   gameRefs: z.array(gameRefSchema).optional(),
   providerGameIds: z.array(z.string()).optional(),
 }).superRefine((val, ctx) => {

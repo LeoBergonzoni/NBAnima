@@ -66,6 +66,9 @@ export default async function DashboardPage({
     <DashboardClient
       locale={locale}
       balance={profile.anima_points_balance}
+      balanceFormatted={profile.anima_points_balance?.toLocaleString(
+        locale === 'it' ? 'it-IT' : 'en-US',
+      )}
       ownedCards={ownedCards}
       shopCards={(shopCards ?? []) as ShopCard[]}
       role={profile.role}

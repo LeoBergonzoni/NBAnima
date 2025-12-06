@@ -23,6 +23,7 @@ export interface HighlightPick {
 export interface GameMetaTeam {
   abbr: string;
   name: string;
+  providerTeamId?: string;
 }
 
 export interface GameMeta {
@@ -191,10 +192,12 @@ export const usePicks = (pickDate: string) => {
     home: {
       abbr: meta.home?.abbr,
       name: meta.home?.name,
+      providerTeamId: meta.home?.providerTeamId,
     },
     away: {
       abbr: meta.away?.abbr,
       name: meta.away?.name,
+      providerTeamId: meta.away?.providerTeamId,
     },
   });
 
@@ -216,6 +219,7 @@ export const usePicks = (pickDate: string) => {
     };
 
     const resolvedUuidSet = new Set<string>();
+    const requestedIds = new Set<string>();
     const existingRefs = sanitizedPayload.gameRefs ?? [];
     const seenRefs = new Set(existingRefs.map((ref) => ref.providerGameId));
     const gameRefs: GameRef[] = [...existingRefs];
@@ -224,15 +228,22 @@ export const usePicks = (pickDate: string) => {
       if (!rawId) {
         return;
       }
+
       const mappedUuid = mapByProviderId[rawId];
-      if (mappedUuid) {
+      if (mappedUuid && isUuid(mappedUuid)) {
         resolvedUuidSet.add(mappedUuid);
+        requestedIds.add(mappedUuid);
         return;
       }
+
       if (isUuid(rawId)) {
         resolvedUuidSet.add(rawId);
+        requestedIds.add(rawId);
         return;
       }
+
+      requestedIds.add(rawId);
+
       if (seenRefs.has(rawId)) {
         return;
       }
@@ -256,7 +267,9 @@ export const usePicks = (pickDate: string) => {
       seenRefs.add(rawId);
     });
 
-    sanitizedPayload.gameUuids = Array.from(resolvedUuidSet);
+    sanitizedPayload.gameUuids = Array.from(
+      new Set([...requestedIds, ...resolvedUuidSet]),
+    );
     sanitizedPayload.gameRefs = gameRefs.length > 0 ? gameRefs : undefined;
 
     return mutate(

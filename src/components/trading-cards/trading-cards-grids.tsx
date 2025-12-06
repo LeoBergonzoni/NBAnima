@@ -161,6 +161,20 @@ export const CollectionGrid = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedCard]);
 
+  useEffect(() => {
+    if (!selectedCard) {
+      return;
+    }
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [selectedCard]);
+
   if (cards.length === 0) {
     return null;
   }
@@ -275,11 +289,9 @@ export const CollectionGrid = ({
                           sizes="(min-width: 1024px) 20vw, (min-width: 640px) 35vw, 80vw"
                         />
                         {!card.owned ? (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-navy-900/70 text-slate-200">
-                            <Lock className="h-3.5 w-3.5" />
-                            <span className="text-[8px] font-semibold uppercase tracking-wide sm:text-[9px]">
-                              {dictionary.collection.locked}
-                            </span>
+                          <div className="absolute inset-0 flex items-center justify-center bg-navy-900/60 text-slate-200">
+                            <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span className="sr-only">{dictionary.collection.locked}</span>
                           </div>
                         ) : null}
                       </div>
@@ -485,10 +497,12 @@ export const ShopGrid = ({
                 const affordable = balance >= card.price;
                 const canBuy = affordable;
                 const isLoadingCard = isPending && pendingCard?.id === card.id;
-                const buttonLabel =
-                  canBuy || isLoadingCard
-                    ? null
-                    : dictionary.shop.insufficientPoints;
+                const priceLabel = (
+                  <span className="inline-flex items-center gap-1">
+                    <Coins className="h-4 w-4" />
+                    {card.price.toLocaleString(localeTag)}
+                  </span>
+                );
 
                 return (
                   <div
@@ -537,14 +551,7 @@ export const ShopGrid = ({
                         )}
                       >
                         {isLoadingCard ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                        {buttonLabel ? (
-                          <span>{buttonLabel}</span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1">
-                            <Coins className="h-4 w-4" />
-                            {card.price}
-                          </span>
-                        )}
+                        {priceLabel}
                       </button>
                     </div>
                   </div>
@@ -585,20 +592,20 @@ export const ShopGrid = ({
               <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  onClick={closeConfirm}
-                  className="inline-flex items-center justify-center rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-accent-gold/40 hover:text-white"
-                  disabled={isPending}
-                >
-                  {dictionary.common.cancel}
-                </button>
-                <button
-                  type="button"
                   onClick={handleConfirmPurchase}
                   disabled={isPending}
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-accent-gold bg-gradient-to-r from-accent-gold to-accent-coral px-4 py-2 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-75"
                 >
                   {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {dictionary.common.confirm}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeConfirm}
+                  className="inline-flex items-center justify-center rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-accent-gold/40 hover:text-white"
+                  disabled={isPending}
+                >
+                  {dictionary.common.cancel}
                 </button>
               </div>
             </div>

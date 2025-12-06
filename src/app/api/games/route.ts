@@ -52,10 +52,12 @@ export async function GET() {
           home: {
             abbr: game.homeTeam?.abbreviation ?? undefined,
             name: game.homeTeam?.name ?? undefined,
+            providerTeamId: game.homeTeam?.id,
           },
           away: {
             abbr: game.awayTeam?.abbreviation ?? undefined,
             name: game.awayTeam?.name ?? undefined,
+            providerTeamId: game.awayTeam?.id,
           },
         };
 

@@ -252,20 +252,20 @@ export const PacksGrid = ({
               <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  onClick={closeConfirm}
-                  className="inline-flex items-center justify-center rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-accent-gold/40 hover:text-white"
-                  disabled={isPending}
-                >
-                  {dictionary.common.cancel}
-                </button>
-                <button
-                  type="button"
                   onClick={handleConfirmPurchase}
                   disabled={isPending}
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-accent-gold bg-gradient-to-r from-accent-gold to-accent-coral px-4 py-2 text-sm font-semibold text-navy-900 shadow-card transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-75"
                 >
                   {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {dictionary.packs.openCta}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeConfirm}
+                  className="inline-flex items-center justify-center rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-accent-gold/40 hover:text-white"
+                  disabled={isPending}
+                >
+                  {dictionary.common.cancel}
                 </button>
               </div>
             </div>

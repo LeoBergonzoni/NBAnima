@@ -53,6 +53,9 @@ const fetchTeamId = async (
   }
 
   const providerTeamId = team.providerTeamId?.trim();
+  const abbr = normalizeAbbr(team.abbr);
+
+  // Prefer provider_team_id for the canonical provider, but fall back to any provider
   if (providerTeamId) {
     const { data, error } = await supabaseAdmin
       .from('teams')
@@ -60,16 +63,26 @@ const fetchTeamId = async (
       .eq('provider', BDL_PROVIDER)
       .eq('provider_team_id', providerTeamId)
       .maybeSingle();
-
     if (error) {
       throw error;
     }
     if (data?.id) {
       return data.id;
     }
+
+    const fallback = await supabaseAdmin
+      .from('teams')
+      .select('id')
+      .eq('provider_team_id', providerTeamId)
+      .maybeSingle();
+    if (fallback.error) {
+      throw fallback.error;
+    }
+    if (fallback.data?.id) {
+      return fallback.data.id;
+    }
   }
 
-  const abbr = normalizeAbbr(team.abbr);
   if (abbr) {
     const { data, error } = await supabaseAdmin
       .from('teams')
@@ -77,12 +90,23 @@ const fetchTeamId = async (
       .eq('provider', BDL_PROVIDER)
       .eq('abbr', abbr)
       .maybeSingle();
-
     if (error) {
       throw error;
     }
     if (data?.id) {
       return data.id;
+    }
+
+    const fallback = await supabaseAdmin
+      .from('teams')
+      .select('id')
+      .eq('abbr', abbr)
+      .maybeSingle();
+    if (fallback.error) {
+      throw fallback.error;
+    }
+    if (fallback.data?.id) {
+      return fallback.data.id;
     }
   }
 
