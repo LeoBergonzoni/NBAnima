@@ -29,6 +29,7 @@ import {
   type GameMeta,
   type HighlightPick,
   type PlayerPick,
+  type PicksResponse,
   type TeamPick,
   usePicks,
 } from '@/hooks/usePicks';
@@ -68,6 +69,7 @@ const fetchJson = async <T,>(url: string): Promise<T> => {
 interface DashboardClientProps {
   locale: Locale;
   balance: number;
+  balanceFormatted?: string;
   ownedCards: ShopCard[];
   shopCards: ShopCard[];
   role: string;
@@ -119,6 +121,7 @@ type TeamInput =
   | (Partial<GameTeam> & {
       full_name?: string | null;
       fullName?: string | null;
+      providerTeamId?: string | null;
     })
   | null
   | undefined;
@@ -213,11 +216,13 @@ const TeamButton = ({
   value,
   selected,
   onSelect,
+  disabled = false,
 }: {
   team: GameTeam;
   value: string;
   selected: boolean;
   onSelect: (teamId: string) => void;
+  disabled?: boolean;
 }) => {
   const initials = useMemo(() => {
     const pieces = team.name.split(' ');
@@ -236,13 +241,18 @@ const TeamButton = ({
   return (
     <button
       type="button"
-      onClick={() => onSelect(value)}
+      onClick={() => {
+        if (disabled) return;
+        onSelect(value);
+      }}
       aria-pressed={selected}
+      disabled={disabled}
       className={clsx(
         'group flex flex-1 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition min-h-[64px]',
         selected
           ? 'border-accent-gold bg-accent-gold/10 shadow-card'
           : 'border-white/10 bg-navy-800/60 hover:border-accent-gold/60',
+        disabled ? 'cursor-not-allowed opacity-60 hover:border-white/10' : '',
       )}
     >
       <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-navy-900 text-2xl font-bold text-accent-gold">
@@ -279,11 +289,13 @@ const GameTeamsRow = ({
   game,
   selection,
   onSelect,
+  disabled = false,
 }: {
   locale: Locale;
   game: GameSummary;
   selection?: string;
   onSelect: (teamId: string) => void;
+  disabled?: boolean;
 }) => (
   <div className="space-y-3 rounded-2xl border border-white/10 bg-navy-900/60 p-4 shadow-card">
     <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-wide text-slate-400">
@@ -297,6 +309,7 @@ const GameTeamsRow = ({
         value="away"
         selected={selection === 'away'}
         onSelect={onSelect}
+        disabled={disabled}
       />
       <div className="flex items-center justify-center text-xs font-semibold uppercase tracking-wide text-slate-400">
         VS
@@ -306,6 +319,7 @@ const GameTeamsRow = ({
         value="home"
         selected={selection === 'home'}
         onSelect={onSelect}
+        disabled={disabled}
       />
     </div>
   </div>
@@ -319,6 +333,7 @@ const GamePlayersCard = ({
   onChange,
   onPlayersLoaded,
   onSelectOpenChange,
+  disabled = false,
 }: {
   locale: Locale;
   dictionary: Dictionary;
@@ -327,6 +342,7 @@ const GamePlayersCard = ({
   onChange: (category: string, playerId: string) => void;
   onPlayersLoaded: (gameId: string, players: PlayerSummary[]) => void;
   onSelectOpenChange?: (open: boolean) => void;
+  disabled?: boolean;
 }) => {
   const homeTeamId = String(game.homeTeam.id);
   const awayTeamId = String(game.awayTeam.id);
@@ -606,10 +622,18 @@ const awayKey = useMemo(
                   options={selectOptions}
                   sections={selectSections}
                   value={normalizedValue ?? undefined}
-                  onChange={(playerId) => onChange(category, playerId ?? '')}
+                  onChange={(playerId) => {
+                    if (disabled) return;
+                    onChange(category, playerId ?? '');
+                  }}
                   placeholder="-"
-                  disabled={combinedPlayers.length === 0 && isLoading}
-                  onDialogOpenChange={onSelectOpenChange}
+                  disabled={disabled || (combinedPlayers.length === 0 && isLoading)}
+                  onDialogOpenChange={(open) => {
+                    if (disabled) {
+                      return;
+                    }
+                    onSelectOpenChange?.(open);
+                  }}
                 />
               </label>
             );
@@ -715,6 +739,7 @@ const HighlightsSelector = ({
 export function DashboardClient({
   locale,
   balance,
+  balanceFormatted,
   ownedCards,
   shopCards,
 }: DashboardClientProps) {
@@ -727,9 +752,8 @@ export function DashboardClient({
   );
   const ownedCount = ownedCards.length;
   const shopCount = shopCards.length;
-  const [activeTab, setActiveTab] = useState<'play' | 'myPicks' | 'winners' | 'weekly'>(() =>
-    getDefaultDashboardTab(),
-  );
+  // Keep a stable initial tab for SSR; switch after mount if needed.
+  const [activeTab, setActiveTab] = useState<'play' | 'myPicks' | 'winners' | 'weekly'>('play');
   const [teamSelections, setTeamSelections] = useState<Record<string, string>>({});
   const [playerSelections, setPlayerSelections] = useState<PlayerSelections>({});
   const [highlightSelections, setHighlightSelections] = useState<string[]>(() =>
@@ -960,6 +984,10 @@ export function DashboardClient({
   );
 
   const weeklyXpValue = weeklyXpData?.xp ?? 0;
+  const balanceDisplay =
+    typeof balanceFormatted === 'string' && balanceFormatted.length > 0
+      ? balanceFormatted
+      : String(balance ?? 0);
   const weeklyXpWeekStart = weeklyXpData?.weekStart ?? null;
   const weeklyRanking = weeklyRankingData?.ranking ?? [];
   const weeklyRankingWeekStart =
@@ -1030,6 +1058,130 @@ export function DashboardClient({
     [displayGames, playerSelections],
   );
 
+  const normalizeSavedTeamSelection = useCallback(
+    (pick: PicksResponse['teams'][number], game: GameSummary): 'home' | 'away' | null => {
+      const raw = String(pick.selected_team_id ?? '').toLowerCase();
+      if (raw === 'home' || raw === 'away') {
+        return raw;
+      }
+
+      const homeTokens = [
+        String(game.homeTeam.id ?? '').toLowerCase(),
+        String(game.homeTeam.abbreviation ?? '').toLowerCase(),
+        String(pick.selected_team_abbr ?? '').toLowerCase(),
+      ].filter(Boolean);
+      const awayTokens = [
+        String(game.awayTeam.id ?? '').toLowerCase(),
+        String(game.awayTeam.abbreviation ?? '').toLowerCase(),
+        String(pick.selected_team_abbr ?? '').toLowerCase(),
+      ].filter(Boolean);
+
+      if (homeTokens.includes(raw)) {
+        return 'home';
+      }
+      if (awayTokens.includes(raw)) {
+        return 'away';
+      }
+      return null;
+    },
+    [],
+  );
+
+  const savedTeamSelections = useMemo(() => {
+    const map = new Map<string, 'home' | 'away'>();
+    if (!picks) {
+      return map;
+    }
+    displayGames.forEach((game) => {
+      const pick = picks.teams.find((entry) => entry.game_id === game.id);
+      if (!pick) {
+        return;
+      }
+      const normalized = normalizeSavedTeamSelection(pick, game);
+      if (normalized) {
+        map.set(game.id, normalized);
+      }
+    });
+    return map;
+  }, [displayGames, normalizeSavedTeamSelection, picks]);
+
+  const savedTeamsComplete = useMemo(
+    () =>
+      displayGames.length > 0 &&
+      displayGames.every((game) => {
+        const saved = savedTeamSelections.get(game.id);
+        const current = teamSelections[game.id];
+        return Boolean(saved) && saved === current;
+      }),
+    [displayGames, savedTeamSelections, teamSelections],
+  );
+
+  const picksTeamsComplete = useMemo(
+    () =>
+      displayGames.length > 0 &&
+      displayGames.every((game) => savedTeamSelections.has(game.id)),
+    [displayGames, savedTeamSelections],
+  );
+
+  const [hasSavedTeamsOnce, setHasSavedTeamsOnce] = useState(false);
+  useEffect(() => {
+    if (picksTeamsComplete || (picks?.teams?.length ?? 0) > 0) {
+      setHasSavedTeamsOnce(true);
+    }
+  }, [picksTeamsComplete, picks?.teams?.length]);
+
+  const savedPlayerSelections = useMemo(() => {
+    const map = new Map<string, Record<string, string>>();
+    if (!picks) {
+      return map;
+    }
+    picks.players.forEach((pick) => {
+      const resolvedId =
+        (pick as typeof pick & { player?: { provider_player_id?: string | null } | null }).player
+          ?.provider_player_id ?? pick.player_id;
+      if (!resolvedId) {
+        return;
+      }
+      const entry = map.get(pick.game_id) ?? {};
+      entry[pick.category] = resolvedId;
+      map.set(pick.game_id, entry);
+    });
+    return map;
+  }, [picks]);
+
+  const savedPlayersComplete = useMemo(
+    () =>
+      displayGames.length > 0 &&
+      displayGames.every((game) =>
+        PLAYER_CATEGORIES.every((category) => {
+          const saved = savedPlayerSelections.get(game.id)?.[category];
+          const current = playerSelections[game.id]?.[category];
+          return Boolean(saved) && saved === current;
+        }),
+      ),
+    [displayGames, playerSelections, savedPlayerSelections],
+  );
+
+  const picksPlayersComplete = useMemo(
+    () =>
+      displayGames.length > 0 &&
+      displayGames.every((game) =>
+        PLAYER_CATEGORIES.every((category) => {
+          const saved = savedPlayerSelections.get(game.id)?.[category];
+          return Boolean(saved);
+        }),
+      ),
+    [displayGames, savedPlayerSelections],
+  );
+
+  const [hasSavedPlayersOnce, setHasSavedPlayersOnce] = useState(false);
+  const savedPlayersCount = picks?.players?.length ?? 0;
+  useEffect(() => {
+    if (picksPlayersComplete && savedPlayersCount > 0) {
+      setHasSavedPlayersOnce(true);
+    }
+  }, [picksPlayersComplete, savedPlayersCount]);
+
   const highlightsComplete = useMemo(() => {
     if (!highlightsEnabled) {
       return true;
@@ -1041,10 +1193,16 @@ export function DashboardClient({
   }, [highlightsEnabled, highlightsManuallyCompleted, highlightSelections]);
 
   const handleTeamsSelect = (gameId: string, teamId: string) => {
+    if (lockWindowActive) {
+      return;
+    }
     setTeamSelections((previous) => ({ ...previous, [gameId]: teamId }));
   };
 
   const handlePlayerSelect = (gameId: string, category: string, playerId: string) => {
+    if (lockWindowActive) {
+      return;
+    }
     setPlayerSelections((previous) => ({
       ...previous,
       [gameId]: {
@@ -1135,6 +1293,10 @@ export function DashboardClient({
     String(dailyChanges),
   );
   const lockCountdownInfo = useMemo(() => {
+    const closedLabel =
+      locale === 'it'
+        ? 'Le picks sono chiuse per oggi (chiudono 5 minuti prima dell’inizio delle partite). Torna domani per le prossime partite.'
+        : 'Picks are closed for today (they lock 5 minutes before games start). Come back tomorrow for new games.';
     if (!lockWindowDeadlineTs) {
       return {
         status: 'pending' as const,
@@ -1146,7 +1308,7 @@ export function DashboardClient({
     if (diff <= 0) {
       return {
         status: 'closed' as const,
-        label: dictionary.play.lockCountdown.closed,
+        label: closedLabel,
         time: null,
       };
     }
@@ -1198,10 +1360,16 @@ export function DashboardClient({
         home: {
           abbr: computeTeamAbbr(game.homeTeam),
           name: game.homeTeam.name ?? (game.homeTeam.city ?? 'Unknown'),
+          providerTeamId: (game.homeTeam as { id?: string | number | null })?.id
+            ? String((game.homeTeam as { id?: string | number | null })?.id)
+            : undefined,
         },
         away: {
           abbr: computeTeamAbbr(game.awayTeam),
           name: game.awayTeam.name ?? (game.awayTeam.city ?? 'Unknown'),
+          providerTeamId: (game.awayTeam as { id?: string | number | null })?.id
+            ? String((game.awayTeam as { id?: string | number | null })?.id)
+            : undefined,
         },
       };
     });
@@ -1270,6 +1438,12 @@ export function DashboardClient({
         setPicksToast(dictionary.dashboard.toasts.picksSaved);
       }
       success = true;
+      if (teamsComplete) {
+        setHasSavedTeamsOnce(true);
+      }
+      if (playersComplete) {
+        setHasSavedPlayersOnce(true);
+      }
     } catch (error) {
       setErrorMessage((error as Error).message);
     } finally {
@@ -1339,7 +1513,7 @@ export function DashboardClient({
                 {dictionary.dashboard.animaPoints}
               </p>
               <p className="text-xl font-semibold text-white sm:text-3xl">
-                {numberFormatter.format(balance)}
+                {balanceDisplay}
               </p>
             </div>
           </div>
@@ -1438,7 +1612,7 @@ export function DashboardClient({
             disabled={displayGames.length === 0}
             className={clsx(
               'group relative min-w-[220px] snap-center overflow-hidden rounded-3xl border px-3.5 py-3.5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900',
-              teamsComplete
+              savedTeamsComplete || hasSavedTeamsOnce
                 ? 'border-lime-300/70 ring-2 ring-lime-400/60 shadow-[0_18px_60px_rgba(132,204,22,0.35)]'
                 : 'border-white/10 hover:scale-[1.01] hover:border-accent-gold/50',
               displayGames.length === 0 ? 'cursor-not-allowed opacity-60' : 'active:scale-[0.99]',
@@ -1455,12 +1629,12 @@ export function DashboardClient({
               <span
                 className={clsx(
                   'absolute right-3 top-2 flex aspect-square h-7 items-center justify-center rounded-full border-2',
-                  teamsComplete
+                  savedTeamsComplete || hasSavedTeamsOnce
                     ? 'border-lime-200 bg-lime-200/25 shadow-[0_0_16px_rgba(132,204,22,0.45)]'
                     : 'border-white/60 bg-black/15',
                 )}
               >
-                {teamsComplete ? (
+                {savedTeamsComplete || hasSavedTeamsOnce ? (
                   <CheckCircle2 className="h-5 w-5 text-lime-300 drop-shadow" />
                 ) : (
                   <CircleDashed className="h-5 w-5 text-white/90" />
@@ -1483,7 +1657,7 @@ export function DashboardClient({
             disabled={displayGames.length === 0}
             className={clsx(
               'group relative min-w-[220px] snap-center overflow-hidden rounded-3xl border px-3.5 py-3.5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900',
-              playersComplete
+              savedPlayersComplete || hasSavedPlayersOnce
                 ? 'border-lime-300/70 ring-2 ring-lime-400/60 shadow-[0_18px_60px_rgba(132,204,22,0.35)]'
                 : 'border-white/10 hover:scale-[1.01] hover:border-accent-gold/50',
               displayGames.length === 0 ? 'cursor-not-allowed opacity-60' : 'active:scale-[0.99]',
@@ -1500,12 +1674,12 @@ export function DashboardClient({
               <span
                 className={clsx(
                   'absolute right-3 top-2 flex aspect-square h-7 items-center justify-center rounded-full border-2',
-                  playersComplete
+                  savedPlayersComplete || hasSavedPlayersOnce
                     ? 'border-lime-200 bg-lime-200/25 shadow-[0_0_16px_rgba(132,204,22,0.45)]'
                     : 'border-white/60 bg-black/15',
                 )}
               >
-                {playersComplete ? (
+                {savedPlayersComplete || hasSavedPlayersOnce ? (
                   <CheckCircle2 className="h-5 w-5 text-lime-300 drop-shadow" />
                 ) : (
                   <CircleDashed className="h-5 w-5 text-white/90" />
@@ -1637,7 +1811,7 @@ export function DashboardClient({
                     <section className="space-y-4 rounded-2xl border border-white/10 bg-navy-900/40 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
-                          <SectionStatus complete={teamsComplete} />
+                          <SectionStatus complete={savedTeamsComplete || hasSavedTeamsOnce} />
                           <h3 className="text-lg font-semibold text-white">
                             {dictionary.play.teams.title}
                           </h3>
@@ -1660,6 +1834,7 @@ export function DashboardClient({
                               game={game}
                               selection={teamSelections[game.id]}
                               onSelect={(teamId) => handleTeamsSelect(game.id, teamId)}
+                              disabled={lockWindowActive}
                             />
                           ))}
                         </div>
@@ -1703,7 +1878,7 @@ export function DashboardClient({
                     <section className="space-y-4 rounded-2xl border border-white/10 bg-navy-900/40 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
-                          <SectionStatus complete={playersComplete} />
+                          <SectionStatus complete={savedPlayersComplete || hasSavedPlayersOnce} />
                           <h3 className="text-lg font-semibold text-white">
                             {dictionary.play.players.title}
                           </h3>
@@ -1723,6 +1898,7 @@ export function DashboardClient({
                             handlePlayerSelect(game.id, category, playerId)
                           }
                           onPlayersLoaded={onPlayersLoaded}
+                          disabled={lockWindowActive}
                         />
                       ))}
                     </section>
@@ -1960,9 +2136,21 @@ export function DashboardClient({
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <div className={clsx(
                     'flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold',
-                    mobilePicker === 'teams' ? (teamsComplete ? 'border-lime-300 bg-lime-300/20 text-lime-200' : 'border-white/10 bg-white/5 text-slate-200') : (playersComplete ? 'border-lime-300 bg-lime-300/20 text-lime-200' : 'border-white/10 bg-white/5 text-slate-200'),
+                    mobilePicker === 'teams'
+                      ? savedTeamsComplete || hasSavedTeamsOnce
+                        ? 'border-lime-300 bg-lime-300/20 text-lime-200'
+                        : 'border-white/10 bg-white/5 text-slate-200'
+                      : savedPlayersComplete || hasSavedPlayersOnce
+                        ? 'border-lime-300 bg-lime-300/20 text-lime-200'
+                        : 'border-white/10 bg-white/5 text-slate-200',
                   )}>
-                    <SectionStatus complete={mobilePicker === 'teams' ? teamsComplete : playersComplete} />
+                    <SectionStatus
+                      complete={
+                        mobilePicker === 'teams'
+                          ? savedTeamsComplete || hasSavedTeamsOnce
+                          : savedPlayersComplete || hasSavedPlayersOnce
+                      }
+                    />
                     <span>{locale === 'it' ? 'Completo' : 'Complete'}</span>
                   </div>
                   <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200">
@@ -2039,15 +2227,16 @@ export function DashboardClient({
                         return (
                           <div className="space-y-3 sm:space-y-4">
                             {mobilePicker === 'teams' ? (
-                              <GameTeamsRow
-                                locale={locale}
-                                game={game}
-                                selection={teamSelections[game.id]}
-                                onSelect={(teamId) => handleTeamsSelect(game.id, teamId)}
-                              />
-                            ) : (
-                              <GamePlayersCard
-                                locale={locale}
+                            <GameTeamsRow
+                              locale={locale}
+                              game={game}
+                              selection={teamSelections[game.id]}
+                              onSelect={(teamId) => handleTeamsSelect(game.id, teamId)}
+                              disabled={lockWindowActive}
+                            />
+                          ) : (
+                            <GamePlayersCard
+                              locale={locale}
                               dictionary={dictionary}
                               game={game}
                               playerSelections={playerSelections[game.id] ?? {}}
@@ -2055,6 +2244,7 @@ export function DashboardClient({
                                 handlePlayerSelect(game.id, category, playerId)
                               }
                               onPlayersLoaded={onPlayersLoaded}
+                              disabled={lockWindowActive}
                               onSelectOpenChange={(open) => {
                                 if (mobilePicker === 'players') {
                                   setMobileSwipeLocked(open);

@@ -21,7 +21,7 @@ export const PACK_DEFINITIONS: PackDefinition[] = [
   {
     id: 'pearl',
     name: 'Pearl Pack',
-    price: 5000,
+    price: 1000,
     image: '/PackagePearl.png',
     accent: '#b3e5fc',
     odds: {
@@ -37,7 +37,7 @@ export const PACK_DEFINITIONS: PackDefinition[] = [
   {
     id: 'silver',
     name: 'Silver Pack',
-    price: 10000,
+    price: 3000,
     image: '/PackageSilver.png',
     accent: '#e5e7eb',
     odds: {
@@ -53,7 +53,7 @@ export const PACK_DEFINITIONS: PackDefinition[] = [
   {
     id: 'gold',
     name: 'Gold Pack',
-    price: 20000,
+    price: 7000,
     image: '/PackageGold.png',
     accent: '#f59e0b',
     odds: {
