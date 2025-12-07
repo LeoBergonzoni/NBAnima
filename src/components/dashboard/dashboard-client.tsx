@@ -35,6 +35,7 @@ import {
 } from '@/hooks/usePicks';
 import { useTeamPlayers } from '@/hooks/useTeamPlayers';
 import { WinnersClient } from './winners-client';
+import { getEasternNow, toEasternYYYYMMDD } from '@/lib/date-us-eastern';
 import type { WeeklyRankingRow } from '@/types/database';
 import type { ShopCard } from '@/types/shop-card';
 
@@ -773,10 +774,7 @@ export function DashboardClient({
   const [mobileSwipeLocked, setMobileSwipeLocked] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
 
-  const pickDate = useMemo(
-    () => new Date().toISOString().slice(0, 10),
-    [],
-  );
+  const pickDate = useMemo(() => toEasternYYYYMMDD(getEasternNow()), []);
 
   const {
     data: weeklyXpData,
@@ -1021,14 +1019,14 @@ export function DashboardClient({
   ];
 
   const earliestGameStartTs = useMemo(() => {
-    const timestamps = games
+    const timestamps = displayGames
       .map((game) => new Date(game.startsAt).getTime())
       .filter((value) => Number.isFinite(value));
     if (!timestamps.length) {
       return null;
     }
     return Math.min(...timestamps);
-  }, [games]);
+  }, [displayGames]);
 
   const lockWindowDeadlineTs = useMemo(() => {
     if (!earliestGameStartTs) {
@@ -1238,7 +1236,7 @@ export function DashboardClient({
   const totalMobileSlides = mobilePicker ? Math.max(displayGames.length, 1) : 0;
 
   const openMobilePicker = (mode: 'teams' | 'players') => {
-    if (games.length === 0) {
+    if (displayGames.length === 0) {
       return;
     }
     setMobilePicker(mode);
@@ -1553,23 +1551,28 @@ export function DashboardClient({
           </button>
           <Link
             href={`/${locale}/dashboard/tile-flip-game`}
-            className="hidden items-center gap-2 rounded-full border border-accent-gold/40 px-3 py-1 text-xs font-semibold text-accent-gold transition hover:border-accent-gold sm:inline-flex"
+            className="hidden items-center gap-3 rounded-full border border-accent-gold/60 bg-accent-gold/10 px-4 py-2 text-sm font-semibold text-accent-gold transition hover:border-accent-gold sm:inline-flex"
           >
-            {dictionary.tileGame.sectionTitle}
-            <ArrowRight className="h-3 w-3" />
+            <span className="inline-flex items-center gap-2">
+              {dictionary.tileGame.sectionTitle}
+              <ArrowRight className="h-4 w-4" />
+            </span>
+            <span className="rounded-full border border-accent-gold/60 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-accent-gold">
+              +10 Anima Points
+            </span>
           </Link>
         </div>
       </section>
       <Link
         href={`/${locale}/dashboard/trading-cards`}
-        className="group relative hidden w-full max-w-sm self-stretch items-center gap-3 overflow-hidden rounded-xl border-[1.6px] border-[#d4af37] bg-navy-900/70 p-1 shadow-[0_0_25px_rgba(255,215,0,0.18)] transition hover:brightness-110 sm:flex sm:max-w-xs sm:p-2 lg:max-w-[320px] lg:self-center"
+        className="group relative hidden w-full items-center gap-3 overflow-hidden rounded-xl border-[1.6px] border-[#d4af37] bg-navy-900/70 p-1 shadow-[0_0_25px_rgba(255,215,0,0.18)] transition hover:brightness-110 sm:flex sm:max-w-xs sm:p-2 lg:flex-1 lg:max-w-none lg:p-3 lg:self-stretch"
       >
-        <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border border-accent-gold/60 bg-navy-800/80">
+        <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-accent-gold/60 bg-navy-800/80 sm:h-20 sm:w-20 lg:h-24 lg:w-24">
           <Image
             src="/NBAnimaTradingCards.png"
             alt={dictionary.tradingCards.heroImageAlt}
             fill
-            sizes="72px"
+            sizes="192px"
             className="object-cover"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent to-navy-950/40" />
@@ -1820,14 +1823,14 @@ export function DashboardClient({
                           {dictionary.play.teams.rewardBadge}
                         </span>
                       </div>
-                      {gamesLoading ? (
+                      {gamesLoading && displayGames.length === 0 ? (
                         <div className="flex items-center gap-2 text-sm text-slate-400">
                           <Loader2 className="h-4 w-4 animate-spin" />
                           <span>{dictionary.common.loading}</span>
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          {games.map((game) => (
+                          {displayGames.map((game) => (
                             <GameTeamsRow
                               key={game.id}
                               locale={locale}
@@ -1887,20 +1890,27 @@ export function DashboardClient({
                           {dictionary.play.players.rewardBadge}
                         </span>
                       </div>
-                      {games.map((game) => (
-                        <GamePlayersCard
-                          key={game.id}
-                          locale={locale}
-                          dictionary={dictionary}
-                          game={game}
-                          playerSelections={playerSelections[game.id] ?? {}}
-                          onChange={(category, playerId) =>
-                            handlePlayerSelect(game.id, category, playerId)
-                          }
-                          onPlayersLoaded={onPlayersLoaded}
-                          disabled={lockWindowActive}
-                        />
-                      ))}
+                      {gamesLoading && displayGames.length === 0 ? (
+                        <div className="flex items-center gap-2 text-sm text-slate-400">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>{dictionary.common.loading}</span>
+                        </div>
+                      ) : (
+                        displayGames.map((game) => (
+                          <GamePlayersCard
+                            key={game.id}
+                            locale={locale}
+                            dictionary={dictionary}
+                            game={game}
+                            playerSelections={playerSelections[game.id] ?? {}}
+                            onChange={(category, playerId) =>
+                              handlePlayerSelect(game.id, category, playerId)
+                            }
+                            onPlayersLoaded={onPlayersLoaded}
+                            disabled={lockWindowActive}
+                          />
+                        ))
+                      )}
                     </section>
                   ) : null}
                 </div>
