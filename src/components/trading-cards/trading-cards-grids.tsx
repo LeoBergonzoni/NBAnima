@@ -11,7 +11,7 @@ import type { Locale } from '@/lib/constants';
 import type { Dictionary } from '@/locales/dictionaries';
 import type { CardCategory, CardConference, ShopCard } from '@/types/shop-card';
 
-const CATEGORY_ORDER: CardCategory[] = ['Rosters', 'Celebrations', 'Courtside', 'Iconic'];
+const CATEGORY_ORDER: CardCategory[] = ['Player', 'Celebration', 'Courtside', 'Iconic'];
 const CONFERENCE_ORDER: CardConference[] = [
   'Eastern Conference',
   'Western Conference',
@@ -19,7 +19,7 @@ const CONFERENCE_ORDER: CardConference[] = [
 ];
 
 const RARITY_FILTER_OPTIONS = ['Common', 'Rare', 'Legendary'] as const;
-const CATEGORY_FILTER_OPTIONS: CardCategory[] = ['Rosters', 'Celebrations', 'Courtside', 'Iconic'];
+const CATEGORY_FILTER_OPTIONS: CardCategory[] = ['Player', 'Celebration', 'Courtside', 'Iconic'];
 const CONFERENCE_FILTER_OPTIONS: CardConference[] = ['Eastern Conference', 'Western Conference'];
 
 type GroupedCards<T extends ShopCard> = {

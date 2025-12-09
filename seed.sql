@@ -58,7 +58,7 @@ values
     150,
     '/cards/rookie-spark.png',
     '#ffd166',
-    'Rosters',
+    'Player',
     'Eastern Conference'
   ),
   (
@@ -68,7 +68,7 @@ values
     450,
     '/cards/all-star-aura.png',
     '#06d6a0',
-    'Celebrations',
+    'Celebration',
     'Western Conference'
   ),
   (

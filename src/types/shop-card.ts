@@ -1,4 +1,4 @@
-export type CardCategory = 'Rosters' | 'Celebrations' | 'Courtside' | 'Iconic';
+export type CardCategory = 'Player' | 'Celebration' | 'Courtside' | 'Iconic';
 export type CardConference = 'Eastern Conference' | 'Western Conference' | 'Special';
 
 export interface ShopCard {
