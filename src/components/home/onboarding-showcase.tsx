@@ -44,11 +44,11 @@ export const OnboardingShowcase = ({ cards }: { cards: OnboardingCardData[] }) =
                 {card.title}
               </h3>
               <Image
-                src={card.image}
-                alt={card.title}
-                width={84}
-                height={84}
-                className="h-32 w-32 rounded-xl border border-white/10 bg-navy-950 object-contain p-2"
+             src={card.image}
+             alt={card.title}
+             width={144}
+             height={144}
+             className="size-36 rounded-xl border border-white/10 bg-navy-950 object-cover"
               />
             </div>
             <p className="text-sm text-slate-200">{card.description}</p>

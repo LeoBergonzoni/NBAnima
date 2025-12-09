@@ -445,7 +445,7 @@ export interface Database {
           price: number;
           image_url: string;
           accent_color: string | null;
-          category: 'Rosters' | 'Celebrations' | 'Courtside' | 'Iconic';
+          category: 'Player' | 'Celebration' | 'Courtside' | 'Iconic';
           conference: 'Eastern Conference' | 'Western Conference' | 'Special';
           created_at: string;
         };
@@ -457,7 +457,7 @@ export interface Database {
           price: number;
           image_url: string;
           accent_color?: string | null;
-          category: 'Rosters' | 'Celebrations' | 'Courtside' | 'Iconic';
+          category: 'Player' | 'Celebration' | 'Courtside' | 'Iconic';
           conference: 'Eastern Conference' | 'Western Conference' | 'Special';
           created_at?: string;
         };

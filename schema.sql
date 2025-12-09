@@ -160,7 +160,7 @@ create table if not exists public.shop_cards (
   price integer not null check (price >= 0),
   image_url text not null,
   accent_color text,
-  category text not null check (category in ('Rosters','Celebrations','Courtside','Iconic')),
+  category text not null check (category in ('Player','Celebration','Courtside','Iconic')),
   conference text not null check (conference in ('Eastern Conference','Western Conference','Special')),
   check (conference <> 'Special' or category = 'Courtside'),
   created_at timestamptz not null default timezone('utc', now())
