@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { mondayFromSundayWeekStart, weeklyXpWeekContext } from '@/lib/time';
-import { getWeeklyTotalsByWeek } from '@/server/services/xp.service';
+import { mondayFromSundayWeekStart } from '@/lib/time';
+import { getWeeklyTotalsByWeek, resolveWeeklyXpContext } from '@/server/services/xp.service';
 
 const WEEK_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -11,7 +11,7 @@ type WeekStartResolution = {
   displayWeekStart: string;
 };
 
-const resolveWeekStart = (request: NextRequest): WeekStartResolution => {
+const resolveWeekStart = async (request: NextRequest): Promise<WeekStartResolution> => {
   const input = request.nextUrl.searchParams.get('weekStart');
   if (input && WEEK_FORMAT.test(input)) {
     return {
@@ -19,7 +19,7 @@ const resolveWeekStart = (request: NextRequest): WeekStartResolution => {
       displayWeekStart: mondayFromSundayWeekStart(input),
     };
   }
-  const context = weeklyXpWeekContext();
+  const context = await resolveWeeklyXpContext();
   return {
     storageWeekStart: context.storageWeekStart,
     additionalWeekStart: context.rolloverWeekStart,
@@ -29,7 +29,9 @@ const resolveWeekStart = (request: NextRequest): WeekStartResolution => {
 
 export async function GET(request: NextRequest) {
   try {
-    const { storageWeekStart, additionalWeekStart, displayWeekStart } = resolveWeekStart(request);
+    const { storageWeekStart, additionalWeekStart, displayWeekStart } = await resolveWeekStart(
+      request,
+    );
     const totals = await getWeeklyTotalsByWeek(storageWeekStart, additionalWeekStart);
 
     return NextResponse.json({

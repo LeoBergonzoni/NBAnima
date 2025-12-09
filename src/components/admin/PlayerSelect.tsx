@@ -22,18 +22,6 @@ type BaseOption = {
   };
 };
 
-type Rosters = Record<
-  string,
-  Array<{
-    id: string;
-    name: string;
-    pos?: string;
-    jersey?: string;
-  }>
->;
-
-type AliasMap = Record<string, string>;
-
 type SupabasePlayerRow = {
   id: string;
   provider: string | null;
@@ -67,65 +55,6 @@ export type PlayerSelectProps = {
 let cachedOptions: BaseOption[] | null = null;
 let cachedLookup: Map<string, BaseOption> | null = null;
 let loadPromise: Promise<BaseOption[]> | null = null;
-
-const fetchJson = async <T,>(url: string): Promise<T> => {
-  const response = await fetch(url, {
-    cache: 'force-cache',
-    credentials: 'omit',
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to load ${url}`);
-  }
-  return (await response.json()) as T;
-};
-
-const splitRosterName = (raw: string) => {
-  const cleaned = raw.replace(/\s+/g, ' ').trim();
-  if (!cleaned) {
-    return {
-      firstName: 'N.',
-      lastName: 'N.',
-      fullName: 'N. N.',
-    };
-  }
-  const tokens = cleaned.split(' ').filter(Boolean);
-  if (tokens.length === 1) {
-    return {
-      firstName: tokens[0] ?? 'N.',
-      lastName: tokens[0] ?? 'N.',
-      fullName: tokens[0] ?? 'N.',
-    };
-  }
-  const [firstToken, ...rest] = tokens;
-  const lastToken = rest.filter((token) => !/^\d+$/.test(token)).join(' ') || firstToken;
-  return {
-    firstName: firstToken,
-    lastName: lastToken,
-    fullName: [firstToken, lastToken].filter(Boolean).join(' ').trim(),
-  };
-};
-
-const buildCanonicalAbbrMap = (aliases: AliasMap) => {
-  const map = new Map<string, string>();
-  Object.entries(aliases).forEach(([alias, canonical]) => {
-    if (alias.length === 3 && /^[a-z]{3}$/i.test(alias)) {
-      map.set(canonical, alias.toUpperCase());
-    }
-  });
-  return map;
-};
-
-const fallbackAbbr = (canonical: string): string | null => {
-  const chars = canonical.replace(/[^A-Z]/g, '');
-  if (chars.length >= 3) {
-    return chars.slice(0, 3).toUpperCase();
-  }
-  const upper = canonical.toUpperCase();
-  if (upper.length >= 3) {
-    return upper.slice(0, 3);
-  }
-  return null;
-};
 
 const buildSupabaseOptions = (rows: SupabasePlayerRow[]): [BaseOption[], Map<string, BaseOption>] => {
   const options: BaseOption[] = [];
@@ -168,49 +97,6 @@ const buildSupabaseOptions = (rows: SupabasePlayerRow[]): [BaseOption[], Map<str
   return [options, lookup];
 };
 
-const buildRosterOptions = (
-  rosters: Rosters,
-  canonicalToAbbr: Map<string, string>,
-  existingLookup: Map<string, BaseOption>,
-) => {
-  const rosterOptions: BaseOption[] = [];
-
-  Object.entries(rosters).forEach(([canonical, players]) => {
-    const baseAbbr = canonicalToAbbr.get(canonical) ?? fallbackAbbr(canonical);
-    const teamAbbr = baseAbbr ? baseAbbr.toUpperCase() : null;
-    players.forEach((player) => {
-      if (existingLookup.has(player.id)) {
-        return;
-      }
-      const parsed = splitRosterName(player.name ?? player.id);
-      const label = teamAbbr ? `${parsed.fullName} — ${teamAbbr}` : parsed.fullName;
-      const option: BaseOption = {
-        value: player.id,
-        label,
-        meta: {
-          altNames: [
-            parsed.fullName,
-            parsed.firstName,
-            parsed.lastName,
-            player.id,
-            teamAbbr ?? '',
-          ].filter(Boolean),
-          source: 'roster',
-          providerPlayerId: player.id,
-          teamAbbr,
-          firstName: parsed.firstName || undefined,
-          lastName: parsed.lastName || undefined,
-          position: player.pos?.toUpperCase() ?? null,
-        },
-      };
-      rosterOptions.push(option);
-      existingLookup.set(option.value, option);
-    });
-  });
-
-  return rosterOptions;
-};
-
 const loadPlayerOptions = async (): Promise<BaseOption[]> => {
   if (cachedOptions) {
     return cachedOptions;
@@ -219,16 +105,14 @@ const loadPlayerOptions = async (): Promise<BaseOption[]> => {
     loadPromise = (async () => {
       try {
         const supabase = createBrowserSupabase();
-        const [{ data, error }, rosters, aliases] = await Promise.all([
-          supabase
-            .from('player')
-            .select(
-              'id, provider, provider_player_id, team_id, first_name, last_name, position, team:team_id (abbr)',
-            )
-            .limit(2000),
-          fetchJson<Rosters>('/rosters.json'),
-          fetchJson<AliasMap>('/roster-aliases.json'),
-        ]);
+        const { data, error } = await supabase
+          .from('player')
+          .select(
+            'id, provider, provider_player_id, team_id, first_name, last_name, position, active, team:team_id (abbr)',
+          )
+          .eq('provider', 'espn')
+          .eq('active', true)
+          .limit(2000);
 
         if (error) {
           console.error('[AdminPlayerSelect] Failed to load Supabase players', error);
@@ -237,12 +121,7 @@ const loadPlayerOptions = async (): Promise<BaseOption[]> => {
         const supabaseRows = (data ?? []) as SupabasePlayerRow[];
         const [supabaseOptions, lookup] = buildSupabaseOptions(supabaseRows);
 
-        const canonicalToAbbr = buildCanonicalAbbrMap(aliases);
-        const rosterOptions = buildRosterOptions(rosters, canonicalToAbbr, lookup);
-
-        const combined = [...supabaseOptions, ...rosterOptions].sort((a, b) =>
-          a.label.localeCompare(b.label),
-        );
+        const combined = [...supabaseOptions].sort((a, b) => a.label.localeCompare(b.label));
 
         cachedLookup = lookup;
         cachedOptions = combined;

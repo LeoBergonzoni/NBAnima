@@ -58,6 +58,20 @@ describe('time helpers (Eastern weeks)', () => {
     assert.equal(weekdayContext.displayWeekStart, '2024-03-11');
   });
 
+  it('resets on Sunday at the provided lock threshold', () => {
+    const lockAt = new Date('2024-03-10T17:00:00.000Z'); // 13:00 ET
+
+    const sundayBefore = new Date('2024-03-10T16:00:00.000Z'); // before lock
+    const beforeContext = weeklyXpWeekContext(sundayBefore, { sundayResetAt: lockAt });
+    assert.equal(beforeContext.storageWeekStart, '2024-03-03');
+    assert.equal(beforeContext.displayWeekStart, '2024-03-04');
+
+    const sundayAfter = new Date('2024-03-10T17:05:00.000Z'); // after lock
+    const afterContext = weeklyXpWeekContext(sundayAfter, { sundayResetAt: lockAt });
+    assert.equal(afterContext.storageWeekStart, '2024-03-10');
+    assert.equal(afterContext.displayWeekStart, '2024-03-11');
+  });
+
   it('derives Monday labels from stored Sunday week starts', () => {
     assert.equal(mondayFromSundayWeekStart('2024-03-03'), '2024-03-04');
     assert.equal(mondayFromSundayWeekStart('2024-03-10'), '2024-03-11');

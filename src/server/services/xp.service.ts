@@ -1,19 +1,92 @@
+import { fromZonedTime } from 'date-fns-tz';
+
+import { LOCK_WINDOW_BUFFER_MINUTES, TIMEZONES } from '@/lib/constants';
 import { createAdminSupabaseClient } from '@/lib/supabase';
-import { weeklyXpWeekContext } from '@/lib/time';
+import { toET, weekStartSundayET, weeklyXpWeekContext } from '@/lib/time';
 import type { WeeklyRankingRow, WeeklyXPTotal } from '@/types/database';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const WEEK_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
 
-const ensureWeekStart = (weekStart?: string): string => {
+const ensureWeekStart = (weekStart?: string, fallback?: string): string => {
   if (weekStart && WEEK_FORMAT.test(weekStart)) {
     return weekStart;
   }
-  return weeklyXpWeekContext().storageWeekStart;
+  return fallback ?? weeklyXpWeekContext().storageWeekStart;
+};
+
+const resolveSundayResetInstant = async (
+  supabaseAdmin: SupabaseClient,
+  reference = new Date(),
+): Promise<Date | undefined> => {
+  const sundayEt = weekStartSundayET(reference);
+  const sundayStartUtc = fromZonedTime(`${sundayEt}T00:00:00`, TIMEZONES.US_EASTERN);
+  const sundayEndUtc = fromZonedTime(`${sundayEt}T23:59:59`, TIMEZONES.US_EASTERN);
+
+  const { data, error } = await supabaseAdmin
+    .from('games')
+    .select('game_date')
+    .gte('game_date', sundayStartUtc.toISOString())
+    .lte('game_date', sundayEndUtc.toISOString())
+    .order('game_date', { ascending: true })
+    .limit(1);
+
+  if (error) {
+    throw error;
+  }
+
+  const firstGameIso = data?.[0]?.game_date;
+  if (!firstGameIso) {
+    return undefined;
+  }
+
+  let firstGameUtc = new Date(firstGameIso);
+  if (Number.isNaN(firstGameUtc.getTime())) {
+    return undefined;
+  }
+
+  const rawIsMidnightUtc =
+    firstGameUtc.getUTCHours() === 0 &&
+    firstGameUtc.getUTCMinutes() === 0 &&
+    firstGameUtc.getUTCSeconds() === 0;
+
+  if (rawIsMidnightUtc) {
+    firstGameUtc = fromZonedTime(`${sundayEt}T23:59:00`, TIMEZONES.US_EASTERN);
+  }
+
+  const bufferMs = LOCK_WINDOW_BUFFER_MINUTES * 60_000;
+  return new Date(firstGameUtc.getTime() - bufferMs);
+};
+
+export const resolveWeeklyXpContextWithClient = async (
+  supabaseAdmin: SupabaseClient,
+  reference = new Date(),
+): Promise<ReturnType<typeof weeklyXpWeekContext>> => {
+  const easternNow = toET(reference);
+  if (easternNow.getUTCDay() !== 0) {
+    return weeklyXpWeekContext(reference);
+  }
+  try {
+    const sundayResetAt = await resolveSundayResetInstant(supabaseAdmin, reference);
+    return weeklyXpWeekContext(reference, { sundayResetAt });
+  } catch (error) {
+    console.error('[weekly-xp] failed to resolve Sunday reset instant', error);
+    return weeklyXpWeekContext(reference);
+  }
+};
+
+export const resolveWeeklyXpContext = async (
+  reference = new Date(),
+): Promise<ReturnType<typeof weeklyXpWeekContext>> => {
+  const supabaseAdmin = createAdminSupabaseClient();
+  return resolveWeeklyXpContextWithClient(supabaseAdmin, reference);
 };
 
 export const getMyWeeklyXPVisible = async (userId: string): Promise<number> => {
   const supabaseAdmin = createAdminSupabaseClient();
-  const { storageWeekStart, rolloverWeekStart } = weeklyXpWeekContext();
+  const { storageWeekStart, rolloverWeekStart } = await resolveWeeklyXpContextWithClient(
+    supabaseAdmin,
+  );
   const weekStarts =
     rolloverWeekStart && rolloverWeekStart !== storageWeekStart
       ? [storageWeekStart, rolloverWeekStart]
@@ -45,7 +118,7 @@ export interface WeeklyRankingResult {
 
 export const getWeeklyRankingCurrent = async (): Promise<WeeklyRankingResult> => {
   const supabaseAdmin = createAdminSupabaseClient();
-  const { displayWeekStart } = weeklyXpWeekContext();
+  const { displayWeekStart } = await resolveWeeklyXpContextWithClient(supabaseAdmin);
 
   const { data, error } = await supabaseAdmin
     .from('weekly_xp_ranking_current')
@@ -90,11 +163,14 @@ export const getWeeklyTotalsByWeek = async (
   additionalWeekStart?: string,
 ): Promise<WeeklyXPTotal[]> => {
   const supabaseAdmin = createAdminSupabaseClient();
-  const resolvedWeekStart = ensureWeekStart(weekStart);
+  const { storageWeekStart, rolloverWeekStart } = await resolveWeeklyXpContextWithClient(
+    supabaseAdmin,
+  );
+  const resolvedWeekStart = ensureWeekStart(weekStart, storageWeekStart);
   const additional =
     additionalWeekStart && WEEK_FORMAT.test(additionalWeekStart)
       ? additionalWeekStart
-      : undefined;
+      : rolloverWeekStart;
   const weekStarts = additional ? [resolvedWeekStart, additional] : [resolvedWeekStart];
 
   let query = supabaseAdmin
