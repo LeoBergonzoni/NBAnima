@@ -13,6 +13,16 @@ export function RostersAdminClient() {
       players: Array<{ id: string; fullName: string; position: string | null; jersey: string | null }>;
     }>
   >([]);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncResult, setSyncResult] = useState<{
+    teamsProcessed: number;
+    playersUpserted: number;
+    playersMoved: number;
+    deactivated: number;
+    missingTeams: string[];
+    fetchErrors: Array<{ team: { name: string; abbr: string; id: string }; error: string }>;
+  } | null>(null);
 
   const handleLoadEspn = async () => {
     setEspnError(null);
@@ -38,6 +48,38 @@ export function RostersAdminClient() {
     }
   };
 
+  const handleSyncEspn = async () => {
+    setSyncError(null);
+    setSyncResult(null);
+    setSyncLoading(true);
+    try {
+      const res = await fetch(`/api/admin/rosters/espn/sync?season=${encodeURIComponent(season)}`, {
+        method: 'POST',
+        cache: 'no-store',
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body.error ?? 'Sync fallita');
+      }
+      setSyncResult({
+        teamsProcessed: body.teamsProcessed ?? 0,
+        playersUpserted: body.playersUpserted ?? 0,
+        playersMoved: body.playersMoved ?? 0,
+        deactivated: body.deactivated ?? 0,
+        missingTeams: body.missingTeams ?? [],
+        fetchErrors: body.fetchErrors ?? [],
+      });
+      if (body.fetchErrors && body.fetchErrors.length > 0) {
+        setSyncError(`Alcune squadre non sono state caricate (${body.fetchErrors.length})`);
+      }
+    } catch (err) {
+      setSyncResult(null);
+      setSyncError((err as Error).message ?? 'Sync fallita');
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <section className="space-y-3 rounded-xl border border-white/10 bg-slate-900/70 p-4 shadow-lg shadow-black/20">
@@ -58,15 +100,26 @@ export function RostersAdminClient() {
               pattern="\\d{4}"
             />
           </label>
-          <button
-            type="button"
-            onClick={handleLoadEspn}
-            disabled={espnLoading}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-indigo-950 shadow hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-indigo-800 disabled:text-indigo-200"
-          >
-            <RotateCw className={`h-4 w-4 ${espnLoading ? 'animate-spin' : ''}`} />
-            {espnLoading ? 'Carico...' : 'Carica da ESPN'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleLoadEspn}
+              disabled={espnLoading || syncLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-indigo-950 shadow hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-indigo-800 disabled:text-indigo-200"
+            >
+              <RotateCw className={`h-4 w-4 ${espnLoading ? 'animate-spin' : ''}`} />
+              {espnLoading ? 'Carico...' : 'Carica da ESPN'}
+            </button>
+            <button
+              type="button"
+              onClick={handleSyncEspn}
+              disabled={syncLoading || espnLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-emerald-400/60 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-200 shadow hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:border-emerald-800 disabled:text-emerald-500"
+            >
+              <RotateCw className={`h-4 w-4 ${syncLoading ? 'animate-spin' : ''}`} />
+              {syncLoading ? 'Sincronizzo...' : 'Sincronizza su Supabase'}
+            </button>
+          </div>
         </div>
         {espnError ? (
           <div className="rounded-md border border-amber-400/40 bg-amber-950/60 px-4 py-3 text-sm text-amber-100">
@@ -100,6 +153,29 @@ export function RostersAdminClient() {
         ) : (
           <p className="text-sm text-slate-400">Nessun dato ESPN caricato.</p>
         )}
+        {syncError ? (
+          <div className="rounded-md border border-amber-400/40 bg-amber-950/60 px-4 py-3 text-sm text-amber-100">
+            {syncError}
+          </div>
+        ) : null}
+        {syncResult ? (
+          <div className="rounded-lg border border-white/10 bg-slate-950/60 p-3 text-sm text-slate-200">
+            <p className="font-semibold text-white">Ultima sync ESPN → Supabase</p>
+            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
+              <span>Squadre processate: {syncResult.teamsProcessed}</span>
+              <span>Giocatori upsertati: {syncResult.playersUpserted}</span>
+              <span>Cambi squadra: {syncResult.playersMoved}</span>
+              <span>Disattivati: {syncResult.deactivated}</span>
+              <span>Missing team: {syncResult.missingTeams.length}</span>
+              <span>Errori fetch: {syncResult.fetchErrors.length}</span>
+            </div>
+            {syncResult.missingTeams.length > 0 ? (
+              <p className="mt-2 text-xs text-amber-200">
+                Team non mappati (abbr): {syncResult.missingTeams.join(', ')}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </section>
     </div>
   );

@@ -98,9 +98,30 @@ export interface WeeklyXpWeekContext {
   displayWeekStart: string;
 }
 
-export const weeklyXpWeekContext = (now = new Date()): WeeklyXpWeekContext => {
+export interface WeeklyXpWeekOptions {
+  /** Instant (UTC) when the new week starts on Sunday — typically first game minus buffer */
+  sundayResetAt?: Date | null;
+}
+
+export const weeklyXpWeekContext = (
+  now = new Date(),
+  options?: WeeklyXpWeekOptions,
+): WeeklyXpWeekContext => {
   const easternNow = toET(now);
   const dayOfWeek = easternNow.getUTCDay();
+
+  if (dayOfWeek === 0 && options?.sundayResetAt) {
+    const thisSunday = weekStartSundayET(easternNow);
+    const previousSunday = formatEtDate(addDays(parseUtcDateFromIso(thisSunday), -7));
+    const hasReset = now.getTime() >= options.sundayResetAt.getTime();
+    const storageWeekStart = hasReset ? thisSunday : previousSunday;
+
+    return {
+      storageWeekStart,
+      displayWeekStart: weekStartMondayET(parseUtcDateFromIso(storageWeekStart)),
+    };
+  }
+
   const storageReference = dayOfWeek === 0 ? addDays(easternNow, -1) : easternNow;
   return {
     storageWeekStart: weekStartSundayET(storageReference),

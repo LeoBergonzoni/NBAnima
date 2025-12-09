@@ -461,7 +461,7 @@ const it: Dictionary = {
     weeklyRanking: 'Classifica',
     weeklyRangeCaption: 'Settimana del {date} (Lun–Dom, ET)',
     weeklyXpExplainer:
-      'I Weekly XP rispecchiano solo i punti da settlement, coprono la settimana Lun–Dom (ET) e si azzerano ogni lunedì.',
+      'I Weekly XP rispecchiano solo i punti da settlement, coprono la settimana Lun–Dom (ET) e si azzerano quando chiude il timer della prima partita della domenica.',
     weeklyLeaderboardButton: 'Classifica',
     howCalculatedBoth: 'Come sono stati calcolati i tuoi Anima Points e i Weekly XP',
     statusCompleted: 'Completato',
@@ -839,7 +839,7 @@ const en: Dictionary = {
     weeklyRanking: 'Weekly Ranking',
     weeklyRangeCaption: 'Week of {date} (Mon–Sun, ET)',
     weeklyXpExplainer:
-      'Weekly XP mirror settlement-only points, cover the Mon–Sun (ET) week, and reset every Monday.',
+      'Weekly XP mirror settlement-only points, cover the Mon–Sun (ET) week, and reset when the Sunday pick window closes (first game starts).',
     weeklyLeaderboardButton: 'Leaderboard',
     howCalculatedBoth: 'How your Anima Points and Weekly XP were calculated',
     statusCompleted: 'Completed',
