@@ -202,6 +202,7 @@ const slugIdToName = (value: string) => {
 
 const formatUuidAsName = () => 'Unknown Player';
 const isUuidLike = (value: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value);
+const playerKey = (gameId: string, category: string) => `${gameId}:${category}`;
 
 const ErrorBanner = ({
   message,
@@ -388,7 +389,7 @@ export const WinnersClient = ({
   const playerWinnersByKey = useMemo(() => {
     const map = new Map<string, WinnersResponse['players'][number][]>();
     (winners?.players ?? []).forEach((player) => {
-      const key = `${player.game_id}:${player.category}`;
+      const key = playerKey(player.game_id, player.category);
       const existing = map.get(key);
       if (existing) {
         existing.push(player);
@@ -620,13 +621,24 @@ export const WinnersClient = ({
   const playerOutcomes = useMemo(() => {
     const map = new Map<string, 'win' | 'loss' | 'pending'>();
     playerSelections.forEach((pick) => {
-      const key = `${pick.game_id}:${pick.category}`;
+      const key = playerKey(pick.game_id, pick.category);
       const winners = playerWinnerIdsByKey.get(key);
       if (!winners || winners.size === 0) {
         map.set(key, 'pending');
         return;
       }
-      map.set(key, winners.has(pick.player_id) ? 'win' : 'loss');
+      const isWin = winners.has(pick.player_id);
+      if (!isWin && process.env.NODE_ENV !== 'production') {
+        // Helpful diagnostics to surface mismatches between picks and winners
+        // without leaking in production logs.
+        // eslint-disable-next-line no-console
+        console.debug('[winners] player_id mismatch', {
+          key,
+          pickPlayerId: pick.player_id,
+          winnerIds: Array.from(winners.values()),
+        });
+      }
+      map.set(key, isWin ? 'win' : 'loss');
     });
     return map;
   }, [playerSelections, playerWinnerIdsByKey]);

@@ -10,6 +10,7 @@ import type { Database } from '@/lib/supabase.types';
 import { computeDailyScore } from '@/lib/scoring';
 import { ADMIN_POINT_STEP } from '@/lib/admin';
 import { upsertPlayers, type UpsertablePlayer } from '@/lib/db/upsertPlayers';
+import { getEspnPlayersForTeams } from '@/server/services/players.service';
 
 interface BalanceInput {
   userId: string;
@@ -450,14 +451,11 @@ async function fetchRosterOptionsForTeams(
     return new Map();
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('player')
-    .select('id, provider_player_id, first_name, last_name, position, team_id, team:team_id (abbr)')
-    .in('team_id', Array.from(new Set(teamIds)));
-
-  if (error) {
-    throw error;
-  }
+  // Source of truth: public.player rows with provider='espn'; key: player.id (UUID ESPN).
+  const espnPlayers = await getEspnPlayersForTeams(
+    supabaseAdmin,
+    Array.from(new Set(teamIds)),
+  );
 
   type PlayerRowWithTeam = {
     id: string;
@@ -468,10 +466,19 @@ async function fetchRosterOptionsForTeams(
     team_id: string | null;
     team?: { abbr?: string | null } | null;
   };
-  const rows = (data ?? []) as PlayerRowWithTeam[];
+
+  const rows = espnPlayers as PlayerRowWithTeam[];
+  // Deduplicate by provider_player_id so the admin dropdown shows only canonical players.
+  const canonicalByProvider = new Map<string, PlayerRowWithTeam>();
+  rows.forEach((player) => {
+    const providerKey = player.provider_player_id ?? player.id;
+    if (!canonicalByProvider.has(providerKey)) {
+      canonicalByProvider.set(providerKey, player);
+    }
+  });
 
   const byTeam = new Map<string, PlayerWinnerOption[]>();
-  rows.forEach((player) => {
+  canonicalByProvider.forEach((player) => {
     if (!player.team_id) {
       return;
     }
@@ -1071,6 +1078,7 @@ export const loadPlayerWinners = async (
       ...(game.home_team_id ? rosterOptionsByTeamId.get(game.home_team_id) ?? [] : []),
       ...(game.away_team_id ? rosterOptionsByTeamId.get(game.away_team_id) ?? [] : []),
     ];
+    const allowedIds = new Set(rosterOptions.map((option) => option.value));
 
     const mergeOptions = (...lists: PlayerWinnerOption[][]) => {
       const seen = new Set<string>();
@@ -1091,10 +1099,16 @@ export const loadPlayerWinners = async (
       const winners = resultMap.get(key) ?? [];
       const baseOptions =
         optionsByGameCategory.get(game.id)?.get(category)?.slice() ?? [];
-      const options = mergeOptions(baseOptions, rosterOptions);
+      // ESPN-only dropdown: filter options to ids that exist in rosterOptions (provider='espn').
+      const options = mergeOptions(baseOptions, rosterOptions).filter((option) =>
+        allowedIds.has(option.value),
+      );
 
       winners.forEach((winner) => {
         if (!options.some((option) => option.value === winner.player_id)) {
+          if (!allowedIds.has(winner.player_id)) {
+            return;
+          }
           const info = playerInfoMap.get(winner.player_id) ?? null;
           options.push({
             value: winner.player_id,
@@ -1250,6 +1264,16 @@ export const publishPlayerWinners = async (
       player_id: playerId,
       settled_at: now,
     }));
+
+    if (process.env.NODE_ENV !== 'production') {
+      // Log canonical UUIDs used for admin winners publish to help verify joins with picks_players.
+      // eslint-disable-next-line no-console
+      console.debug('admin winners save', {
+        gameId: entry.gameId,
+        category: entry.category,
+        playerIds: uniqueIds,
+      });
+    }
 
     const insertResult = await supabaseAdmin
       .from('results_players')

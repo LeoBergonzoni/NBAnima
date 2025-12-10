@@ -50,6 +50,16 @@ export type PlayerSelectProps = {
   onChange: (value: PlayerSelectResult | null) => void;
   placeholder?: string;
   disabled?: boolean;
+  options?: Array<{
+    value: string;
+    label: string;
+    meta?: {
+      providerPlayerId?: string | null;
+      teamAbbr?: string | null;
+      position?: string | null;
+      supabaseId?: string | null;
+    };
+  }>;
 };
 
 let cachedOptions: BaseOption[] | null = null;
@@ -91,6 +101,36 @@ const buildSupabaseOptions = (rows: SupabasePlayerRow[]): [BaseOption[], Map<str
     lookup.set(option.value, option);
     if (row.provider_player_id && !lookup.has(row.provider_player_id)) {
       lookup.set(row.provider_player_id, option);
+    }
+  });
+
+  return [options, lookup];
+};
+
+const buildExternalOptions = (
+  rows: NonNullable<PlayerSelectProps['options']>,
+): [BaseOption[], Map<string, BaseOption>] => {
+  const options: BaseOption[] = [];
+  const lookup = new Map<string, BaseOption>();
+
+  rows.forEach((row) => {
+    const teamAbbr = row.meta?.teamAbbr ?? null;
+    const option: BaseOption = {
+      value: row.value,
+      label: row.label,
+      meta: {
+        altNames: [row.label, row.meta?.providerPlayerId ?? ''].filter(Boolean),
+        source: 'supabase',
+        providerPlayerId: row.meta?.providerPlayerId ?? undefined,
+        teamAbbr,
+        position: row.meta?.position ?? null,
+        supabaseId: row.meta?.supabaseId ?? row.value,
+      },
+    };
+    options.push(option);
+    lookup.set(option.value, option);
+    if (row.meta?.providerPlayerId && !lookup.has(row.meta.providerPlayerId)) {
+      lookup.set(row.meta.providerPlayerId, option);
     }
   });
 
@@ -186,11 +226,20 @@ export function PlayerSelect({
   onChange,
   placeholder = 'Seleziona giocatore',
   disabled = false,
+  options: externalOptions,
 }: PlayerSelectProps) {
   const [options, setOptions] = useState<BaseOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (externalOptions) {
+      const [opts, lookup] = buildExternalOptions(externalOptions);
+      cachedLookup = lookup;
+      setOptions(opts);
+      setIsLoading(false);
+      return;
+    }
+
     let cancelled = false;
     loadPlayerOptions()
       .then((result) => {

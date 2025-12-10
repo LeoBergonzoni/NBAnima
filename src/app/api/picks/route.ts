@@ -27,14 +27,14 @@ import {
   UserPicksResponseSchema,
 } from '@/lib/types-winners';
 import { getUserPicksByDate } from '@/server/services/winners.service';
-import { upsertPlayers, type UpsertablePlayer } from '@/lib/db/upsertPlayers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 // Identificatore del “sorgente” per i tuoi ID esterni
-const PLAYER_PROVIDER = 'local-rosters'; // o 'balldontlie' se preferisci unificare
+// Fonte unica: player.provider = 'espn' (valore salvato in picks_players.player_id è sempre l'UUID ESPN)
+const PLAYER_PROVIDER = 'espn';
 
 type GameRow = {
   id: string; // uuid
@@ -924,13 +924,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const playerPayloadMap = new Map<string, UpsertablePlayer>();
-    const registerPlayerPayload = (key: string, payload: UpsertablePlayer) => {
-      if (!playerPayloadMap.has(key)) {
-        playerPayloadMap.set(key, payload);
-      }
-    };
-
     const playerPickContexts = payload.players.map((pick) => {
       const game = gamesMap.get(pick.gameId);
       if (!game) {
@@ -942,18 +935,7 @@ export async function POST(request: NextRequest) {
           `Cannot resolve player "${pick.playerId}" for game ${pick.gameId}`,
         );
       }
-      const { first, last } = splitName(pick.playerId);
-      const teamId = match.side === 'home' ? game.home_team_id : game.away_team_id;
-      const key = buildPlayerKey(PLAYER_PROVIDER, pick.playerId);
-      registerPlayerPayload(key, {
-        provider: PLAYER_PROVIDER,
-        provider_player_id: pick.playerId,
-        team_id: teamId,
-        first_name: first,
-        last_name: last,
-        position: match.rosterPlayer?.pos ?? null,
-      });
-      return { pick, game, playerKey: key };
+      return { pick, game, playerId: pick.playerId };
     });
 
     const playerReferenceGames = payload.players
@@ -976,50 +958,16 @@ export async function POST(request: NextRequest) {
           `Cannot resolve player "${pick.playerId}" for highlights`,
         );
       }
-      const { game, side, rosterPlayer } = fallbackMatch;
-      const { first, last } = splitName(pick.playerId);
-      const teamId = side === 'home' ? game.home_team_id : game.away_team_id;
-      const key = buildPlayerKey(PLAYER_PROVIDER, pick.playerId);
-      registerPlayerPayload(key, {
-        provider: PLAYER_PROVIDER,
-        provider_player_id: pick.playerId,
-        team_id: teamId,
-        first_name: first,
-        last_name: last,
-        position: rosterPlayer?.pos ?? null,
-      });
-      return { pick, rank: index + 1, playerKey: key };
+      return { pick, rank: index + 1 };
     });
-
-    const upsertInputs = Array.from(playerPayloadMap.values());
-    const {
-      data: upsertedPlayers,
-      error: playerUpsertError,
-    } = upsertInputs.length
-      ? await upsertPlayers(supabaseAdmin, upsertInputs)
-      : { data: [], error: null };
-    if (playerUpsertError) {
-      throw playerUpsertError;
-    }
-    const playerUuidByKey = new Map<string, string>();
-    (upsertedPlayers ?? []).forEach((row) => {
-      const key = buildPlayerKey(row.provider, row.provider_player_id);
-      playerUuidByKey.set(key, row.id);
-    });
-    const resolvePlayerUuid = (key: string, label: string) => {
-      const uuid = playerUuidByKey.get(key);
-      if (!uuid) {
-        throw new Error(`Unable to resolve player id for "${label}"`);
-      }
-      return uuid;
-    };
 
     const playerInsert: PicksPlayersInsert[] = playerPickContexts.map(
       ({ pick, game, playerKey }) => ({
         user_id: userId,
         game_id: game.id,
         category: pick.category,
-        player_id: resolvePlayerUuid(playerKey, pick.playerId),
+        // player_id is the ESPN player UUID coming from the dashboard roster
+        player_id: pick.playerId,
         pick_date: payload.pickDate,
         changes_count: 0,
         created_at: now,
@@ -1028,9 +976,9 @@ export async function POST(request: NextRequest) {
     );
 
     const highlightInsert: PicksHighlightsInsert[] = highlightContexts.map(
-      ({ pick, rank, playerKey }) => ({
+      ({ pick, rank }) => ({
         user_id: userId,
-        player_id: resolvePlayerUuid(playerKey, pick.playerId),
+        player_id: pick.playerId,
         rank,
         pick_date: payload.pickDate,
         changes_count: 0,
@@ -1184,13 +1132,6 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const playerPayloadMap = new Map<string, UpsertablePlayer>();
-    const registerPlayerPayload = (key: string, payload: UpsertablePlayer) => {
-      if (!playerPayloadMap.has(key)) {
-        playerPayloadMap.set(key, payload);
-      }
-    };
-
     const playerPickContexts = payload.players.map((pick) => {
       const game = gamesMap.get(pick.gameId);
       if (!game) {
@@ -1202,18 +1143,7 @@ export async function PUT(request: NextRequest) {
           `Cannot resolve player "${pick.playerId}" for game ${pick.gameId}`,
         );
       }
-      const { first, last } = splitName(pick.playerId);
-      const teamId = match.side === 'home' ? game.home_team_id : game.away_team_id;
-      const key = buildPlayerKey(PLAYER_PROVIDER, pick.playerId);
-      registerPlayerPayload(key, {
-        provider: PLAYER_PROVIDER,
-        provider_player_id: pick.playerId,
-        team_id: teamId,
-        first_name: first,
-        last_name: last,
-        position: match.rosterPlayer?.pos ?? null,
-      });
-      return { pick, game, playerKey: key };
+      return { pick, game, playerId: pick.playerId };
     });
 
     const playerReferenceGames = payload.players
@@ -1236,50 +1166,15 @@ export async function PUT(request: NextRequest) {
           `Cannot resolve player "${pick.playerId}" for highlights`,
         );
       }
-      const { game, side, rosterPlayer } = fallbackMatch;
-      const { first, last } = splitName(pick.playerId);
-      const teamId = side === 'home' ? game.home_team_id : game.away_team_id;
-      const key = buildPlayerKey(PLAYER_PROVIDER, pick.playerId);
-      registerPlayerPayload(key, {
-        provider: PLAYER_PROVIDER,
-        provider_player_id: pick.playerId,
-        team_id: teamId,
-        first_name: first,
-        last_name: last,
-        position: rosterPlayer?.pos ?? null,
-      });
-      return { pick, rank: index + 1, playerKey: key };
+      return { pick, rank: index + 1 };
     });
-
-    const upsertInputs = Array.from(playerPayloadMap.values());
-    const {
-      data: upsertedPlayers,
-      error: playerUpsertError,
-    } = upsertInputs.length
-      ? await upsertPlayers(supabaseAdmin, upsertInputs)
-      : { data: [], error: null };
-    if (playerUpsertError) {
-      throw playerUpsertError;
-    }
-    const playerUuidByKey = new Map<string, string>();
-    (upsertedPlayers ?? []).forEach((row) => {
-      const key = buildPlayerKey(row.provider, row.provider_player_id);
-      playerUuidByKey.set(key, row.id);
-    });
-    const resolvePlayerUuid = (key: string, label: string) => {
-      const uuid = playerUuidByKey.get(key);
-      if (!uuid) {
-        throw new Error(`Unable to resolve player id for "${label}"`);
-      }
-      return uuid;
-    };
 
     const playerUpsert: PicksPlayersInsert[] = playerPickContexts.map(
-      ({ pick, game, playerKey }) => ({
+      ({ pick, game }) => ({
         user_id: userId,
         game_id: game.id,
         category: pick.category,
-        player_id: resolvePlayerUuid(playerKey, pick.playerId),
+        player_id: pick.playerId,
         pick_date: payload.pickDate,
         changes_count: nextChangeCount,
         created_at: now,
@@ -1288,9 +1183,9 @@ export async function PUT(request: NextRequest) {
     );
 
     const highlightUpsert: PicksHighlightsInsert[] = highlightContexts.map(
-      ({ pick, rank, playerKey }) => ({
+      ({ pick, rank }) => ({
         user_id: userId,
-        player_id: resolvePlayerUuid(playerKey, pick.playerId),
+        player_id: pick.playerId,
         rank,
         pick_date: payload.pickDate,
         changes_count: nextChangeCount,
