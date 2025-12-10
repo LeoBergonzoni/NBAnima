@@ -56,7 +56,8 @@ export const getEspnPlayersByProviderIds = async (
   }
 
   const deduped = new Map<string, PlayerRow>();
-  (data ?? []).forEach((player) => {
+  (data ?? []).forEach((row) => {
+    const player = row as PlayerRow;
     const raw = player.provider_player_id ?? '';
     if (!raw) return;
     const normalized = normalizeProviderId(raw);
