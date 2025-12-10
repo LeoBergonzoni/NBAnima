@@ -924,39 +924,55 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const allPlayerIds = Array.from(
+      new Set([
+        ...payload.players.map((pick) => pick.playerId),
+        ...payload.highlights.map((pick) => pick.playerId),
+      ].filter(Boolean)),
+    );
+
+    const { data: playerRows, error: playerError } = allPlayerIds.length
+      ? await supabaseAdmin
+          .from('player')
+          .select('id, team_id, provider')
+          .in('id', allPlayerIds)
+      : { data: [], error: null };
+
+    if (playerError) {
+      throw playerError;
+    }
+
+    const playerMap = new Map((playerRows ?? []).map((row) => [row.id, row]));
+
     const playerPickContexts = payload.players.map((pick) => {
       const game = gamesMap.get(pick.gameId);
       if (!game) {
         throw new Error(`Unknown game(s): ${pick.gameId}`);
       }
-      const match = findPlayerInGame(pick.playerId, game, rosters);
-      if (!match) {
-        throw new Error(
-          `Cannot resolve player "${pick.playerId}" for game ${pick.gameId}`,
-        );
+      const player = playerMap.get(pick.playerId);
+      if (!player || player.provider !== 'espn') {
+        throw new Error(`Cannot resolve ESPN player "${pick.playerId}" for game ${pick.gameId}`);
+      }
+      if (
+        player.team_id &&
+        player.team_id !== game.home_team_id &&
+        player.team_id !== game.away_team_id
+      ) {
+        console.warn('[players] selected player not on game teams', {
+          playerId: pick.playerId,
+          gameId: pick.gameId,
+          playerTeamId: player.team_id,
+          home: game.home_team_id,
+          away: game.away_team_id,
+        });
       }
       return { pick, game, playerId: pick.playerId };
     });
 
-    const playerReferenceGames = payload.players
-      .map((pick) => gamesMap.get(pick.gameId))
-      .filter((value): value is GameContext => Boolean(value));
-
     const highlightContexts = payload.highlights.map((pick, index) => {
-      const directMatch = findPlayerContext(pick.playerId, gameList, rosters);
-      const fallbackMatch =
-        directMatch ??
-        (playerReferenceGames.length > 0
-          ? (() => {
-              const fallbackGame = playerReferenceGames[0];
-              const match = findPlayerInGame(pick.playerId, fallbackGame, rosters);
-              return match ? { game: fallbackGame, ...match } : null;
-            })()
-          : null);
-      if (!fallbackMatch) {
-        throw new Error(
-          `Cannot resolve player "${pick.playerId}" for highlights`,
-        );
+      const player = playerMap.get(pick.playerId);
+      if (!player || player.provider !== 'espn') {
+        throw new Error(`Cannot resolve ESPN player "${pick.playerId}" for highlights`);
       }
       return { pick, rank: index + 1 };
     });
@@ -1132,39 +1148,55 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    const allPlayerIds = Array.from(
+      new Set([
+        ...payload.players.map((pick) => pick.playerId),
+        ...payload.highlights.map((pick) => pick.playerId),
+      ].filter(Boolean)),
+    );
+
+    const { data: playerRows, error: playerError } = allPlayerIds.length
+      ? await supabaseAdmin
+          .from('player')
+          .select('id, team_id, provider')
+          .in('id', allPlayerIds)
+      : { data: [], error: null };
+
+    if (playerError) {
+      throw playerError;
+    }
+
+    const playerMap = new Map((playerRows ?? []).map((row) => [row.id, row]));
+
     const playerPickContexts = payload.players.map((pick) => {
       const game = gamesMap.get(pick.gameId);
       if (!game) {
         throw new Error(`Unknown game(s): ${pick.gameId}`);
       }
-      const match = findPlayerInGame(pick.playerId, game, rosters);
-      if (!match) {
-        throw new Error(
-          `Cannot resolve player "${pick.playerId}" for game ${pick.gameId}`,
-        );
+      const player = playerMap.get(pick.playerId);
+      if (!player || player.provider !== 'espn') {
+        throw new Error(`Cannot resolve ESPN player "${pick.playerId}" for game ${pick.gameId}`);
+      }
+      if (
+        player.team_id &&
+        player.team_id !== game.home_team_id &&
+        player.team_id !== game.away_team_id
+      ) {
+        console.warn('[players] selected player not on game teams', {
+          playerId: pick.playerId,
+          gameId: pick.gameId,
+          playerTeamId: player.team_id,
+          home: game.home_team_id,
+          away: game.away_team_id,
+        });
       }
       return { pick, game, playerId: pick.playerId };
     });
 
-    const playerReferenceGames = payload.players
-      .map((pick) => gamesMap.get(pick.gameId))
-      .filter((value): value is GameContext => Boolean(value));
-
     const highlightContexts = payload.highlights.map((pick, index) => {
-      const directMatch = findPlayerContext(pick.playerId, gameList, rosters);
-      const fallbackMatch =
-        directMatch ??
-        (playerReferenceGames.length > 0
-          ? (() => {
-              const fallbackGame = playerReferenceGames[0];
-              const match = findPlayerInGame(pick.playerId, fallbackGame, rosters);
-              return match ? { game: fallbackGame, ...match } : null;
-            })()
-          : null);
-      if (!fallbackMatch) {
-        throw new Error(
-          `Cannot resolve player "${pick.playerId}" for highlights`,
-        );
+      const player = playerMap.get(pick.playerId);
+      if (!player || player.provider !== 'espn') {
+        throw new Error(`Cannot resolve ESPN player "${pick.playerId}" for highlights`);
       }
       return { pick, rank: index + 1 };
     });

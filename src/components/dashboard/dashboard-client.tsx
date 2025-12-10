@@ -934,12 +934,8 @@ export function DashboardClient({
 
     setPlayerSelections(
       picks.players.reduce<PlayerSelections>((acc, pick) => {
-        const providerPlayerId =
-          (pick as typeof pick & {
-            player?: { provider_player_id?: string | null } | null;
-          }).player?.provider_player_id ?? null;
         acc[pick.game_id] = acc[pick.game_id] ?? {};
-        acc[pick.game_id][pick.category] = providerPlayerId ?? pick.player_id;
+        acc[pick.game_id][pick.category] = pick.player_id;
         return acc;
       }, {}),
     );
@@ -1134,14 +1130,8 @@ export function DashboardClient({
       return map;
     }
     picks.players.forEach((pick) => {
-      const resolvedId =
-        (pick as typeof pick & { player?: { provider_player_id?: string | null } | null }).player
-          ?.provider_player_id ?? pick.player_id;
-      if (!resolvedId) {
-        return;
-      }
       const entry = map.get(pick.game_id) ?? {};
-      entry[pick.category] = resolvedId;
+      entry[pick.category] = pick.player_id;
       map.set(pick.game_id, entry);
     });
     return map;
