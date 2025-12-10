@@ -240,6 +240,7 @@ export const getUserPicksByDate = async (
       return acc;
     }
     seenPlayers.add(key);
+    const playerId = row.player_id;
     const meta = (row as unknown as {
       player?: {
         first_name?: string | null;
@@ -252,7 +253,7 @@ export const getUserPicksByDate = async (
     const parsed = UserPlayerPickSchema.parse({
       game_id: row.game_id,
       category: row.category,
-      player_id: row.player_id,
+      player_id: playerId,
       team_id: meta?.team_id ?? null,
       provider_player_id: meta?.provider_player_id ?? null,
       first_name: meta?.first_name ?? null,

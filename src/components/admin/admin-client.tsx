@@ -2073,6 +2073,7 @@ export const AdminClient = ({
                                   >
                                     <div className="flex-1">
                                       <PlayerSelect
+                                        options={category.options}
                                         value={value || undefined}
                                         onChange={(nextSelection) =>
                                           handlePlayerWinnerChange(

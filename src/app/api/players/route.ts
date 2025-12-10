@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { createAdminSupabaseClient } from '@/lib/supabase';
 import { getRosters, resolveTeamKey, slugTeam, type RosterPlayer } from '@/lib/rosters';
+import { getEspnPlayersByProviderIds, normalizeProviderId } from '@/server/services/players.service';
 
 // 🔒 niente cache/ISR/CDN: evita che Netlify serva la risposta della prima partita alle successive
 export const runtime = 'nodejs';
@@ -33,14 +35,15 @@ const headers = new Headers({
   'Vary': 'homeId, homeAbbr, homeName, awayId, awayAbbr, awayName',
 });
 
-const mapPlayer = (player: RosterPlayer, teamId: string): PlayerLite => {
+const mapPlayer = (player: RosterPlayer, teamId: string, espnRow?: { id: string; first_name?: string | null; last_name?: string | null }): PlayerLite => {
   const fullName = player.name ? player.name.replace(/\s+/g, ' ').trim() : `Player ${player.id}`;
   const parts = fullName.split(' ');
-  const firstName = parts[0] ?? fullName;
-  const lastName = parts.slice(1).join(' ');
+  const firstName = espnRow?.first_name ?? parts[0] ?? fullName;
+  const lastName = espnRow?.last_name ?? parts.slice(1).join(' ');
   return {
-    id: player.id,
-    full_name: fullName,
+    // 🔑 always use ESPN player.id as value exposed to the dashboard
+    id: espnRow?.id ?? player.id,
+    full_name: [firstName, lastName].filter(Boolean).join(' ').trim() || fullName,
     first_name: firstName,
     last_name: lastName,
     position: (player.pos ?? '').toUpperCase(),
@@ -136,12 +139,45 @@ export async function GET(req: Request) {
   const homeRoster = rosters[homeResolution.key] ?? [];
   const awayRoster = rosters[awayResolution.key] ?? [];
 
+  // ESPN-only mapping: resolve roster provider IDs to ESPN player UUIDs (source of truth).
+  const providerIds = [
+    ...homeRoster.map((p) => p.id),
+    ...awayRoster.map((p) => p.id),
+  ].filter(Boolean);
+  const supabaseAdmin = createAdminSupabaseClient();
+  const espnByProvider = await getEspnPlayersByProviderIds(supabaseAdmin, providerIds);
+
+  const missingProviderIds: string[] = [];
+  const mapRoster = (roster: RosterPlayer[], teamKey: string) =>
+    roster
+      .map((p) => {
+        const normalizedId = normalizeProviderId(p.id);
+        const espn = espnByProvider.get(p.id) ?? espnByProvider.get(normalizedId) ?? null;
+        if (!espn) {
+          missingProviderIds.push(p.id);
+          return null;
+        }
+        return mapPlayer(p, teamKey, {
+          id: espn.id,
+          first_name: espn.first_name,
+          last_name: espn.last_name,
+        });
+      })
+      .filter(Boolean) as PlayerLite[];
+
   const payload = {
     ok: true as const,
     source: 'local-rosters' as const,
-    home: homeRoster.map((p) => mapPlayer(p, homeResolution.key)),
-    away: awayRoster.map((p) => mapPlayer(p, awayResolution.key)),
+    home: mapRoster(homeRoster, homeResolution.key),
+    away: mapRoster(awayRoster, awayResolution.key),
   };
+
+  if (missingProviderIds.length > 0) {
+    console.warn('[api/players] missing ESPN mapping for roster ids (filtered out)', {
+      missingProviderIds: Array.from(new Set(missingProviderIds)),
+      note: 'provider ids normalized by stripping trailing -g/-f/-c',
+    });
+  }
 
   return NextResponse.json(payload, { status: 200, headers });
 }

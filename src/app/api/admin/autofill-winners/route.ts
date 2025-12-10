@@ -194,7 +194,8 @@ export const POST = async (request: NextRequest) => {
       const { data: players, error: playersError } = await supabaseAdmin
         .from('player')
         .select('id, provider_player_id')
-        .in('provider_player_id', Array.from(providerIds));
+        .in('provider_player_id', Array.from(providerIds))
+        .eq('provider', 'espn'); // only use ESPN UUIDs when auto-filling winners
 
       if (playersError) {
         throw playersError;
@@ -243,6 +244,12 @@ export const POST = async (request: NextRequest) => {
         performers.forEach((providerId) => {
           const playerId = providerMap.get(providerId);
           if (!playerId) {
+            // Only ESPN players are allowed; skip and log when missing.
+            console.warn('[autofill-winners] missing ESPN player for provider id', {
+              game_id: game.id,
+              category,
+              providerId,
+            });
             return;
           }
           playerUpserts.push({
