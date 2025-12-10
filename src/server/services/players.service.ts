@@ -87,10 +87,12 @@ export const getEspnPlayersForTeams = async (
   }
 
   const byProviderId = new Map<string, PlayerRow>();
-  (data ?? []).forEach((player) => {
+  const players = (data ?? []) as PlayerRow[];
+
+  players.forEach((player) => {
     const key = player.provider_player_id ?? player.id;
     if (!byProviderId.has(key)) {
-      byProviderId.set(key, player as PlayerRow);
+      byProviderId.set(key, player);
     }
   });
 
