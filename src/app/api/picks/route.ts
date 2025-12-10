@@ -962,12 +962,12 @@ export async function POST(request: NextRequest) {
     });
 
     const playerInsert: PicksPlayersInsert[] = playerPickContexts.map(
-      ({ pick, game, playerKey }) => ({
+      ({ pick, game, playerId }) => ({
         user_id: userId,
         game_id: game.id,
         category: pick.category,
-        // player_id is the ESPN player UUID coming from the dashboard roster
-        player_id: pick.playerId,
+        // player_id è l'UUID ESPN proveniente dal roster in dashboard
+        player_id: playerId,
         pick_date: payload.pickDate,
         changes_count: 0,
         created_at: now,
