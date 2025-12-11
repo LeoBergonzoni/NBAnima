@@ -823,6 +823,9 @@ export const assignWeeklyXpPrizesAction = async ({ locale }: { locale: Locale })
     { position: 3, delta: 100 },
   ] as const;
 
+  type Prize = (typeof prizes)[number];
+  type Winner = Prize & { userId: string; fullName: string };
+
   const winners = prizes
     .map((prize, index) => {
       const row = ranking[index];
@@ -833,17 +836,10 @@ export const assignWeeklyXpPrizesAction = async ({ locale }: { locale: Locale })
         ...prize,
         userId: row.user_id,
         fullName: row.full_name ?? '',
-      };
+      } as Winner;
     })
     .filter(
-      (
-        entry,
-      ): entry is {
-        position: (typeof prizes)[number]['position'];
-        delta: (typeof prizes)[number]['delta'];
-        userId: string;
-        fullName: string;
-      } => Boolean(entry),
+      (entry): entry is Winner => Boolean(entry),
     );
 
   if (winners.length === 0) {
