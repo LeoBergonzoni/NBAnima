@@ -1008,6 +1008,23 @@ export function DashboardClient({
     locale === 'it'
       ? 'Nessun dato settimanale disponibile al momento.'
       : 'No weekly data available yet.';
+  const weeklyCountdownMessage = useMemo(() => {
+    const easternNow = getEasternNow();
+    const dayOfWeek = easternNow.getUTCDay(); // 0 = Sunday
+    if (dayOfWeek === 0) {
+      return dictionary.dashboard.weeklyCountdownSunday;
+    }
+    const daysUntilSunday = (7 - dayOfWeek) % 7 || 7;
+    const template =
+      daysUntilSunday === 1 && dictionary.dashboard.weeklyCountdownOpenOne
+        ? dictionary.dashboard.weeklyCountdownOpenOne
+        : dictionary.dashboard.weeklyCountdownOpen;
+    return template.replace('{days}', String(daysUntilSunday));
+  }, [
+    dictionary.dashboard.weeklyCountdownOpen,
+    dictionary.dashboard.weeklyCountdownOpenOne,
+    dictionary.dashboard.weeklyCountdownSunday,
+  ]);
   const medals: Array<{ color: string; label: string }> = [
     { color: 'text-amber-300', label: locale === 'it' ? 'Oro' : 'Gold' },
     { color: 'text-slate-200', label: locale === 'it' ? 'Argento' : 'Silver' },
@@ -2002,9 +2019,7 @@ export function DashboardClient({
                 {dictionary.dashboard.weeklyRanking}
               </h2>
               <p className="text-sm text-slate-300">{weeklyRankingCaption}</p>
-              <p className="text-xs text-slate-400">
-                {dictionary.dashboard.weeklyXpExplainer}
-              </p>
+              <p className="text-xs text-slate-400">{weeklyCountdownMessage}</p>
               <section className="rounded-2xl border border-white/10 bg-navy-900/60 p-6 shadow-card">
                 <div className="overflow-x-auto">
                   {weeklyRankingLoading ? (
