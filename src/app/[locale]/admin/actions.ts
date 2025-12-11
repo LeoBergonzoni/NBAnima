@@ -832,17 +832,17 @@ export const assignWeeklyXpPrizesAction = async ({ locale }: { locale: Locale })
       return {
         ...prize,
         userId: row.user_id,
-        fullName: row.full_name ?? null,
+        fullName: row.full_name ?? '',
       };
     })
     .filter(
       (
         entry,
       ): entry is {
-        position: number;
-        delta: number;
+        position: (typeof prizes)[number]['position'];
+        delta: (typeof prizes)[number]['delta'];
         userId: string;
-        fullName: string | null;
+        fullName: string;
       } => Boolean(entry),
     );
 
