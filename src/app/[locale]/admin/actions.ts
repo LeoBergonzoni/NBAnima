@@ -860,7 +860,8 @@ export const assignWeeklyXpPrizesAction = async ({ locale }: { locale: Locale })
     .from(LEDGER_TABLE)
     .select('user_id, reason')
     .in('reason', reasons)
-    .in('user_id', userIds);
+    .in('user_id', userIds)
+    .returns<Pick<LedgerRow, 'user_id' | 'reason'>[]>();
 
   if (existingLedgerError) {
     throw existingLedgerError;
