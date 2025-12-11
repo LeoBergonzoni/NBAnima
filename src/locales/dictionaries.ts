@@ -94,6 +94,9 @@ export interface Dictionary {
     weeklyRanking: string;
     weeklyRangeCaption: string;
     weeklyXpExplainer: string;
+    weeklyCountdownOpen: string;
+    weeklyCountdownOpenOne?: string;
+    weeklyCountdownSunday: string;
     weeklyLeaderboardButton: string;
     howCalculatedBoth: string;
     statusCompleted: string;
@@ -280,6 +283,12 @@ export interface Dictionary {
     dateLabel: string;
     applyHighlights: string;
     rank: string;
+    weeklyPrizesTitle: string;
+    weeklyPrizesDescription: string;
+    weeklyPrizesCta: string;
+    weeklyPrizesSuccess: string;
+    weeklyPrizesPartial: string;
+    weeklyPrizesError: string;
   };
   user: {
     title: string;
@@ -461,7 +470,12 @@ const it: Dictionary = {
     weeklyRanking: 'Classifica',
     weeklyRangeCaption: 'Settimana del {date} (Lun–Dom, ET)',
     weeklyXpExplainer:
-      'I Weekly XP rispecchiano solo i punti da settlement, coprono la settimana Lun–Dom (ET) e si azzerano quando chiude il timer della prima partita della domenica.',
+      'I Weekly XP rispecchiano solo i punti da settlement, coprono la settimana Lun–Dom (ET) e si azzerano quando chiude il timer della prima partita della domenica. La domenica premiamo i primi 3 con 500/300/100 Anima Points.',
+    weeklyCountdownOpen:
+      'Mancano {days} giornate alla chiusura della classifica. Al termine della settimana verranno assegnati i premi di 500 Anima Points al primo classificato, 300 al secondo e 100 al terzo.',
+    weeklyCountdownOpenOne:
+      'Manca {days} giorno alla chiusura della classifica. Al termine della settimana verranno assegnati i premi di 500 Anima Points al primo classificato, 300 al secondo e 100 al terzo.',
+    weeklyCountdownSunday: 'La settimana è conclusa e la prossima inizia domani.',
     weeklyLeaderboardButton: 'Classifica',
     howCalculatedBoth: 'Come sono stati calcolati i tuoi Anima Points e i Weekly XP',
     statusCompleted: 'Completato',
@@ -656,6 +670,14 @@ const it: Dictionary = {
     dateLabel: 'Data',
     applyHighlights: 'Applica Top 10 del giorno',
     rank: 'Posizione',
+    weeklyPrizesTitle: 'Premi Weekly XP',
+    weeklyPrizesDescription:
+      'Premia i primi 3 della classifica Weekly XP con 500/300/100 Anima Points.',
+    weeklyPrizesCta: 'Assegna premi',
+    weeklyPrizesSuccess: 'Premi weekly assegnati.',
+    weeklyPrizesPartial:
+      '{awarded} premi assegnati, {skipped} già distribuiti in precedenza.',
+    weeklyPrizesError: 'Impossibile assegnare i premi weekly.',
   },
   user: {
     title: 'Profilo utente',
@@ -831,15 +853,18 @@ const en: Dictionary = {
     welcome: 'Welcome back to NBAnima!',
     animaPoints: 'Anima Points',
     playTab: 'Play',
-    myPicksTab: 'My Picks',
+    myPicksTab: 'Picks',
     winnersTab: 'Winners',
     collectionTab: 'Collection',
     shopTab: 'Shop Cards',
     weeklyXpBalance: 'Weekly XP',
-    weeklyRanking: 'Weekly Ranking',
+    weeklyRanking: 'Leaderbord',
     weeklyRangeCaption: 'Week of {date} (Mon–Sun, ET)',
     weeklyXpExplainer:
-      'Weekly XP mirror settlement-only points, cover the Mon–Sun (ET) week, and reset when the Sunday pick window closes (first game starts).',
+      'Weekly XP mirror settlement-only points, cover the Mon–Sun (ET) week, and reset when the Sunday pick window closes (first game starts). Every Sunday we reward the top 3 with 500/300/100 Anima Points.',
+    weeklyCountdownOpen: '{days} days left before the leaderboard closes. At the end of the week, prizes of 500 Anima Points will be awarded to the first place, 300 to the second and 100 to the third.',
+    weeklyCountdownOpenOne: '{days} day left before the leaderboard closes.',
+    weeklyCountdownSunday: 'The week is over and the next one starts tomorrow.',
     weeklyLeaderboardButton: 'Leaderboard',
     howCalculatedBoth: 'How your Anima Points and Weekly XP were calculated',
     statusCompleted: 'Completed',
@@ -1035,6 +1060,13 @@ const en: Dictionary = {
     dateLabel: 'Date',
     applyHighlights: 'Save daily Top 10',
     rank: 'Rank',
+    weeklyPrizesTitle: 'Weekly XP prizes',
+    weeklyPrizesDescription:
+      'Reward the top 3 in the Weekly XP leaderboard with 500/300/100 Anima Points.',
+    weeklyPrizesCta: 'Assign prizes',
+    weeklyPrizesSuccess: 'Weekly prizes assigned.',
+    weeklyPrizesPartial: '{awarded} prizes sent, {skipped} already assigned before.',
+    weeklyPrizesError: 'Unable to assign the weekly prizes.',
   },
   user: {
     title: 'Your profile',

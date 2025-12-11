@@ -11,6 +11,7 @@ import useSWR from 'swr';
 import {
   adjustUserBalanceAction,
   assignCardAction,
+  assignWeeklyXpPrizesAction,
   revokeCardAction,
   saveHighlightsAction,
   loadTeamWinners,
@@ -239,6 +240,7 @@ export const AdminClient = ({
   const [highlightPending, startHighlight] = useTransition();
   const [publishTeamsPending, startPublishTeams] = useTransition();
   const [publishPlayersPending, startPublishPlayers] = useTransition();
+  const [weeklyPrizesPending, startWeeklyPrizes] = useTransition();
   const [selectedUser, setSelectedUser] = useState<string>(users[0]?.id ?? '');
   const [selectedCard, setSelectedCard] = useState<Record<string, string>>({});
   const [picksDate, setPicksDate] = useState(
@@ -934,6 +936,32 @@ export const AdminClient = ({
     );
   };
 
+  const handleAssignWeeklyPrizes = useCallback(() => {
+    startWeeklyPrizes(async () => {
+      try {
+        const result = await assignWeeklyXpPrizesAction({ locale });
+        const message =
+          result.skippedCount > 0
+            ? dictionary.admin.weeklyPrizesPartial
+                .replace('{awarded}', String(result.awardedCount))
+                .replace('{skipped}', String(result.skippedCount))
+            : dictionary.admin.weeklyPrizesSuccess;
+        setStatusMessage({ kind: 'success', message });
+      } catch (error) {
+        setStatusMessage({
+          kind: 'error',
+          message:
+            (error as Error)?.message ?? dictionary.admin.weeklyPrizesError,
+        });
+      }
+    });
+  }, [
+    dictionary.admin.weeklyPrizesPartial,
+    dictionary.admin.weeklyPrizesSuccess,
+    dictionary.admin.weeklyPrizesError,
+    locale,
+  ]);
+
   const handleHighlightChange = (
     rank: number,
     selection: PlayerSelectResult | null,
@@ -1253,9 +1281,48 @@ export const AdminClient = ({
       </div>
 
       <div className="space-y-6 pt-4 md:pt-6">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 shadow-card sm:p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-white">
+                {dictionary.admin.weeklyPrizesTitle}
+              </p>
+              <p className="text-xs text-slate-300">
+                {dictionary.admin.weeklyPrizesDescription}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleAssignWeeklyPrizes}
+              disabled={weeklyPrizesPending}
+              className={clsx(
+                'inline-flex items-center justify-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition min-h-[44px]',
+                weeklyPrizesPending
+                  ? 'cursor-not-allowed border-white/20 bg-white/5 text-slate-300'
+                  : 'border-accent-gold/60 bg-accent-gold/15 text-accent-gold hover:border-accent-gold hover:bg-accent-gold/25',
+              )}
+              aria-busy={weeklyPrizesPending}
+            >
+              {weeklyPrizesPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {dictionary.admin.weeklyPrizesCta}
+            </button>
+          </div>
+          {statusMessage && activeTab !== 'winnersTeams' && activeTab !== 'winnersPlayers' ? (
+            <div
+              className={clsx(
+                'mt-2 inline-flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-2 text-xs font-semibold md:mt-3',
+                statusMessage.kind === 'success'
+                  ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-200'
+                  : 'border-rose-400/40 bg-rose-400/10 text-rose-200',
+              )}
+            >
+              <span>{statusMessage.message}</span>
+            </div>
+          ) : null}
+        </section>
 
-      {activeTab === 'users' ? (
-        <section className="space-y-4">
+        {activeTab === 'users' ? (
+          <section className="space-y-4">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
             <h2 className="text-2xl font-semibold text-white">
               {dictionary.admin.usersTab}

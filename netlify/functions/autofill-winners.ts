@@ -1,5 +1,6 @@
 const ROME_TZ = 'Europe/Rome';
 const allowedHours = new Set([19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7]);
+const PAUSED = true; // flip to false to re-enable execution
 
 const resolveBaseUrl = () =>
   process.env.AUTOFILL_BASE_URL ??
@@ -28,6 +29,10 @@ const jsonResponse = (status: number, payload: unknown) =>
   });
 
 const handler = async () => {
+  if (PAUSED) {
+    return jsonResponse(200, { skipped: true, reason: 'Paused in code' });
+  }
+
   if (!shouldRunNow()) {
     return jsonResponse(200, { skipped: true, reason: 'Outside Italy window' });
   }

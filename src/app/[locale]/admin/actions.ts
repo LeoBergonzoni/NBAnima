@@ -11,6 +11,7 @@ import { computeDailyScore } from '@/lib/scoring';
 import { ADMIN_POINT_STEP } from '@/lib/admin';
 import { upsertPlayers, type UpsertablePlayer } from '@/lib/db/upsertPlayers';
 import { getEspnPlayersForTeams } from '@/server/services/players.service';
+import { getWeeklyRankingCurrent } from '@/server/services/xp.service';
 
 interface BalanceInput {
   userId: string;
@@ -31,6 +32,7 @@ const RESULTS_HIGHLIGHTS_TABLE =
 type LedgerInsert =
   Database['public']['Tables']['anima_points_ledger']['Insert'];
 type UsersUpdate = Database['public']['Tables']['users']['Update'];
+type UsersInsert = Database['public']['Tables']['users']['Insert'];
 type UserBalanceRow = Pick<
   Database['public']['Tables']['users']['Row'],
   'anima_points_balance'
@@ -809,6 +811,140 @@ export const assignCardAction = async ({ userId, cardId, locale }: CardInput) =>
     throw error;
   }
   revalidatePath(`/${locale}/admin`);
+};
+
+export const assignWeeklyXpPrizesAction = async ({ locale }: { locale: Locale }) => {
+  await ensureAdminUser();
+  const { ranking, weekStart } = await getWeeklyRankingCurrent();
+
+  const prizes = [
+    { position: 1, delta: 500 },
+    { position: 2, delta: 300 },
+    { position: 3, delta: 100 },
+  ] as const;
+
+  type Prize = (typeof prizes)[number];
+  type Winner = Prize & { userId: string; fullName: string };
+
+  const winners = prizes
+    .map((prize, index) => {
+      const row = ranking[index];
+      if (!row?.user_id) {
+        return null;
+      }
+      return {
+        ...prize,
+        userId: row.user_id,
+        fullName: row.full_name ?? '',
+      } as Winner;
+    })
+    .filter(
+      (entry): entry is Winner => Boolean(entry),
+    );
+
+  if (winners.length === 0) {
+    throw new Error('Nessun utente in classifica weekly.');
+  }
+
+  const weekKey =
+    weekStart && weekStart.trim().length > 0
+      ? weekStart.trim()
+      : new Date().toISOString().slice(0, 10);
+
+  const reasonFor = (position: number) => `weekly_xp_prize:${weekKey}:pos${position}`;
+
+  const reasons = winners.map((entry) => reasonFor(entry.position));
+  const userIds = winners.map((entry) => entry.userId);
+
+  const { data: existingLedger, error: existingLedgerError } = await supabaseAdmin
+    .from(LEDGER_TABLE)
+    .select('user_id, reason')
+    .in('reason', reasons)
+    .in('user_id', userIds)
+    .returns<Pick<LedgerRow, 'user_id' | 'reason'>[]>();
+
+  if (existingLedgerError) {
+    throw existingLedgerError;
+  }
+
+  const alreadyAwarded = new Set((existingLedger ?? []).map((entry) => entry.reason));
+
+  const { data: usersData, error: usersError } = await supabaseAdmin
+    .from(USERS_TABLE)
+    .select('id, email, anima_points_balance')
+    .in('id', userIds)
+    .returns<UserRow[]>();
+
+  if (usersError) {
+    throw usersError;
+  }
+
+  const usersMap = new Map<string, UserRow>();
+  (usersData ?? []).forEach((user) => usersMap.set(user.id, user));
+
+  const missing = userIds.filter((id) => !usersMap.has(id));
+  if (missing.length > 0) {
+    throw new Error(`Utenti mancanti per il premio weekly: ${missing.join(', ')}`);
+  }
+
+  const ledgerInserts: LedgerInsert[] = [];
+  const userUpserts: UsersInsert[] = [];
+  const now = new Date().toISOString();
+  let awardedCount = 0;
+  let skippedCount = 0;
+
+  winners.forEach((winner) => {
+    const reason = reasonFor(winner.position);
+    if (alreadyAwarded.has(reason)) {
+      skippedCount += 1;
+      return;
+    }
+
+    const user = usersMap.get(winner.userId)!;
+    const currentBalance = user.anima_points_balance ?? 0;
+    const nextBalance = currentBalance + winner.delta;
+
+    ledgerInserts.push({
+      user_id: winner.userId,
+      delta: winner.delta,
+      balance_after: nextBalance,
+      reason,
+      created_at: now,
+    });
+
+    userUpserts.push({
+      id: winner.userId,
+      email: user.email,
+      anima_points_balance: nextBalance,
+      updated_at: now,
+    });
+
+    usersMap.set(winner.userId, {
+      ...user,
+      anima_points_balance: nextBalance,
+    });
+    alreadyAwarded.add(reason);
+    awardedCount += 1;
+  });
+
+  if (ledgerInserts.length > 0) {
+    const [{ error: ledgerError }, { error: userError }] = await Promise.all([
+      supabaseAdmin.from(LEDGER_TABLE).insert(ledgerInserts),
+      supabaseAdmin.from(USERS_TABLE).upsert(userUpserts),
+    ]);
+
+    if (ledgerError || userError) {
+      throw ledgerError ?? userError ?? new Error('Failed to assign weekly prizes');
+    }
+  }
+
+  revalidatePath(`/${locale}/admin`);
+
+  return {
+    weekStart: weekKey,
+    awardedCount,
+    skippedCount,
+  };
 };
 
 export const revokeCardAction = async ({ userId, cardId, locale }: CardInput) => {
