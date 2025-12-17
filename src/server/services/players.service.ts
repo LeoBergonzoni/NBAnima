@@ -118,7 +118,9 @@ export const getEspnPlayersByProviderIds = async (
     .some((id) => !deduped.has(id));
 
   if (isMissing) {
-    const { data: allPlayers, error: allError } = await basePlayerQuery(client).select();
+    const { data: allPlayers, error: allError } = await basePlayerQuery(client)
+      .select()
+      .returns<PlayerRow[]>();
     if (allError) {
       throw allError;
     }
