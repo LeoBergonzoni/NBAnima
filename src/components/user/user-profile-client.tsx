@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
+import { GoogleAuthButton } from '@/components/GoogleAuthButton';
 import { LanguageToggle } from '@/components/language-toggle';
 import { LogoutButton } from '@/components/logout-button';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -44,6 +45,8 @@ export function UserProfileClient({
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isCheckingIdentity, setIsCheckingIdentity] = useState(true);
+  const [hasGoogleIdentity, setHasGoogleIdentity] = useState(false);
 
   useEffect(() => {
     if (avatarModalOpen) {
@@ -54,6 +57,37 @@ export function UserProfileClient({
       };
     }
   }, [avatarModalOpen]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchIdentities = async () => {
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+        if (error) {
+          throw error;
+        }
+        const isGoogleLinked =
+          user?.identities?.some((identity) => identity.provider === 'google') ?? false;
+        if (isMounted) {
+          setHasGoogleIdentity(isGoogleLinked);
+        }
+      } catch (identityError) {
+        console.error('[user] failed to load identities', identityError);
+      } finally {
+        if (isMounted) {
+          setIsCheckingIdentity(false);
+        }
+      }
+    };
+
+    void fetchIdentities();
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase]);
 
   const updateProfile = async (payload: ProfileUpdate) => {
     setErrorMessage(null);
@@ -217,6 +251,33 @@ export function UserProfileClient({
               <span>{copy.backToDashboard}</span>
             </Link>
             <LogoutButton locale={locale} label={dictionary.common.logout} />
+          </div>
+
+          <div className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-left shadow-card sm:px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+                  {copy.securityTitle}
+                </p>
+                <p className="text-sm text-slate-300">{copy.securitySubtitle}</p>
+              </div>
+              {isCheckingIdentity ? (
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-navy-900/70 px-4 py-2 text-sm font-semibold text-white">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>{dictionary.common.loading}</span>
+                </div>
+              ) : hasGoogleIdentity ? (
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/50 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100">
+                  <Check className="h-4 w-4" />
+                  <span>{copy.googleLinked}</span>
+                </div>
+              ) : (
+                <GoogleAuthButton
+                  label={copy.linkGoogle}
+                  className="w-full sm:w-auto"
+                />
+              )}
+            </div>
           </div>
         </div>
       </section>

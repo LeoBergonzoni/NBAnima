@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@/lib/supabase';
 import { getRosters, resolveTeamKey, slugTeam, type RosterPlayer } from '@/lib/rosters';
-import { getEspnPlayersByProviderIds, normalizeProviderId } from '@/server/services/players.service';
+import {
+  getEspnPlayersByProviderIds,
+  normalizeProviderId,
+  stripJerseyNumber,
+} from '@/server/services/players.service';
 
 // 🔒 niente cache/ISR/CDN: evita che Netlify serva la risposta della prima partita alle successive
 export const runtime = 'nodejs';
@@ -152,7 +156,12 @@ export async function GET(req: Request) {
     roster
       .map((p) => {
         const normalizedId = normalizeProviderId(p.id);
-        const espn = espnByProvider.get(p.id) ?? espnByProvider.get(normalizedId) ?? null;
+        const jerseylessId = stripJerseyNumber(normalizedId);
+        const espn =
+          espnByProvider.get(p.id) ??
+          espnByProvider.get(normalizedId) ??
+          espnByProvider.get(jerseylessId) ??
+          null;
         if (!espn) {
           missingProviderIds.push(p.id);
           return null;
@@ -175,7 +184,7 @@ export async function GET(req: Request) {
   if (missingProviderIds.length > 0) {
     console.warn('[api/players] missing ESPN mapping for roster ids (filtered out)', {
       missingProviderIds: Array.from(new Set(missingProviderIds)),
-      note: 'provider ids normalized by stripping trailing -g/-f/-c',
+      note: 'provider ids normalized by stripping trailing -g/-f/-c; jersey numbers and dot suffix variants also tried when matching',
     });
   }
 

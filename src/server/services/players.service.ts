@@ -39,13 +39,35 @@ export const normalizeProviderId = (value: string) => {
   return cleaned;
 };
 
+export const stripJerseyNumber = (value: string) => {
+  const parts = value.split('-');
+  if (parts.length < 2) {
+    return value;
+  }
+  const last = parts[parts.length - 1];
+  if (/^\d+$/.test(last)) {
+    parts.pop();
+  }
+  return parts.join('-');
+};
+
 export const getEspnPlayersByProviderIds = async (
   client: DB,
   providerIds: string[],
 ): Promise<Map<string, PlayerRow>> => {
   const rawIds = providerIds.filter(Boolean);
   const normalizedIds = rawIds.map(normalizeProviderId);
-  const queryIds = Array.from(new Set([...rawIds, ...normalizedIds]));
+  const jerseylessIds = [...rawIds, ...normalizedIds].map(stripJerseyNumber);
+  const dotNumberVariant = (value: string) => value.replace(/-(\d+)$/, '.$1');
+  const queryIds = Array.from(
+    new Set([
+      ...rawIds,
+      ...normalizedIds,
+      ...jerseylessIds,
+      ...rawIds.map(dotNumberVariant),
+      ...normalizedIds.map(dotNumberVariant),
+    ]),
+  ).filter(Boolean);
   if (queryIds.length === 0) {
     return new Map();
   }
@@ -56,18 +78,54 @@ export const getEspnPlayersByProviderIds = async (
   }
 
   const deduped = new Map<string, PlayerRow>();
-  (data ?? []).forEach((row) => {
+  const addRow = (row: PlayerRow) => {
     const player = row as PlayerRow;
     const raw = player.provider_player_id ?? '';
     if (!raw) return;
     const normalized = normalizeProviderId(raw);
+    const jerseyless = stripJerseyNumber(normalized);
+    const dotNumber = normalized.replace(/-(\d+)$/, '.$1');
     if (!deduped.has(raw)) {
       deduped.set(raw, player as PlayerRow);
     }
     if (!deduped.has(normalized)) {
       deduped.set(normalized, player as PlayerRow);
     }
+    if (jerseyless && !deduped.has(jerseyless)) {
+      deduped.set(jerseyless, player as PlayerRow);
+    }
+    if (!deduped.has(dotNumber)) {
+      deduped.set(dotNumber, player as PlayerRow);
+    }
+  };
+
+  (data ?? []).forEach(addRow);
+
+  // Fallback: if any target id variants are still missing, hydrate the map with all ESPN players
+  const requiredVariants = new Set<string>();
+  rawIds.forEach((raw) => {
+    const norm = normalizeProviderId(raw);
+    const jerseyless = stripJerseyNumber(norm);
+    requiredVariants.add(raw);
+    requiredVariants.add(norm);
+    requiredVariants.add(jerseyless);
+    requiredVariants.add(dotNumberVariant(raw));
+    requiredVariants.add(dotNumberVariant(norm));
   });
+
+  const isMissing = Array.from(requiredVariants)
+    .filter(Boolean)
+    .some((id) => !deduped.has(id));
+
+  if (isMissing) {
+    const { data: allPlayers, error: allError } = await basePlayerQuery(client)
+      .select()
+      .returns<PlayerRow[]>();
+    if (allError) {
+      throw allError;
+    }
+    (allPlayers ?? []).forEach(addRow);
+  }
 
   return deduped;
 };

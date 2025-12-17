@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -26,9 +26,16 @@ interface AuthFormProps {
   locale: string;
   copy: AuthFormCopy;
   switchHref: string;
+  extraAction?: ReactNode;
 }
 
-export const AuthForm = ({ mode, locale, copy, switchHref }: AuthFormProps) => {
+export const AuthForm = ({
+  mode,
+  locale,
+  copy,
+  switchHref,
+  extraAction,
+}: AuthFormProps) => {
   const router = useRouter();
   const supabase = useMemo(() => createBrowserSupabase(), []);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -224,6 +231,7 @@ export const AuthForm = ({ mode, locale, copy, switchHref }: AuthFormProps) => {
               {isPending || isRedirecting ? '…' : copy.submit}
             </button>
           </form>
+          {extraAction ? <div className="mt-6">{extraAction}</div> : null}
           {isRedirecting ? (
             <p className="mt-4 text-center text-sm text-slate-400">
               Redirecting to your dashboard…
