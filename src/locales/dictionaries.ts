@@ -306,6 +306,10 @@ export interface Dictionary {
     statusSaved: string;
     statusError: string;
     backToDashboard: string;
+    securityTitle: string;
+    securitySubtitle: string;
+    linkGoogle: string;
+    googleLinked: string;
   };
   auth: {
     login: {
@@ -322,6 +326,9 @@ export interface Dictionary {
       switchPrompt: string;
       switchCta: string;
       confirmationNotice: string;
+    };
+    social: {
+      continueWithGoogle: string;
     };
     fields: {
       fullName: string;
@@ -696,6 +703,10 @@ const it: Dictionary = {
     statusSaved: 'Profilo aggiornato!',
     statusError: 'Impossibile salvare le modifiche. Riprova.',
     backToDashboard: 'Torna alla dashboard',
+    securityTitle: 'Sicurezza',
+    securitySubtitle: 'Collega Google per un accesso più rapido e sicuro.',
+    linkGoogle: 'Collega Google',
+    googleLinked: 'Google collegato ✅',
   },
   auth: {
     login: {
@@ -713,6 +724,9 @@ const it: Dictionary = {
       switchCta: 'Accedi',
       confirmationNotice:
         'Controlla la tua email per il link di conferma, aprilo e poi accedi con i dati appena inseriti.',
+    },
+    social: {
+      continueWithGoogle: 'Continua con Google',
     },
     fields: {
       fullName: 'Nome o soprannome',
@@ -1085,6 +1099,10 @@ const en: Dictionary = {
     statusSaved: 'Profile updated!',
     statusError: 'Unable to save changes. Please try again.',
     backToDashboard: 'Back to dashboard',
+    securityTitle: 'Security',
+    securitySubtitle: 'Link Google for a faster, safer sign-in.',
+    linkGoogle: 'Link Google',
+    googleLinked: 'Google linked ✅',
   },
   auth: {
     login: {
@@ -1102,6 +1120,9 @@ const en: Dictionary = {
       switchCta: 'Log in',
       confirmationNotice:
         'Check your inbox for the confirmation link, click it, then sign in with the credentials you just created.',
+    },
+    social: {
+      continueWithGoogle: 'Continue with Google',
     },
     fields: {
       fullName: 'Name or nickname',

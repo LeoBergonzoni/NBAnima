@@ -4,6 +4,7 @@ import { AuthForm } from '@/components/auth/AuthForm';
 import { SUPPORTED_LOCALES, type Locale } from '@/lib/constants';
 import { getDictionary } from '@/locales/dictionaries';
 import { createServerSupabase } from '@/lib/supabase';
+import { GoogleAuthButton } from '@/components/GoogleAuthButton';
 
 export default async function LoginPage({
   params,
@@ -46,6 +47,11 @@ export default async function LoginPage({
         genericError: dictionary.auth.errors.generic,
       }}
       switchHref={`/${locale}/signup`}
+      extraAction={
+        <GoogleAuthButton
+          label={dictionary.auth.social.continueWithGoogle}
+        />
+      }
     />
   );
 }

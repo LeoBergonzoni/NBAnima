@@ -70,16 +70,19 @@ export const TradingCardsClient = ({
   );
   const formatMsToClock = (ms: number) => {
     if (ms <= 0) {
-      return '00:00';
+      return '00:00:00';
     }
-    const totalMinutes = Math.max(Math.floor(ms / 1000 / 60), 0);
-    const hours = Math.floor(totalMinutes / 60)
+    const totalSeconds = Math.max(Math.floor(ms / 1000), 0);
+    const hours = Math.floor(totalSeconds / 3600)
       .toString()
       .padStart(2, '0');
-    const minutes = Math.floor(totalMinutes % 60)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
       .toString()
       .padStart(2, '0');
-    return `${hours}:${minutes}`;
+    const seconds = Math.floor(totalSeconds % 60)
+      .toString()
+      .padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
   };
   const totalOwnedCards = useMemo(
     () => Object.values(ownedCardCounts ?? {}).reduce((sum, value) => sum + Number(value), 0),
