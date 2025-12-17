@@ -37,21 +37,18 @@ export function GoogleAuthButton({
           : undefined;
 
       if (sessionData.session?.user) {
-        const linkIdentity = (
-          supabaseClient.auth as typeof supabaseClient.auth & {
-            linkIdentity?: typeof supabaseClient.auth.linkIdentity;
-          }
-        ).linkIdentity;
-
-        if (typeof linkIdentity !== 'function') {
+        const authClient = supabaseClient.auth as typeof supabaseClient.auth & {
+          linkIdentity?: typeof supabaseClient.auth.linkIdentity;
+        };
+        if (!authClient.linkIdentity) {
           alert(LINKING_FALLBACK_MESSAGE);
           return;
         }
 
-        const { data, error } = await linkIdentity({
+        const { data, error } = await authClient.linkIdentity({
           provider: 'google',
           options: { redirectTo },
-        } as Parameters<typeof linkIdentity>[0]);
+        });
         if (error) {
           throw error;
         }
