@@ -1,6 +1,5 @@
 const ROME_TZ = 'Europe/Rome';
-const allowedHours = new Set([19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7]);
-const PAUSED = true; // flip to false to re-enable execution
+const PAUSED = false;
 
 const resolveBaseUrl = () =>
   process.env.AUTOFILL_BASE_URL ??
@@ -12,10 +11,19 @@ const shouldRunNow = (now = new Date()) => {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: ROME_TZ,
     hour: 'numeric',
+    minute: 'numeric',
     hour12: false,
   }).formatToParts(now);
   const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
-  return allowedHours.has(hour);
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+
+  if (hour === 19) {
+    return minute >= 30;
+  }
+  if (hour === 8) {
+    return minute === 0;
+  }
+  return hour > 19 || hour < 8;
 };
 
 export const config = {
@@ -45,7 +53,7 @@ const handler = async () => {
   }
 
   try {
-    const target = `${baseUrl}/api/admin/autofill-winners`;
+    const target = `${baseUrl}/api/admin/autofill-winners?publish=1`;
     const response = await fetch(target, {
       method: 'POST',
       headers: {

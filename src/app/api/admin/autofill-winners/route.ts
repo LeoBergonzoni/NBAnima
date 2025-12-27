@@ -9,6 +9,7 @@ import {
 import { getSlateBoundsUtc, toEasternYYYYMMDD } from '@/lib/date-us-eastern';
 import { createServerSupabase, supabaseAdmin } from '@/lib/supabase';
 import type { Database } from '@/lib/supabase.types';
+import { applySettlementForDate } from '@/server/services/settlement.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -97,6 +98,9 @@ export const POST = async (request: NextRequest) => {
   const bufferMinutes = Number(
     request.nextUrl.searchParams.get('bufferMinutes') ?? '2',
   );
+  const publish =
+    request.nextUrl.searchParams.get('publish') === '1' ||
+    request.nextUrl.searchParams.get('publish') === 'true';
 
   const { start, end } = getSlateBoundsUtc(dateParam);
 
@@ -107,7 +111,6 @@ export const POST = async (request: NextRequest) => {
         .select('*')
         .gte('game_date', start)
         .lt('game_date', end)
-        .eq('status', 'finished')
         .returns<GameRow[]>(),
       fetchGamesByDate(dateParam),
     ]);
@@ -210,6 +213,7 @@ export const POST = async (request: NextRequest) => {
 
     const teamUpserts: TeamResultInsert[] = [];
     const playerUpserts: PlayerResultInsert[] = [];
+    const settledAt = publish ? new Date().toISOString() : undefined;
 
     finishedGames.forEach((game) => {
       const matchKey = `${game.homeAbbr}-${game.awayAbbr}`;
@@ -231,7 +235,7 @@ export const POST = async (request: NextRequest) => {
       teamUpserts.push({
         game_id: game.id,
         winner_team_id: winnerTeamId,
-        settled_at: undefined,
+        settled_at: settledAt,
       });
 
       DEFAULT_PLAYER_CATEGORIES.forEach((category) => {
@@ -256,7 +260,7 @@ export const POST = async (request: NextRequest) => {
             game_id: game.id,
             category,
             player_id: playerId,
-            settled_at: undefined,
+            settled_at: settledAt,
           });
         });
       });
@@ -280,10 +284,13 @@ export const POST = async (request: NextRequest) => {
       }
     }
 
+    const settlement = publish ? await applySettlementForDate(dateParam) : null;
+
     return NextResponse.json({
       date: dateParam,
       updated: teamUpserts.length,
       playersInserted: playerUpserts.length,
+      settlementProcessed: settlement?.processed ?? 0,
     });
   } catch (error) {
     const status =
