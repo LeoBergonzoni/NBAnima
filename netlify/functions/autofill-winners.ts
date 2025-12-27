@@ -37,11 +37,16 @@ const jsonResponse = (status: number, payload: unknown) =>
   });
 
 const handler = async () => {
+  const nowIso = new Date().toISOString();
+  console.info('[autofill-winners] start', { nowIso });
+
   if (PAUSED) {
+    console.info('[autofill-winners] skipped', { reason: 'Paused in code' });
     return jsonResponse(200, { skipped: true, reason: 'Paused in code' });
   }
 
   if (!shouldRunNow()) {
+    console.info('[autofill-winners] skipped', { reason: 'Outside Italy window' });
     return jsonResponse(200, { skipped: true, reason: 'Outside Italy window' });
   }
 
@@ -49,11 +54,13 @@ const handler = async () => {
   const baseUrl = resolveBaseUrl().replace(/\/$/, '');
 
   if (!baseUrl) {
+    console.error('[autofill-winners] missing base url');
     return jsonResponse(500, { error: 'Missing AUTOFILL_BASE_URL/URL' });
   }
 
   try {
     const target = `${baseUrl}/api/admin/autofill-winners?publish=1`;
+    console.info('[autofill-winners] invoking', { target });
     const response = await fetch(target, {
       method: 'POST',
       headers: {
@@ -65,8 +72,21 @@ const handler = async () => {
       .json()
       .catch(() => ({ error: 'Failed to parse autofill response' }));
 
+    if (response.ok) {
+      console.info('[autofill-winners] success', {
+        status: response.status,
+        payload,
+      });
+    } else {
+      console.error('[autofill-winners] failed', {
+        status: response.status,
+        payload,
+      });
+    }
+
     return jsonResponse(response.status, payload);
   } catch (error) {
+    console.error('[autofill-winners] exception', error);
     return jsonResponse(500, {
       error: (error as Error).message ?? 'Autofill invocation failed',
     });
