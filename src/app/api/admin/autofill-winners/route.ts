@@ -346,21 +346,19 @@ export const POST = async (request: NextRequest) => {
         return;
       }
 
-      const existingTeam = existingTeams.get(game.id);
-      if (existingTeam) {
-        return;
-      }
-
       const winnerTeamId = summaryEntry.winner === 'home' ? game.homeTeamId : game.awayTeamId;
       if (!winnerTeamId) {
         return;
       }
 
-      teamUpserts.push({
-        game_id: game.id,
-        winner_team_id: winnerTeamId,
-        settled_at: settledAt,
-      });
+      const existingTeam = existingTeams.get(game.id);
+      if (!existingTeam) {
+        teamUpserts.push({
+          game_id: game.id,
+          winner_team_id: winnerTeamId,
+          settled_at: settledAt,
+        });
+      }
 
       DEFAULT_PLAYER_CATEGORIES.forEach((category) => {
         const existing = existingPlayers.get(`${game.id}:${category}`);
