@@ -20,6 +20,19 @@ type TeamResultInsert = Database['public']['Tables']['results_team']['Insert'];
 type TeamResultRow = Database['public']['Tables']['results_team']['Row'];
 type PlayerResultInsert = Database['public']['Tables']['results_players']['Insert'];
 type PlayerResultRow = Database['public']['Tables']['results_players']['Row'];
+type PlayerRow = Database['public']['Tables']['player']['Row'];
+type PlayerWithTeam = Pick<
+  PlayerRow,
+  'id' | 'provider_player_id' | 'first_name' | 'last_name' | 'team_id'
+> & {
+  team: { abbr?: string | null } | null;
+};
+type RosterCandidate = Pick<
+  PlayerRow,
+  'id' | 'provider_player_id' | 'first_name' | 'last_name' | 'team_id'
+> & {
+  team_abbr?: string | null;
+};
 
 const DEFAULT_PLAYER_CATEGORIES = ['top_scorer', 'top_assist', 'top_rebound'] as const;
 const ADMIN_TOKEN_HEADER = 'x-autofill-token';
@@ -60,6 +73,11 @@ const ensureAdminOrToken = async (request: NextRequest) => {
   return { ok: true };
 };
 
+type SummaryPerformer = {
+  player: BalldontlieStat['player'] | null;
+  team: BalldontlieStat['team'] | null;
+};
+
 const pickTopPerformers = (stats: BalldontlieStat[], key: 'pts' | 'reb' | 'ast') => {
   let maxValue = 0;
   stats.forEach((entry) => {
@@ -70,13 +88,15 @@ const pickTopPerformers = (stats: BalldontlieStat[], key: 'pts' | 'reb' | 'ast')
   });
 
   if (maxValue <= 0) {
-    return [] as string[];
+    return [] as SummaryPerformer[];
   }
 
   return stats
     .filter((entry) => Number(entry?.[key] ?? 0) === maxValue)
-    .map((entry) => (entry.player?.id != null ? String(entry.player.id) : null))
-    .filter((value): value is string => Boolean(value));
+    .map((entry) => ({
+      player: entry.player ?? null,
+      team: entry.team ?? null,
+    }));
 };
 
 const mapGame = (game: GameRow) => ({
@@ -86,6 +106,90 @@ const mapGame = (game: GameRow) => ({
   homeTeamId: game.home_team_id,
   awayTeamId: game.away_team_id,
 });
+
+const stripDiacritics = (value: string) =>
+  value.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+
+const normalizeName = (value?: string | null) =>
+  stripDiacritics(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '')
+    .trim();
+
+const normalizeToken = (value?: string | number | null) =>
+  stripDiacritics((value ?? '').toString())
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+
+const resolveTeamIdForPerformer = (
+  performer: SummaryPerformer,
+  game: ReturnType<typeof mapGame>,
+) => {
+  const teamAbbr = performer.team?.abbreviation?.toUpperCase() ?? null;
+  if (teamAbbr && teamAbbr === game.homeAbbr) {
+    return game.homeTeamId;
+  }
+  if (teamAbbr && teamAbbr === game.awayAbbr) {
+    return game.awayTeamId;
+  }
+  return null;
+};
+
+const resolvePlayerMatch = (
+  performer: SummaryPerformer,
+  candidates: RosterCandidate[],
+  fallbackId?: string,
+) => {
+  if (fallbackId) {
+    return fallbackId;
+  }
+
+  const performerId = normalizeToken(performer.player?.id);
+  const first = normalizeName(performer.player?.first_name);
+  const last = normalizeName(performer.player?.last_name);
+  const fullName = normalizeName(
+    `${performer.player?.first_name ?? ''} ${performer.player?.last_name ?? ''}`,
+  );
+  const teamAbbr = performer.team?.abbreviation?.toUpperCase() ?? null;
+  const teamToken = normalizeName(teamAbbr);
+
+  const scored = candidates
+    .map((candidate) => {
+      const candidateId = normalizeToken(candidate.provider_player_id || candidate.id);
+      const candidateFirst = normalizeName(candidate.first_name);
+      const candidateLast = normalizeName(candidate.last_name);
+      const candidateFull = normalizeName(
+        `${candidate.first_name ?? ''} ${candidate.last_name ?? ''}`,
+      );
+      const candidateTeamToken = normalizeName(candidate.team_abbr);
+
+      let score = 0;
+      if (performerId && candidateId && performerId === candidateId) {
+        score += 8;
+      }
+      if (fullName && candidateFull && fullName === candidateFull) {
+        score += 4;
+      } else if (first && last && candidateFirst && candidateLast) {
+        if (first === candidateFirst && last === candidateLast) {
+          score += 3;
+        } else if (last === candidateLast) {
+          score += 1.5;
+        }
+      } else if (last && candidateLast && last === candidateLast) {
+        score += 1.5;
+      }
+      if (teamToken && candidateTeamToken && teamToken === candidateTeamToken) {
+        score += 1;
+      }
+
+      return { candidate, score };
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return scored[0]?.candidate.id ?? null;
+};
 
 export const POST = async (request: NextRequest) => {
   const auth = await ensureAdminOrToken(request);
@@ -139,7 +243,10 @@ export const POST = async (request: NextRequest) => {
 
     const summaryByMatch = new Map<
       string,
-      { winner: 'home' | 'away' | null; performers: Record<(typeof DEFAULT_PLAYER_CATEGORIES)[number], string[]> }
+      {
+        winner: 'home' | 'away' | null;
+        performers: Record<(typeof DEFAULT_PLAYER_CATEGORIES)[number], SummaryPerformer[]>;
+      }
     >();
     summaryFinal.forEach((game) => {
       const key = `${game.home_team.abbreviation?.toUpperCase() ?? ''}-${game.visitor_team.abbreviation?.toUpperCase() ?? ''}`;
@@ -185,26 +292,43 @@ export const POST = async (request: NextRequest) => {
       existingPlayers.set(key, list);
     });
 
-    const providerIds = new Set<string>();
-    summaryByMatch.forEach((value) => {
-      DEFAULT_PLAYER_CATEGORIES.forEach((category) => {
-        value.performers[category].forEach((providerId) => providerIds.add(providerId));
-      });
-    });
+    const teamIds = Array.from(
+      new Set(
+        finishedGames
+          .flatMap((game) => [game.homeTeamId, game.awayTeamId])
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
 
+    const rosterByTeamId = new Map<string, RosterCandidate[]>();
     const providerMap = new Map<string, string>();
-    if (providerIds.size > 0) {
+    if (teamIds.length > 0) {
       const { data: players, error: playersError } = await supabaseAdmin
         .from('player')
-        .select('id, provider_player_id')
-        .in('provider_player_id', Array.from(providerIds))
-        .eq('provider', 'espn'); // only use ESPN UUIDs when auto-filling winners
+        .select('id, provider_player_id, first_name, last_name, team_id, team:team_id (abbr)')
+        .in('team_id', teamIds)
+        .eq('provider', 'espn') // only use ESPN UUIDs when auto-filling winners
+        .returns<PlayerWithTeam[]>();
 
       if (playersError) {
         throw playersError;
       }
 
       (players ?? []).forEach((entry) => {
+        if (!entry.team_id) {
+          return;
+        }
+        const rosterEntry = {
+          id: entry.id,
+          provider_player_id: entry.provider_player_id,
+          first_name: entry.first_name,
+          last_name: entry.last_name,
+          team_id: entry.team_id,
+          team_abbr: entry.team?.abbr ?? null,
+        };
+        const list = rosterByTeamId.get(entry.team_id) ?? [];
+        list.push(rosterEntry);
+        rosterByTeamId.set(entry.team_id, list);
         if (entry.provider_player_id) {
           providerMap.set(entry.provider_player_id, entry.id);
         }
@@ -245,17 +369,35 @@ export const POST = async (request: NextRequest) => {
         }
 
         const performers = summaryEntry.performers[category];
-        performers.forEach((providerId) => {
-          const playerId = providerMap.get(providerId);
+        const added = new Set<string>();
+
+        performers.forEach((performer) => {
+          const providerId = performer.player?.id != null ? String(performer.player.id) : null;
+          const fallbackId = providerId ? providerMap.get(providerId) : undefined;
+          const teamId = resolveTeamIdForPerformer(performer, game);
+          const candidates = teamId
+            ? rosterByTeamId.get(teamId) ?? []
+            : [
+                ...(game.homeTeamId ? rosterByTeamId.get(game.homeTeamId) ?? [] : []),
+                ...(game.awayTeamId ? rosterByTeamId.get(game.awayTeamId) ?? [] : []),
+              ];
+          const playerId = resolvePlayerMatch(performer, candidates, fallbackId);
           if (!playerId) {
             // Only ESPN players are allowed; skip and log when missing.
             console.warn('[autofill-winners] missing ESPN player for provider id', {
               game_id: game.id,
               category,
               providerId,
+              playerName: performer.player
+                ? `${performer.player.first_name ?? ''} ${performer.player.last_name ?? ''}`.trim()
+                : null,
             });
             return;
           }
+          if (added.has(playerId)) {
+            return;
+          }
+          added.add(playerId);
           playerUpserts.push({
             game_id: game.id,
             category,
