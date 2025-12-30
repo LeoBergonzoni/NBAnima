@@ -16,23 +16,17 @@ export const revalidate = 0;
 const isFinalStatus = (value: string | undefined | null) =>
   (value ?? '').toLowerCase().includes('final');
 
-const ensureAdmin = async () => {
+const ensureAuthenticated = async () => {
   const supabase = await createServerSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { user: null, role: null };
+    return { user: null };
   }
 
-  const { data: profile } = await supabaseAdmin
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle<{ role: string | null }>();
-
-  return { user, role: profile?.role ?? null };
+  return { user };
 };
 
 const pickTopPerformers = (
@@ -85,12 +79,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { user, role } = await ensureAdmin();
+  const { user } = await ensureAuthenticated();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  if (role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {

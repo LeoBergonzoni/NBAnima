@@ -890,7 +890,11 @@ export const WinnersClient = ({
 
   const pointsValue = points?.total_points ?? (points as { total?: number } | undefined)?.total ?? 0;
   const slateDisplay = formatSlateLabel(locale, selectedDate);
-  const showGameSummaryCta = mode !== 'picksOnly';
+  const showGameSummaryCta = true;
+  const gameSummaryCtaLabel =
+    mode === 'picksOnly'
+      ? dictionary.play.gameSummaryCta
+      : dictionary.dashboard.winners.gameSummaryCta;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 py-4 md:py-6">
@@ -928,7 +932,7 @@ export const WinnersClient = ({
                   }}
                   className="inline-flex items-center justify-center rounded-full border border-accent-gold/40 bg-accent-gold/10 px-4 py-2 text-sm font-semibold text-accent-gold transition hover:border-accent-gold hover:bg-accent-gold/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-gold"
                 >
-                  {dictionary.dashboard.winners.gameSummaryCta}
+                  {gameSummaryCtaLabel}
                 </button>
               ) : null}
             </div>
