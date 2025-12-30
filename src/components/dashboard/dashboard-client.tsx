@@ -1558,13 +1558,22 @@ export function DashboardClient({
           </button>
           <Link
             href={`/${locale}/dashboard/tile-flip-game`}
-            className="hidden items-center gap-3 rounded-full border border-accent-gold/60 bg-accent-gold/10 px-4 py-2 text-sm font-semibold text-accent-gold transition hover:border-accent-gold sm:inline-flex"
+            className="hidden items-center gap-3 rounded-full border border-slate-200/70 bg-slate-200/10 px-4 py-2 text-sm font-semibold text-slate-100 shadow-[0_0_18px_rgba(192,192,192,0.45)] transition hover:border-slate-100 sm:inline-flex"
           >
             <span className="inline-flex items-center gap-2">
+              <span className="relative h-4 w-4 overflow-hidden rounded-sm border border-slate-200/70 bg-white/10">
+                <Image
+                  src="/TileGame.jpg"
+                  alt={dictionary.tileGame.sectionTitle}
+                  fill
+                  sizes="16px"
+                  className="object-cover"
+                />
+              </span>
               {dictionary.tileGame.sectionTitle}
               <ArrowRight className="h-4 w-4" />
             </span>
-            <span className="rounded-full border border-accent-gold/60 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-accent-gold">
+            <span className="rounded-full border border-slate-200/70 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-slate-100">
               +10 Anima Points
             </span>
           </Link>

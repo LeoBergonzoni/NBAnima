@@ -145,6 +145,7 @@ export interface Dictionary {
       nbaStats: string;
       nbaLineups: string;
     };
+    gameSummaryCta: string;
     teams: {
       title: string;
       description: string;
@@ -552,6 +553,7 @@ const it: Dictionary = {
       nbaStats: 'NBA Stats',
       nbaLineups: 'NBA Starting lineups',
     },
+    gameSummaryCta: 'Risultati partite concluse',
     teams: {
       title: 'Teams',
       description: 'Scegli la squadra vincente per ogni partita della prossima notte. 30 Anima Points ogni scelta azzeccata.',
@@ -948,6 +950,7 @@ const en: Dictionary = {
       nbaStats: 'NBA Stats',
       nbaLineups: 'NBA Starting lineups',
     },
+    gameSummaryCta: 'Final game results',
     teams: {
       title: 'Teams',
       description: 'Pick the winner for every game in the upcoming slate. 30 Anima Points for each correct choice.',
