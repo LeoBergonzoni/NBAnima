@@ -290,41 +290,59 @@ const GameTeamsRow = ({
   game,
   selection,
   onSelect,
+  lockRemainingMs,
   disabled = false,
 }: {
   locale: Locale;
   game: GameSummary;
   selection?: string;
   onSelect: (teamId: string) => void;
+  lockRemainingMs?: number | null;
   disabled?: boolean;
-}) => (
-  <div className="space-y-3 rounded-2xl border border-white/10 bg-navy-900/60 p-4 shadow-card">
-    <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-wide text-slate-400">
-      <span>{formatGameTime(locale, game.startsAt)}</span>
-      {game.arena ? <span>· {game.arena}</span> : null}
-      <span>· {game.status}</span>
-    </div>
-    <div className="flex flex-col gap-3 sm:flex-row">
-      <TeamButton
-        team={game.awayTeam}
-        value="away"
-        selected={selection === 'away'}
-        onSelect={onSelect}
-        disabled={disabled}
-      />
-      <div className="flex items-center justify-center text-xs font-semibold uppercase tracking-wide text-slate-400">
-        VS
+}) => {
+  const lockLabel =
+    lockRemainingMs === null || lockRemainingMs === undefined
+      ? null
+        : lockRemainingMs > 0
+        ? `${locale === 'it' ? 'Scade tra' : 'Locks in'} ${formatCountdown(lockRemainingMs)}`
+        : locale === 'it'
+          ? 'Partita iniziata'
+          : 'Game started';
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-white/10 bg-navy-900/60 p-4 shadow-card">
+      <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-wide text-slate-400">
+        <span>{formatGameTime(locale, game.startsAt)}</span>
+        {lockLabel ? (
+          <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-slate-200">
+            {lockLabel}
+          </span>
+        ) : null}
+        {game.arena ? <span>· {game.arena}</span> : null}
+        <span>· {game.status}</span>
       </div>
-      <TeamButton
-        team={game.homeTeam}
-        value="home"
-        selected={selection === 'home'}
-        onSelect={onSelect}
-        disabled={disabled}
-      />
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <TeamButton
+          team={game.awayTeam}
+          value="away"
+          selected={selection === 'away'}
+          onSelect={onSelect}
+          disabled={disabled}
+        />
+        <div className="flex items-center justify-center text-xs font-semibold uppercase tracking-wide text-slate-400">
+          VS
+        </div>
+        <TeamButton
+          team={game.homeTeam}
+          value="home"
+          selected={selection === 'home'}
+          onSelect={onSelect}
+          disabled={disabled}
+        />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const GamePlayersCard = ({
   locale,
@@ -334,6 +352,7 @@ const GamePlayersCard = ({
   onChange,
   onPlayersLoaded,
   onSelectOpenChange,
+  lockRemainingMs,
   disabled = false,
 }: {
   locale: Locale;
@@ -343,6 +362,7 @@ const GamePlayersCard = ({
   onChange: (category: string, playerId: string) => void;
   onPlayersLoaded: (gameId: string, players: PlayerSummary[]) => void;
   onSelectOpenChange?: (open: boolean) => void;
+  lockRemainingMs?: number | null;
   disabled?: boolean;
 }) => {
   const homeTeamId = String(game.homeTeam.id);
@@ -585,10 +605,26 @@ const awayKey = useMemo(
     }
   }, [awayKey, game.id, homeKey, missingRosterKeys, onPlayersLoaded]);
 
+  const lockLabel =
+    lockRemainingMs === null || lockRemainingMs === undefined
+      ? null
+        : lockRemainingMs > 0
+        ? `${locale === 'it' ? 'Scade tra' : 'Locks in'} ${formatCountdown(lockRemainingMs)}`
+        : locale === 'it'
+          ? 'Partita iniziata'
+          : 'Game started';
+
   return (
     <div className="space-y-4 rounded-2xl border border-white/10 bg-navy-900/60 p-4 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs uppercase tracking-wide text-slate-400">
-        <span>{formatGameTime(locale, game.startsAt)}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <span>{formatGameTime(locale, game.startsAt)}</span>
+          {lockLabel ? (
+            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-slate-200">
+              {lockLabel}
+            </span>
+          ) : null}
+        </div>
         <span>
           {game.awayTeam.name} @ {game.homeTeam.name}
         </span>
@@ -663,11 +699,13 @@ const HighlightsSelector = ({
   highlightSelections,
   onChange,
   players,
+  disabled = false,
 }: {
   dictionary: Dictionary;
   highlightSelections: string[];
   onChange: (slotIndex: number, playerId: string) => void;
   players: PlayerSummary[];
+  disabled?: boolean;
 }) => {
   const selectedPlayerIds = useMemo(
     () => new Set(highlightSelections.filter((value) => value)),
@@ -727,8 +765,14 @@ const HighlightsSelector = ({
             <PlayerSelect
               options={options}
               value={normalizedValue ?? undefined}
-              onChange={(playerId) => onChange(index, playerId ?? '')}
+              onChange={(playerId) => {
+                if (disabled) {
+                  return;
+                }
+                onChange(index, playerId ?? '');
+              }}
               placeholder="-"
+              disabled={disabled}
             />
           </label>
         );
@@ -1041,22 +1085,60 @@ export function DashboardClient({
     return Math.min(...timestamps);
   }, [displayGames]);
 
-  const lockWindowDeadlineTs = useMemo(() => {
+  const firstGameLockDeadlineTs = useMemo(() => {
     if (!earliestGameStartTs) {
       return null;
     }
     return earliestGameStartTs - LOCK_WINDOW_BUFFER_MS;
   }, [earliestGameStartTs]);
 
-  const lockWindowActive = useMemo(() => {
-    if (!lockWindowDeadlineTs) {
+  const highlightsLocked = useMemo(() => {
+    if (!firstGameLockDeadlineTs) {
       return false;
     }
-    return nowTs >= lockWindowDeadlineTs;
-  }, [lockWindowDeadlineTs, nowTs]);
+    return nowTs >= firstGameLockDeadlineTs;
+  }, [firstGameLockDeadlineTs, nowTs]);
+
+  const gameLockState = useMemo(() => {
+    const map = new Map<
+      string,
+      { deadlineTs: number | null; remainingMs: number | null; locked: boolean }
+    >();
+    displayGames.forEach((game) => {
+      const startTs = new Date(game.startsAt).getTime();
+      if (!Number.isFinite(startTs)) {
+        map.set(game.id, { deadlineTs: null, remainingMs: null, locked: false });
+        return;
+      }
+      const deadlineTs = startTs - LOCK_WINDOW_BUFFER_MS;
+      const remainingMs = deadlineTs - nowTs;
+      map.set(game.id, {
+        deadlineTs,
+        remainingMs,
+        locked: remainingMs <= 0,
+      });
+    });
+    return map;
+  }, [displayGames, nowTs]);
+
+  const isGameLocked = useCallback(
+    (gameId: string) => gameLockState.get(gameId)?.locked ?? false,
+    [gameLockState],
+  );
+
+  const allGamesLocked = useMemo(
+    () =>
+      displayGames.length > 0 &&
+      displayGames.every((game) => gameLockState.get(game.id)?.locked),
+    [displayGames, gameLockState],
+  );
 
   const teamsComplete = useMemo(
     () => displayGames.length > 0 && displayGames.every((game) => !!teamSelections[game.id]),
+    [displayGames, teamSelections],
+  );
+  const teamsHasSelection = useMemo(
+    () => displayGames.length > 0 && displayGames.some((game) => !!teamSelections[game.id]),
     [displayGames, teamSelections],
   );
 
@@ -1136,10 +1218,10 @@ export function DashboardClient({
 
   const [hasSavedTeamsOnce, setHasSavedTeamsOnce] = useState(false);
   useEffect(() => {
-    if (picksTeamsComplete || (picks?.teams?.length ?? 0) > 0) {
+    if (picksTeamsComplete) {
       setHasSavedTeamsOnce(true);
     }
-  }, [picksTeamsComplete, picks?.teams?.length]);
+  }, [picksTeamsComplete]);
 
   const savedPlayerSelections = useMemo(() => {
     const map = new Map<string, Record<string, string>>();
@@ -1198,14 +1280,14 @@ export function DashboardClient({
   }, [highlightsEnabled, highlightsManuallyCompleted, highlightSelections]);
 
   const handleTeamsSelect = (gameId: string, teamId: string) => {
-    if (lockWindowActive) {
+    if (isGameLocked(gameId)) {
       return;
     }
     setTeamSelections((previous) => ({ ...previous, [gameId]: teamId }));
   };
 
   const handlePlayerSelect = (gameId: string, category: string, playerId: string) => {
-    if (lockWindowActive) {
+    if (isGameLocked(gameId)) {
       return;
     }
     setPlayerSelections((previous) => ({
@@ -1218,6 +1300,9 @@ export function DashboardClient({
   };
 
   const handleHighlightSelect = (slotIndex: number, playerId: string) => {
+    if (highlightsLocked) {
+      return;
+    }
     setHighlightSelections((previous) => {
       const next = [...previous];
       while (next.length < HIGHLIGHT_SLOT_COUNT) {
@@ -1298,22 +1383,18 @@ export function DashboardClient({
     String(dailyChanges),
   );
   const lockCountdownInfo = useMemo(() => {
-    const closedLabel =
-      locale === 'it'
-        ? 'Le picks sono chiuse per oggi (chiudono 5 minuti prima dell’inizio delle partite). Torna domani per le prossime partite.'
-        : 'Picks are closed for today (they lock 5 minutes before games start). Come back tomorrow for new games.';
-    if (!lockWindowDeadlineTs) {
+    if (!earliestGameStartTs) {
       return {
         status: 'pending' as const,
         label: dictionary.play.lockCountdown.pending,
         time: null,
       };
     }
-    const diff = lockWindowDeadlineTs - nowTs;
+    const diff = earliestGameStartTs - nowTs;
     if (diff <= 0) {
       return {
         status: 'closed' as const,
-        label: closedLabel,
+        label: dictionary.play.lockCountdown.closed,
         time: null,
       };
     }
@@ -1322,21 +1403,20 @@ export function DashboardClient({
       label: dictionary.play.lockCountdown.label,
       time: formatCountdown(diff),
     };
-  }, [dictionary.play.lockCountdown, lockWindowDeadlineTs, nowTs]);
-  const canSubmit = teamsComplete && !isSaving && !lockWindowActive;
+  }, [dictionary.play.lockCountdown, earliestGameStartTs, nowTs]);
+  const canSubmit = teamsHasSelection && !isSaving;
 
   const handleSave = async (options?: { allowPartialTeams?: boolean }) => {
     const allowPartialTeams = options?.allowPartialTeams ?? false;
     if (
       isSaving ||
-      lockWindowActive ||
       picksLoading ||
       gamesLoading ||
       (games.length === 0 && !allowPartialTeams)
     ) {
       return false;
     }
-    if (!allowPartialTeams && !teamsComplete) {
+    if (!allowPartialTeams && !teamsHasSelection) {
       return false;
     }
 
@@ -1846,16 +1926,20 @@ export function DashboardClient({
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          {displayGames.map((game) => (
-                            <GameTeamsRow
-                              key={game.id}
-                              locale={locale}
-                              game={game}
-                              selection={teamSelections[game.id]}
-                              onSelect={(teamId) => handleTeamsSelect(game.id, teamId)}
-                              disabled={lockWindowActive}
-                            />
-                          ))}
+                          {displayGames.map((game) => {
+                            const lockState = gameLockState.get(game.id);
+                            return (
+                              <GameTeamsRow
+                                key={game.id}
+                                locale={locale}
+                                game={game}
+                                selection={teamSelections[game.id]}
+                                onSelect={(teamId) => handleTeamsSelect(game.id, teamId)}
+                                lockRemainingMs={lockState?.remainingMs ?? null}
+                                disabled={lockState?.locked ?? false}
+                              />
+                            );
+                          })}
                         </div>
                       )}
                     </section>
@@ -1912,20 +1996,24 @@ export function DashboardClient({
                           <span>{dictionary.common.loading}</span>
                         </div>
                       ) : (
-                        displayGames.map((game) => (
-                          <GamePlayersCard
-                            key={game.id}
-                            locale={locale}
-                            dictionary={dictionary}
-                            game={game}
-                            playerSelections={playerSelections[game.id] ?? {}}
-                            onChange={(category, playerId) =>
-                              handlePlayerSelect(game.id, category, playerId)
-                            }
-                            onPlayersLoaded={onPlayersLoaded}
-                            disabled={lockWindowActive}
-                          />
-                        ))
+                        displayGames.map((game) => {
+                          const lockState = gameLockState.get(game.id);
+                          return (
+                            <GamePlayersCard
+                              key={game.id}
+                              locale={locale}
+                              dictionary={dictionary}
+                              game={game}
+                              playerSelections={playerSelections[game.id] ?? {}}
+                              onChange={(category, playerId) =>
+                                handlePlayerSelect(game.id, category, playerId)
+                              }
+                              onPlayersLoaded={onPlayersLoaded}
+                              lockRemainingMs={lockState?.remainingMs ?? null}
+                              disabled={lockState?.locked ?? false}
+                            />
+                          );
+                        })
                       )}
                     </section>
                   ) : null}
@@ -1950,6 +2038,7 @@ export function DashboardClient({
                     highlightSelections={highlightSelections}
                     onChange={handleHighlightSelect}
                     players={highlightPlayerPool}
+                    disabled={highlightsLocked}
                   />
                   <div className="mt-3">
                     <button
@@ -1986,11 +2075,11 @@ export function DashboardClient({
                   type="button"
                   onClick={() => handleSave()}
                   disabled={
-                    !canSubmit || picksLoading || gamesLoading || isSaving || lockWindowActive
+                    !canSubmit || picksLoading || gamesLoading || isSaving || allGamesLocked
                   }
                   className={clsx(
                     'inline-flex w-full items-center justify-center gap-2 rounded-full border px-6 py-3 text-sm font-semibold transition min-h-[48px]',
-                    lockWindowActive
+                    allGamesLocked
                       ? 'cursor-not-allowed border-rose-500/60 bg-rose-500/15 text-rose-100'
                       : canSubmit
                         ? 'border-lime-400/80 bg-lime-400/20 text-lime-300 hover:bg-lime-400/30'
@@ -1999,7 +2088,7 @@ export function DashboardClient({
                   aria-busy={isSaving}
                 >
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {lockWindowActive
+                  {allGamesLocked
                     ? dictionary.dashboard.lockWindowActive
                     : hasExistingPicks
                       ? dictionary.play.update
@@ -2184,19 +2273,19 @@ export function DashboardClient({
                     type="button"
                     onClick={handleMobileSave}
                     disabled={
-                      lockWindowActive ||
                       isSaving ||
                       picksLoading ||
                       gamesLoading ||
                       displayGames.length === 0 ||
-                      (mobilePicker === 'teams' && !teamsComplete)
+                      (mobilePicker === 'teams' && !teamsHasSelection) ||
+                      allGamesLocked
                     }
                     className={clsx(
                       'inline-flex items-center justify-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition sm:text-sm',
-                      lockWindowActive
+                      allGamesLocked
                         ? 'cursor-not-allowed border-rose-500/60 bg-rose-500/15 text-rose-100'
                         : mobilePicker === 'teams'
-                          ? teamsComplete
+                        ? teamsHasSelection
                             ? 'border-lime-400/80 bg-lime-400/20 text-lime-300 hover:bg-lime-400/30'
                             : 'border-white/10 bg-white/5 text-slate-300'
                           : 'border-lime-400/80 bg-lime-400/20 text-lime-300 hover:bg-lime-400/30',
@@ -2248,36 +2337,39 @@ export function DashboardClient({
                       (() => {
                         const safeIndex = Math.min(mobileSlideIndex, displayGames.length - 1);
                         const game = displayGames[safeIndex];
+                        const lockState = gameLockState.get(game.id);
                         return (
                           <div className="space-y-3 sm:space-y-4">
                             {mobilePicker === 'teams' ? (
-                            <GameTeamsRow
-                              locale={locale}
-                              game={game}
-                              selection={teamSelections[game.id]}
-                              onSelect={(teamId) => handleTeamsSelect(game.id, teamId)}
-                              disabled={lockWindowActive}
-                            />
-                          ) : (
-                            <GamePlayersCard
-                              locale={locale}
-                              dictionary={dictionary}
-                              game={game}
-                              playerSelections={playerSelections[game.id] ?? {}}
-                              onChange={(category, playerId) =>
-                                handlePlayerSelect(game.id, category, playerId)
-                              }
-                              onPlayersLoaded={onPlayersLoaded}
-                              disabled={lockWindowActive}
-                              onSelectOpenChange={(open) => {
-                                if (mobilePicker === 'players') {
-                                  setMobileSwipeLocked(open);
+                              <GameTeamsRow
+                                locale={locale}
+                                game={game}
+                                selection={teamSelections[game.id]}
+                                onSelect={(teamId) => handleTeamsSelect(game.id, teamId)}
+                                lockRemainingMs={lockState?.remainingMs ?? null}
+                                disabled={lockState?.locked ?? false}
+                              />
+                            ) : (
+                              <GamePlayersCard
+                                locale={locale}
+                                dictionary={dictionary}
+                                game={game}
+                                playerSelections={playerSelections[game.id] ?? {}}
+                                onChange={(category, playerId) =>
+                                  handlePlayerSelect(game.id, category, playerId)
                                 }
-                              }}
-                            />
-                          )}
-                        </div>
-                      );
+                                onPlayersLoaded={onPlayersLoaded}
+                                lockRemainingMs={lockState?.remainingMs ?? null}
+                                disabled={lockState?.locked ?? false}
+                                onSelectOpenChange={(open) => {
+                                  if (mobilePicker === 'players') {
+                                    setMobileSwipeLocked(open);
+                                  }
+                                }}
+                              />
+                            )}
+                          </div>
+                        );
                     })()
                     )}
                   </div>

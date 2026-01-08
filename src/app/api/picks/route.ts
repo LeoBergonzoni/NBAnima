@@ -4,8 +4,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { ZodError } from 'zod';
 
 import {
-  assertLockWindowOpen,
   getDailyChangeCount,
+  isAfterFirstGameLock,
+  isGameLocked,
   validatePicksPayload,
 } from '@/lib/picks';
 import {
@@ -38,6 +39,7 @@ const PLAYER_PROVIDER = 'espn';
 
 type GameRow = {
   id: string; // uuid
+  game_date: string;
   home_team_id: string; // uuid
   away_team_id: string; // uuid
   home_team_abbr: string | null;
@@ -370,6 +372,7 @@ const loadGameContexts = async (
     .select(
       `
         id,
+        game_date,
         home_team_id,
         away_team_id,
         home_team_abbr,
@@ -413,6 +416,115 @@ const loadGameContexts = async (
   });
 
   return { map, missing };
+};
+
+const assertLockedGamesUnchanged = async ({
+  supabaseAdmin,
+  userId,
+  pickDate,
+  payload,
+  gamesMap,
+}: {
+  supabaseAdmin: SupabaseClient<Database>;
+  userId: string;
+  pickDate: string;
+  payload: ReturnType<typeof validatePicksPayload>;
+  gamesMap: Map<string, GameContext>;
+}) => {
+  const now = new Date();
+  const lockedGameIds = new Set(
+    Array.from(gamesMap.values())
+      .filter((game) => isGameLocked(game.game_date, pickDate, now))
+      .map((game) => game.id),
+  );
+
+  const [existingTeams, existingPlayers, existingHighlights] = await Promise.all([
+    supabaseAdmin
+      .from('picks_teams')
+      .select('game_id, selected_team_id')
+      .eq('user_id', userId)
+      .eq('pick_date', pickDate),
+    supabaseAdmin
+      .from('picks_players')
+      .select('game_id, category, player_id')
+      .eq('user_id', userId)
+      .eq('pick_date', pickDate),
+    supabaseAdmin
+      .from('picks_highlights')
+      .select('rank, player_id')
+      .eq('user_id', userId)
+      .eq('pick_date', pickDate),
+  ]);
+
+  if (existingTeams.error) throw existingTeams.error;
+  if (existingPlayers.error) throw existingPlayers.error;
+  if (existingHighlights.error) throw existingHighlights.error;
+
+  const existingTeamsByGame = new Map(
+    (existingTeams.data ?? []).map((row) => [row.game_id, row.selected_team_id]),
+  );
+  const existingPlayersByGame = new Map<string, Map<string, string>>();
+  (existingPlayers.data ?? []).forEach((row) => {
+    const gameMap = existingPlayersByGame.get(row.game_id) ?? new Map();
+    gameMap.set(row.category, row.player_id);
+    existingPlayersByGame.set(row.game_id, gameMap);
+  });
+
+  const payloadTeamsByGame = new Map<string, string>();
+  payload.teams.forEach((pick) => {
+    const game = gamesMap.get(pick.gameId);
+    if (!game) {
+      return;
+    }
+    const selection = resolveTeamSelection(pick.teamId, game);
+    payloadTeamsByGame.set(game.id, selection.uuid);
+  });
+
+  const payloadPlayersByGame = new Map<string, Map<string, string>>();
+  payload.players.forEach((pick) => {
+    const gameMap = payloadPlayersByGame.get(pick.gameId) ?? new Map();
+    gameMap.set(pick.category, pick.playerId);
+    payloadPlayersByGame.set(pick.gameId, gameMap);
+  });
+
+  lockedGameIds.forEach((gameId) => {
+    const existingTeam = existingTeamsByGame.get(gameId);
+    const payloadTeam = payloadTeamsByGame.get(gameId);
+    if (existingTeam !== payloadTeam) {
+      throw new Error('LOCKED_GAME_TEAM');
+    }
+
+    const existingPlayersForGame = existingPlayersByGame.get(gameId) ?? new Map();
+    const payloadPlayersForGame = payloadPlayersByGame.get(gameId) ?? new Map();
+    const categories = new Set([
+      ...existingPlayersForGame.keys(),
+      ...payloadPlayersForGame.keys(),
+    ]);
+    categories.forEach((category) => {
+      if (existingPlayersForGame.get(category) !== payloadPlayersForGame.get(category)) {
+        throw new Error('LOCKED_GAME_PLAYER');
+      }
+    });
+  });
+
+  const orderedExistingHighlights = [...(existingHighlights.data ?? [])]
+    .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
+    .map((row) => row.player_id);
+  const payloadHighlights = payload.highlights.map((pick) => pick.playerId);
+  const highlightsChanged =
+    orderedExistingHighlights.length !== payloadHighlights.length ||
+    orderedExistingHighlights.some((playerId, index) => playerId !== payloadHighlights[index]);
+
+  if (
+    highlightsChanged &&
+    isAfterFirstGameLock(
+      Array.from(gamesMap.values()).map((game) => game.game_date),
+      pickDate,
+      now,
+    )
+  ) {
+    throw new Error('LOCKED_HIGHLIGHTS');
+  }
 };
 
 const matchPlayerInRoster = (
@@ -832,10 +944,6 @@ export async function POST(request: NextRequest) {
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
-    if (role !== 'admin') {
-      await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
-    }
-
     const requestedGameUuids = collectRequestedGameUuids(payload);
     const { map: gamesMap, missing: missingGameUuids } = await loadGameContexts(
       supabaseAdmin,
@@ -849,6 +957,16 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 },
       );
+    }
+
+    if (role !== 'admin') {
+      await assertLockedGamesUnchanged({
+        supabaseAdmin,
+        userId,
+        pickDate: payload.pickDate,
+        payload,
+        gamesMap,
+      });
     }
 
     const currentChanges = await getDailyChangeCount(
@@ -1061,10 +1179,6 @@ export async function PUT(request: NextRequest) {
     const requestedUserId = request.nextUrl.searchParams.get('userId');
     const userId = role === 'admin' && requestedUserId ? requestedUserId : user.id;
 
-    if (role !== 'admin') {
-      await assertLockWindowOpen(supabaseAdmin, payload.pickDate);
-    }
-
     const requestedGameUuids = collectRequestedGameUuids(payload);
     const { map: gamesMap, missing: missingGameUuids } = await loadGameContexts(
       supabaseAdmin,
@@ -1078,6 +1192,16 @@ export async function PUT(request: NextRequest) {
         },
         { status: 400 },
       );
+    }
+
+    if (role !== 'admin') {
+      await assertLockedGamesUnchanged({
+        supabaseAdmin,
+        userId,
+        pickDate: payload.pickDate,
+        payload,
+        gamesMap,
+      });
     }
 
     const currentChanges = await getDailyChangeCount(
