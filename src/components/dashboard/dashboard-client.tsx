@@ -1215,13 +1215,19 @@ export function DashboardClient({
       displayGames.every((game) => savedTeamSelections.has(game.id)),
     [displayGames, savedTeamSelections],
   );
+  const picksTeamsCompleteFromServer = useMemo(
+    () =>
+      displayGames.length > 0 &&
+      displayGames.every((game) => Boolean(picks?.teams.find((pick) => pick.game_id === game.id))),
+    [displayGames, picks?.teams],
+  );
 
   const [hasSavedTeamsOnce, setHasSavedTeamsOnce] = useState(false);
   useEffect(() => {
-    if (picksTeamsComplete) {
+    if (picksTeamsComplete || picksTeamsCompleteFromServer) {
       setHasSavedTeamsOnce(true);
     }
-  }, [picksTeamsComplete]);
+  }, [picksTeamsComplete, picksTeamsCompleteFromServer]);
 
   const savedPlayerSelections = useMemo(() => {
     const map = new Map<string, Record<string, string>>();
