@@ -127,6 +127,66 @@ function easternEndOfPickDateInstant(pickDate: string): Date {
   return new Date(utcMs);
 }
 
+const resolveGameEasternInstant = (gameDateIso: string, pickDate: string): Date | null => {
+  const rawDate = new Date(gameDateIso);
+  if (Number.isNaN(rawDate.getTime())) {
+    return null;
+  }
+
+  let eastern = toEasternInstant(rawDate);
+  const rawIsMidnightUTC =
+    rawDate.getUTCHours() === 0 &&
+    rawDate.getUTCMinutes() === 0 &&
+    rawDate.getUTCSeconds() === 0;
+
+  if (rawIsMidnightUTC) {
+    eastern = easternEndOfPickDateInstant(pickDate);
+  }
+
+  const { hour, minute, second } = getEasternParts(eastern);
+  if (hour === 0 && minute === 0 && second === 0) {
+    eastern = easternEndOfPickDateInstant(pickDate);
+  }
+
+  return eastern;
+};
+
+export const isGameLocked = (
+  gameDateIso: string,
+  pickDate: string,
+  now: Date = new Date(),
+) => {
+  const easternGame = resolveGameEasternInstant(gameDateIso, pickDate);
+  if (!easternGame) {
+    return false;
+  }
+
+  const bufferMs = LOCK_WINDOW_BUFFER_MINUTES * 60 * 1000;
+  const threshold = new Date(easternGame.getTime() - bufferMs);
+  const nowEastern = toEasternInstant(now);
+  return isAfter(nowEastern, threshold);
+};
+
+export const isAfterFirstGameLock = (
+  gameDates: string[],
+  pickDate: string,
+  now: Date = new Date(),
+) => {
+  const easternGames = gameDates
+    .map((gameDateIso) => resolveGameEasternInstant(gameDateIso, pickDate))
+    .filter((gameDate): gameDate is Date => Boolean(gameDate))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  if (easternGames.length === 0) {
+    return false;
+  }
+
+  const bufferMs = LOCK_WINDOW_BUFFER_MINUTES * 60 * 1000;
+  const threshold = new Date(easternGames[0].getTime() - bufferMs);
+  const nowEastern = toEasternInstant(now);
+  return isAfter(nowEastern, threshold);
+};
+
 export const assertLockWindowOpen = async (
   supabaseAdmin: SupabaseClient<Database>,
   pickDate: string,
