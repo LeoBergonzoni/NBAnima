@@ -57,6 +57,15 @@ const splitFullName = (fullName: string) => {
   return { firstName: first, lastName: rest.join(' ') || first };
 };
 
+const normalizeProviderId = (value: string) => {
+  const cleaned = value.replace(/\s+/g, ' ').trim();
+  if (!cleaned) {
+    return '';
+  }
+  const slug = cleaned.toLowerCase().replace(/\s+/g, '-');
+  return slug.replace(/-\d+$/, '');
+};
+
 const ABBR_FIXES: Record<string, string> = {
   NY: 'NYK',
   GS: 'GSW',
@@ -112,9 +121,17 @@ export async function POST(request: NextRequest) {
 
     const existingByProvider = new Map<string, ExistingPlayer>();
     const existingByTeam = new Map<string, ExistingPlayer[]>();
+    const existingByBaseId = new Map<string, ExistingPlayer>();
 
     (existingPlayers ?? []).forEach((row) => {
       existingByProvider.set(row.provider_player_id, row);
+      const baseId = normalizeProviderId(row.provider_player_id);
+      if (baseId) {
+        const current = existingByBaseId.get(baseId);
+        if (!current || (!current.active && row.active)) {
+          existingByBaseId.set(baseId, row);
+        }
+      }
       const list = existingByTeam.get(row.team_id) ?? [];
       list.push(row);
       existingByTeam.set(row.team_id, list);
@@ -136,7 +153,17 @@ export async function POST(request: NextRequest) {
       const ids = new Set<string>();
 
       team.players.forEach((player) => {
-        const providerPlayerId = player.id || `${abbr}-${player.fullName.replace(/\s+/g, '-')}`;
+        const baseId =
+          normalizeProviderId(player.fullName || player.id) ||
+          normalizeProviderId(`${abbr}-${player.fullName || player.id}`);
+        if (!baseId) {
+          return;
+        }
+        const existing =
+          existingByProvider.get(baseId) ??
+          existingByBaseId.get(baseId) ??
+          existingByProvider.get(player.id);
+        const providerPlayerId = existing?.provider_player_id ?? baseId;
         ids.add(providerPlayerId);
         const { firstName, lastName } = splitFullName(player.fullName || providerPlayerId);
         upserts.push({
