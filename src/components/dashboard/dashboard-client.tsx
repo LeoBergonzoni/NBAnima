@@ -1516,9 +1516,6 @@ export function DashboardClient({
         setPicksToast(dictionary.dashboard.toasts.picksSaved);
       }
       success = true;
-      if (teamsComplete) {
-        setHasSavedTeamsOnce(true);
-      }
       if (playersComplete) {
         setHasSavedPlayersOnce(true);
       }
