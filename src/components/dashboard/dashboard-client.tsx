@@ -153,6 +153,9 @@ const formatGameTime = (locale: Locale, date: string) => {
   }
 };
 
+const stripTrailingJersey = (value: string) =>
+  value.replace(/\s+#?\d{1,2}\s*$/, '').trim();
+
 const deriveSeasonFromDate = (iso: string): string => {
   const date = new Date(iso);
   const fallback = new Date();
@@ -400,7 +403,8 @@ const awayKey = useMemo(
     const map = new Map<string, PlayerSummary>();
     apiPlayers.forEach((player) => {
       const rawName = (player.full_name || '').trim();
-      const fallbackName = rawName || `Player ${player.id}`;
+      const normalizedName = rawName ? stripTrailingJersey(rawName) : rawName;
+      const fallbackName = normalizedName || rawName || `Player ${player.id}`;
       const parts = fallbackName.split(/\s+/);
       const firstName = parts[0] ?? fallbackName;
       const lastName = parts.slice(1).join(' ');
@@ -420,8 +424,7 @@ const awayKey = useMemo(
   const createOptionLabel = useCallback((player: PlayerSummary) => {
     const parts = [player.fullName];
     if (player.jersey) {
-      const jerseyValue = player.jersey.startsWith('#') ? player.jersey : `#${player.jersey}`;
-      parts.push(jerseyValue);
+      parts.push(player.jersey.replace(/^#/, ''));
     }
     if (player.position) {
       parts.push(`· ${player.position}`);
@@ -434,11 +437,7 @@ const awayKey = useMemo(
       combinedPlayers.map((player) => ({
         id: player.id,
         label: createOptionLabel(player),
-        subtitle: player.jersey
-          ? player.jersey.startsWith('#')
-            ? player.jersey
-            : `#${player.jersey}`
-          : undefined,
+        subtitle: undefined,
         keywords: [player.fullName, player.firstName, player.lastName].filter(Boolean),
       })),
     [combinedPlayers, createOptionLabel],
@@ -1209,25 +1208,13 @@ export function DashboardClient({
     [displayGames, savedTeamSelections, teamSelections],
   );
 
-  const picksTeamsComplete = useMemo(
-    () =>
-      displayGames.length > 0 &&
-      displayGames.every((game) => savedTeamSelections.has(game.id)),
-    [displayGames, savedTeamSelections],
-  );
-  const picksTeamsCompleteFromServer = useMemo(
-    () =>
-      displayGames.length > 0 &&
-      displayGames.every((game) => Boolean(picks?.teams.find((pick) => pick.game_id === game.id))),
-    [displayGames, picks?.teams],
-  );
-
-  const [hasSavedTeamsOnce, setHasSavedTeamsOnce] = useState(false);
-  useEffect(() => {
-    if (picksTeamsComplete || picksTeamsCompleteFromServer) {
-      setHasSavedTeamsOnce(true);
+  const teamsSectionComplete = useMemo(() => {
+    if (games.length === 0 || displayGames.length === 0) {
+      return false;
     }
-  }, [picksTeamsComplete, picksTeamsCompleteFromServer]);
+    const pickedGameIds = new Set((picks?.teams ?? []).map((pick) => pick.game_id));
+    return displayGames.every((game) => pickedGameIds.has(game.id));
+  }, [displayGames, games.length, picks?.teams]);
 
   const savedPlayerSelections = useMemo(() => {
     const map = new Map<string, Record<string, string>>();
@@ -1717,7 +1704,7 @@ export function DashboardClient({
             disabled={displayGames.length === 0}
             className={clsx(
               'group relative min-w-[220px] snap-center overflow-hidden rounded-3xl border px-3.5 py-3.5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900',
-              savedTeamsComplete || hasSavedTeamsOnce
+              teamsSectionComplete
                 ? 'border-lime-300/70 ring-2 ring-lime-400/60 shadow-[0_18px_60px_rgba(132,204,22,0.35)]'
                 : 'border-white/10 hover:scale-[1.01] hover:border-accent-gold/50',
               displayGames.length === 0 ? 'cursor-not-allowed opacity-60' : 'active:scale-[0.99]',
@@ -1734,12 +1721,12 @@ export function DashboardClient({
               <span
                 className={clsx(
                   'absolute right-3 top-2 flex aspect-square h-7 items-center justify-center rounded-full border-2',
-                  savedTeamsComplete || hasSavedTeamsOnce
+                  teamsSectionComplete
                     ? 'border-lime-200 bg-lime-200/25 shadow-[0_0_16px_rgba(132,204,22,0.45)]'
                     : 'border-white/60 bg-black/15',
                 )}
               >
-                {savedTeamsComplete || hasSavedTeamsOnce ? (
+                {teamsSectionComplete ? (
                   <CheckCircle2 className="h-5 w-5 text-lime-300 drop-shadow" />
                 ) : (
                   <CircleDashed className="h-5 w-5 text-white/90" />
@@ -1916,7 +1903,7 @@ export function DashboardClient({
                     <section className="space-y-4 rounded-2xl border border-white/10 bg-navy-900/40 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
-                          <SectionStatus complete={savedTeamsComplete || hasSavedTeamsOnce} />
+                          <SectionStatus complete={teamsSectionComplete} />
                           <h3 className="text-lg font-semibold text-white">
                             {dictionary.play.teams.title}
                           </h3>
@@ -2256,7 +2243,7 @@ export function DashboardClient({
                   <div className={clsx(
                     'flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold',
                     mobilePicker === 'teams'
-                      ? savedTeamsComplete || hasSavedTeamsOnce
+                      ? teamsSectionComplete
                         ? 'border-lime-300 bg-lime-300/20 text-lime-200'
                         : 'border-white/10 bg-white/5 text-slate-200'
                       : savedPlayersComplete || hasSavedPlayersOnce
@@ -2266,7 +2253,7 @@ export function DashboardClient({
                     <SectionStatus
                       complete={
                         mobilePicker === 'teams'
-                          ? savedTeamsComplete || hasSavedTeamsOnce
+                          ? teamsSectionComplete
                           : savedPlayersComplete || hasSavedPlayersOnce
                       }
                     />
