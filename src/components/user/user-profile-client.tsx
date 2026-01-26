@@ -279,6 +279,31 @@ export function UserProfileClient({
               )}
             </div>
           </div>
+
+          <div className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-left shadow-card sm:px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+                  {copy.legalTitle}
+                </p>
+                <p className="text-sm text-slate-300">{copy.legalSubtitle}</p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Link
+                  href={`/${locale}/privacy`}
+                  className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-accent-gold/50 hover:text-accent-gold"
+                >
+                  {dictionary.common.privacyPolicy}
+                </Link>
+                <Link
+                  href={`/${locale}/terms`}
+                  className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-accent-gold/50 hover:text-accent-gold"
+                >
+                  {dictionary.common.termsOfUse}
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

@@ -72,6 +72,7 @@ export default async function DashboardPage({
       ownedCards={ownedCards}
       shopCards={(shopCards ?? []) as ShopCard[]}
       role={profile.role}
+      currentUserId={user.id}
     />
   );
 }

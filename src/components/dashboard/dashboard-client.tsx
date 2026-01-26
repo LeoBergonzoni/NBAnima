@@ -67,6 +67,8 @@ const fetchJson = async <T,>(url: string): Promise<T> => {
   return payload as unknown as T;
 };
 
+const LEADERBOARD_PREVIEW_COUNT = 5;
+
 interface DashboardClientProps {
   locale: Locale;
   balance: number;
@@ -74,6 +76,7 @@ interface DashboardClientProps {
   ownedCards: ShopCard[];
   shopCards: ShopCard[];
   role: string;
+  currentUserId: string;
 }
 
 interface GameTeam {
@@ -786,6 +789,7 @@ export function DashboardClient({
   balanceFormatted,
   ownedCards,
   shopCards,
+  currentUserId,
 }: DashboardClientProps) {
   const { dictionary } = useLocale();
   const highlightsEnabled = FEATURES.HIGHLIGHTS_ENABLED;
@@ -810,6 +814,7 @@ export function DashboardClient({
   const [isSaving, setIsSaving] = useState(false);
   const [isTeamsOpen, setIsTeamsOpen] = useState(false);
   const [isPlayersOpen, setIsPlayersOpen] = useState(false);
+  const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
   const [mobilePicker, setMobilePicker] = useState<'teams' | 'players' | null>(null);
   const [mobileSlideIndex, setMobileSlideIndex] = useState(0);
   const [mobileTouchStartX, setMobileTouchStartX] = useState<number | null>(null);
@@ -1051,6 +1056,15 @@ export function DashboardClient({
     locale === 'it'
       ? 'Nessun dato settimanale disponibile al momento.'
       : 'No weekly data available yet.';
+  useEffect(() => {
+    if (weeklyRanking.length <= LEADERBOARD_PREVIEW_COUNT && showFullLeaderboard) {
+      setShowFullLeaderboard(false);
+    }
+  }, [weeklyRanking.length, showFullLeaderboard]);
+  const canExpandLeaderboard = weeklyRanking.length > LEADERBOARD_PREVIEW_COUNT;
+  const visibleWeeklyRanking = showFullLeaderboard
+    ? weeklyRanking
+    : weeklyRanking.slice(0, LEADERBOARD_PREVIEW_COUNT);
   const weeklyCountdownMessage = useMemo(() => {
     const easternNow = getEasternNow();
     const dayOfWeek = easternNow.getUTCDay(); // 0 = Sunday
@@ -1871,9 +1885,11 @@ export function DashboardClient({
                     onClick={() => setIsTeamsOpen((previous) => !previous)}
                     className={clsx(
                       'flex w-full flex-col gap-2 rounded-2xl border px-4 py-3 text-left transition',
-                      isTeamsOpen
-                        ? 'border-accent-gold bg-accent-gold/10 text-white shadow-card'
-                        : 'border-white/10 bg-navy-900/40 text-slate-200 hover:border-accent-gold/40',
+                      teamsSectionComplete
+                        ? 'border-emerald-400/70 bg-emerald-500/10 text-white shadow-[0_0_18px_rgba(16,185,129,0.35)]'
+                        : isTeamsOpen
+                          ? 'border-accent-gold bg-accent-gold/10 text-white shadow-card'
+                          : 'border-white/10 bg-navy-900/40 text-slate-200 hover:border-accent-gold/40',
                     )}
                     aria-expanded={isTeamsOpen}
                   >
@@ -1942,9 +1958,11 @@ export function DashboardClient({
                     onClick={() => setIsPlayersOpen((previous) => !previous)}
                     className={clsx(
                       'flex w-full flex-col gap-2 rounded-2xl border px-4 py-3 text-left transition',
-                      isPlayersOpen
-                        ? 'border-accent-gold bg-accent-gold/10 text-white shadow-card'
-                        : 'border-white/10 bg-navy-900/40 text-slate-200 hover:border-accent-gold/40',
+                      savedPlayersComplete || hasSavedPlayersOnce
+                        ? 'border-emerald-400/70 bg-emerald-500/10 text-white shadow-[0_0_18px_rgba(16,185,129,0.35)]'
+                        : isPlayersOpen
+                          ? 'border-accent-gold bg-accent-gold/10 text-white shadow-card'
+                          : 'border-white/10 bg-navy-900/40 text-slate-200 hover:border-accent-gold/40',
                     )}
                     aria-expanded={isPlayersOpen}
                   >
@@ -2109,7 +2127,12 @@ export function DashboardClient({
               <p className="text-sm text-slate-300">{weeklyRankingCaption}</p>
               <p className="text-xs text-slate-400">{weeklyCountdownMessage}</p>
               <section className="rounded-2xl border border-white/10 bg-navy-900/60 p-6 shadow-card">
-                <div className="overflow-x-auto">
+                <div
+                  className={clsx(
+                    'overflow-x-auto',
+                    showFullLeaderboard ? 'max-h-[420px] overflow-y-auto pr-2' : null,
+                  )}
+                >
                   {weeklyRankingLoading ? (
                     <div className="flex items-center gap-2 text-sm text-slate-400">
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -2136,8 +2159,9 @@ export function DashboardClient({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {weeklyRanking.map((row, index) => {
+                        {visibleWeeklyRanking.map((row, index) => {
                           const medal = medals[index];
+                          const isCurrentUser = row.user_id === currentUserId;
                           return (
                             <tr key={row.user_id}>
                               <td className="px-3 py-2 text-slate-300">
@@ -2155,7 +2179,12 @@ export function DashboardClient({
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-2.5">
-                                  <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-navy-800/70">
+                                  <div
+                                    className={clsx(
+                                      'relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-navy-800/70',
+                                      isCurrentUser ? 'ring-2 ring-emerald-400/70' : null,
+                                    )}
+                                  >
                                     {row.avatar_url ? (
                                       <Image
                                         src={row.avatar_url}
@@ -2168,7 +2197,14 @@ export function DashboardClient({
                                       <UserCircle2 className="h-5 w-5 text-accent-gold" aria-hidden="true" />
                                     )}
                                   </div>
-                                  <span className="text-sm font-semibold text-white">
+                                  <span
+                                    className={clsx(
+                                      'rounded-full px-2 py-1 text-sm font-semibold text-white',
+                                      isCurrentUser
+                                        ? 'border border-emerald-400/70 bg-emerald-500/10 shadow-[0_0_12px_rgba(16,185,129,0.35)]'
+                                        : null,
+                                    )}
+                                  >
                                     {row.full_name?.trim()?.length ? row.full_name : '—'}
                                   </span>
                                 </div>
@@ -2183,6 +2219,21 @@ export function DashboardClient({
                     </table>
                   )}
                 </div>
+                {canExpandLeaderboard &&
+                !showFullLeaderboard &&
+                !weeklyRankingLoading &&
+                !weeklyRankingErrorMessage &&
+                weeklyRanking.length > 0 ? (
+                  <div className="mt-4 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowFullLeaderboard(true)}
+                      className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white transition hover:border-accent-gold/50 hover:text-accent-gold"
+                    >
+                      {dictionary.dashboard.seeFullLeaderboard}
+                    </button>
+                  </div>
+                ) : null}
               </section>
             </div>
           ) : null}

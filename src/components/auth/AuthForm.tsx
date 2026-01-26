@@ -19,6 +19,10 @@ interface AuthFormCopy {
   passwordMismatch: string;
   genericError: string;
   confirmationNotice?: string;
+  termsAgreementLabel?: string;
+  termsAgreementError?: string;
+  termsLabel?: string;
+  privacyLabel?: string;
 }
 
 interface AuthFormProps {
@@ -54,6 +58,7 @@ export const AuthForm = ({
     const fullNameEntry = formData.get('fullName');
     const fullName =
       typeof fullNameEntry === 'string' ? fullNameEntry.trim() : '';
+    const termsAccepted = formData.get('termsAccepted') === 'on';
 
     if (!email || !password) {
       setErrorMessage(copy.genericError);
@@ -67,6 +72,11 @@ export const AuthForm = ({
 
     if (mode === 'signup' && password !== confirmPassword) {
       setErrorMessage(copy.passwordMismatch);
+      return;
+    }
+
+    if (mode === 'signup' && !termsAccepted) {
+      setErrorMessage(copy.termsAgreementError ?? copy.genericError);
       return;
     }
 
@@ -204,6 +214,54 @@ export const AuthForm = ({
                   required
                   className="w-full rounded-2xl border border-white/10 bg-navy-800/90 px-4 py-3 text-base text-white shadow-inner focus:border-accent-gold focus:outline-none focus:ring-2 focus:ring-accent-gold/60"
                 />
+              </label>
+            ) : null}
+            {mode === 'signup' ? (
+              <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-navy-800/50 px-4 py-3 text-sm text-slate-200">
+                <input
+                  type="checkbox"
+                  name="termsAccepted"
+                  required
+                  className="mt-1 h-4 w-4 rounded border-white/30 bg-navy-950 text-accent-gold focus:ring-2 focus:ring-accent-gold/60"
+                />
+                <span className="leading-6">
+                  {(() => {
+                    const template =
+                      copy.termsAgreementLabel ??
+                      'I agree to the {terms} and the {privacy}.';
+                    const termsLabel = copy.termsLabel ?? 'Terms of Use';
+                    const privacyLabel = copy.privacyLabel ?? 'Privacy Policy';
+                    const tokens = template
+                      .replace('{terms}', '__TERMS__')
+                      .replace('{privacy}', '__PRIVACY__')
+                      .split(/(__TERMS__|__PRIVACY__)/);
+                    return tokens.map((token, index) => {
+                      if (token === '__TERMS__') {
+                        return (
+                          <Link
+                            key={`terms-${index}`}
+                            href={`/${locale}/terms`}
+                            className="font-semibold text-accent-gold hover:underline"
+                          >
+                            {termsLabel}
+                          </Link>
+                        );
+                      }
+                      if (token === '__PRIVACY__') {
+                        return (
+                          <Link
+                            key={`privacy-${index}`}
+                            href={`/${locale}/privacy`}
+                            className="font-semibold text-accent-gold hover:underline"
+                          >
+                            {privacyLabel}
+                          </Link>
+                        );
+                      }
+                      return <span key={`text-${index}`}>{token}</span>;
+                    });
+                  })()}
+                </span>
               </label>
             ) : null}
             <div

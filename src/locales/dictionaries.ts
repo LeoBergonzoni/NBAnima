@@ -69,6 +69,8 @@ export interface Dictionary {
     confirm: string;
     language: string;
     logout: string;
+    privacyPolicy: string;
+    termsOfUse: string;
   };
   home: {
     heroTitle: string;
@@ -98,6 +100,7 @@ export interface Dictionary {
     weeklyCountdownOpenOne?: string;
     weeklyCountdownSunday: string;
     weeklyLeaderboardButton: string;
+    seeFullLeaderboard: string;
     howCalculatedBoth: string;
     statusCompleted: string;
     statusPending: string;
@@ -294,6 +297,7 @@ export interface Dictionary {
   user: {
     title: string;
     subtitle: string;
+    profileNavLabel: string;
     avatarLabel: string;
     changeAvatar: string;
     avatarModalTitle: string;
@@ -311,6 +315,8 @@ export interface Dictionary {
     securitySubtitle: string;
     linkGoogle: string;
     googleLinked: string;
+    legalTitle: string;
+    legalSubtitle: string;
   };
   auth: {
     login: {
@@ -327,6 +333,8 @@ export interface Dictionary {
       switchPrompt: string;
       switchCta: string;
       confirmationNotice: string;
+      termsAgreementLabel: string;
+      termsAgreementError: string;
     };
     social: {
       continueWithGoogle: string;
@@ -358,6 +366,8 @@ const it: Dictionary = {
     confirm: 'Conferma',
     language: 'Lingua',
     logout: 'Esci',
+    privacyPolicy: 'Privacy Policy',
+    termsOfUse: 'Termini di utilizzo',
   },
   home: {
     heroTitle: 'NBAnima — La web app che rende ancora più ANIMAta l’NBA!',
@@ -485,6 +495,7 @@ const it: Dictionary = {
       'Manca {days} giorno alla chiusura della classifica. Al termine della settimana verranno assegnati i premi di 500 Anima Points al primo classificato, 300 al secondo e 100 al terzo.',
     weeklyCountdownSunday: 'La settimana è conclusa e la prossima inizia domani.',
     weeklyLeaderboardButton: 'Classifica',
+    seeFullLeaderboard: 'Vedi intera classifica',
     howCalculatedBoth: 'Come sono stati calcolati i tuoi Anima Points e i Weekly XP',
     statusCompleted: 'Completato',
     statusPending: 'Da completare',
@@ -691,6 +702,7 @@ const it: Dictionary = {
   user: {
     title: 'Profilo utente',
     subtitle: 'Aggiorna avatar e nickname.',
+    profileNavLabel: 'Profilo utente',
     avatarLabel: 'Il tuo avatar',
     changeAvatar: 'Scegli avatar',
     avatarModalTitle: 'Scegli il tuo avatar',
@@ -709,6 +721,8 @@ const it: Dictionary = {
     securitySubtitle: 'Collega Google per un accesso più rapido e sicuro.',
     linkGoogle: 'Collega Google',
     googleLinked: 'Google collegato ✅',
+    legalTitle: 'Documenti legali',
+    legalSubtitle: 'Consulta Privacy Policy e Termini di utilizzo.',
   },
   auth: {
     login: {
@@ -726,6 +740,9 @@ const it: Dictionary = {
       switchCta: 'Accedi',
       confirmationNotice:
         'Controlla la tua email per il link di conferma, aprilo e poi accedi con i dati appena inseriti.',
+      termsAgreementLabel: 'Accetto i {terms} e la {privacy}.',
+      termsAgreementError:
+        'Devi accettare i termini e la privacy per continuare.',
     },
     social: {
       continueWithGoogle: 'Continua con Google',
@@ -757,6 +774,8 @@ const en: Dictionary = {
     confirm: 'Confirm',
     language: 'Language',
     logout: 'Log out',
+    privacyPolicy: 'Privacy Policy',
+    termsOfUse: 'Terms of Use',
   },
   home: {
     heroTitle: 'NBAnima — The web app that makes the NBA even more ANIMA-ted!',
@@ -882,6 +901,7 @@ const en: Dictionary = {
     weeklyCountdownOpenOne: '{days} day left before the leaderboard closes.',
     weeklyCountdownSunday: 'The week is over and the next one starts tomorrow.',
     weeklyLeaderboardButton: 'Leaderboard',
+    seeFullLeaderboard: 'See full leaderboard',
     howCalculatedBoth: 'How your Anima Points and Weekly XP were calculated',
     statusCompleted: 'Completed',
     statusPending: 'To-do',
@@ -1088,6 +1108,7 @@ const en: Dictionary = {
   user: {
     title: 'Your profile',
     subtitle: 'Pick an avatar and set your nickname.',
+    profileNavLabel: 'User profile',
     avatarLabel: 'Avatar',
     changeAvatar: 'Choose avatar',
     avatarModalTitle: 'Choose your avatar',
@@ -1106,6 +1127,8 @@ const en: Dictionary = {
     securitySubtitle: 'Link Google for a faster, safer sign-in.',
     linkGoogle: 'Link Google',
     googleLinked: 'Google linked ✅',
+    legalTitle: 'Legal',
+    legalSubtitle: 'Review the Privacy Policy and Terms of Use.',
   },
   auth: {
     login: {
@@ -1123,6 +1146,9 @@ const en: Dictionary = {
       switchCta: 'Log in',
       confirmationNotice:
         'Check your inbox for the confirmation link, click it, then sign in with the credentials you just created.',
+      termsAgreementLabel: 'I agree to the {terms} and the {privacy}.',
+      termsAgreementError:
+        'You must accept the terms and privacy policy to continue.',
     },
     social: {
       continueWithGoogle: 'Continue with Google',
