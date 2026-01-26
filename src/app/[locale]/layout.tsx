@@ -33,10 +33,12 @@ export default async function LocaleLayout({
   } = await supabase.auth.getUser();
 
   let role: string | null = null;
+  let avatarUrl: string | null = null;
   if (user) {
     try {
       const profile = await ensureUserProfile(user.id, user.email);
       role = profile.role ?? null;
+      avatarUrl = profile.avatar_url ?? null;
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
         console.warn('[layout] unable to load user role', error);
@@ -83,7 +85,11 @@ export default async function LocaleLayout({
               </Link>
               <div className="flex items-center gap-4">
                 <LanguageToggle locale={locale} />
-                <UserNavButton locale={locale} label={dictionary.user.title} />
+                <UserNavButton
+                  locale={locale}
+                  label={dictionary.user.profileNavLabel}
+                  avatarUrl={avatarUrl}
+                />
               </div>
             </div>
           </header>

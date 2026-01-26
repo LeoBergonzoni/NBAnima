@@ -48,6 +48,10 @@ export default async function SignupPage({
         passwordMismatch: dictionary.auth.errors.mismatch,
         genericError: dictionary.auth.errors.generic,
         confirmationNotice: dictionary.auth.signup.confirmationNotice,
+        termsAgreementLabel: dictionary.auth.signup.termsAgreementLabel,
+        termsAgreementError: dictionary.auth.signup.termsAgreementError,
+        termsLabel: dictionary.common.termsOfUse,
+        privacyLabel: dictionary.common.privacyPolicy,
       }}
       switchHref={`/${locale}/login`}
       extraAction={

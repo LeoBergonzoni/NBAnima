@@ -114,6 +114,24 @@ export default async function LocaleHomePage({
           </Link>
         </div>
       </section>
+
+      <section className="mx-auto max-w-3xl px-4 pb-10 text-center text-sm text-slate-400 sm:px-6 lg:px-8">
+        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-6">
+          <Link
+            href={`/${locale}/privacy`}
+            className="font-semibold text-slate-200 hover:text-accent-gold"
+          >
+            {dictionary.common.privacyPolicy}
+          </Link>
+          <span className="hidden h-4 w-px bg-white/10 sm:block" />
+          <Link
+            href={`/${locale}/terms`}
+            className="font-semibold text-slate-200 hover:text-accent-gold"
+          >
+            {dictionary.common.termsOfUse}
+          </Link>
+        </div>
+      </section>
     </main>
   );
 }
