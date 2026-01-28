@@ -3,8 +3,8 @@
 import clsx from 'clsx';
 import { CheckCircle2, Coins, Loader2, Lock, Star, X } from 'lucide-react';
 import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
-import type { ChangeEvent, MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import type { ChangeEvent, MouseEvent, PointerEvent } from 'react';
 
 import { buyCardAction } from '@/app/[locale]/dashboard/(shop)/actions';
 import type { Locale } from '@/lib/constants';
@@ -17,6 +17,17 @@ const CONFERENCE_ORDER: CardConference[] = [
   'Western Conference',
   'Special',
 ];
+const DEFAULT_CARD_BACK = '/cards/Back.png';
+const CARD_ANIMATIONS: Record<string, string> = {
+  'player_animalbj.png': '/cards/animations/Player_AnimaLBJ.mp4',
+  'player_animashai.png': '/cards/animations/Player_AnimaShai.MP4',
+  'player_animacaleb.png': '/cards/animations/Player_AnimaCaleb.MP4',
+};
+
+const getCardAnimationUrl = (imageUrl: string) => {
+  const filename = (imageUrl.split('/').pop() ?? imageUrl).toLowerCase();
+  return CARD_ANIMATIONS[filename];
+};
 
 const RARITY_FILTER_OPTIONS = ['Common', 'Rare', 'Legendary'] as const;
 const CATEGORY_FILTER_OPTIONS: CardCategory[] = ['Player', 'Celebration', 'Courtside', 'Iconic'];
@@ -116,6 +127,11 @@ export const CollectionGrid = ({
   const [selectedCard, setSelectedCard] = useState<
     (ShopCard & { owned: boolean; quantity: number }) | null
   >(null);
+  const [is3D, setIs3D] = useState(true);
+  const [showAnimation, setShowAnimation] = useState(false);
+  const [rotation, setRotation] = useState({ x: 0, y: 0 });
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [filters, setFilters] = useState({ rarity: '', category: '', conference: '' });
 
   const filteredCards = useMemo(() => {
@@ -148,6 +164,22 @@ export const CollectionGrid = ({
       setFilters((previous) => ({ ...previous, [key]: event.target.value }));
     };
 
+  const handleStagePointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (!stageRef.current) {
+      return;
+    }
+    const rect = stageRef.current.getBoundingClientRect();
+    const xNorm = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    const yNorm = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+    const clampedX = Math.max(-1, Math.min(1, xNorm));
+    const clampedY = Math.max(-1, Math.min(1, yNorm));
+    setRotation({ x: clampedX, y: clampedY });
+  }, []);
+
+  const resetRotation = useCallback(() => {
+    setRotation({ x: 0, y: 0 });
+  }, []);
+
   useEffect(() => {
     if (!selectedCard) {
       return;
@@ -155,6 +187,9 @@ export const CollectionGrid = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setSelectedCard(null);
+        setIs3D(true);
+        setShowAnimation(false);
+        setRotation({ x: 0, y: 0 });
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -175,11 +210,62 @@ export const CollectionGrid = ({
     };
   }, [selectedCard]);
 
+  useEffect(() => {
+    if (!selectedCard || !is3D) {
+      setRotation({ x: 0, y: 0 });
+    }
+  }, [selectedCard, is3D]);
+
   if (cards.length === 0) {
     return null;
   }
 
-  const closeModal = () => setSelectedCard(null);
+  const animationUrl = selectedCard ? getCardAnimationUrl(selectedCard.image_url) : undefined;
+  const hasFiveStars = Boolean(selectedCard?.quantity && selectedCard.quantity >= 5);
+  const canAnimate = Boolean(animationUrl && hasFiveStars);
+
+  useEffect(() => {
+    if (selectedCard) {
+      setIs3D(true);
+      setShowAnimation(false);
+    }
+  }, [selectedCard]);
+
+  useEffect(() => {
+    if (!showAnimation || !videoRef.current) {
+      return;
+    }
+    videoRef.current.muted = false;
+    void videoRef.current.play();
+  }, [showAnimation, animationUrl]);
+
+  const closeModal = () => {
+    setSelectedCard(null);
+    setIs3D(true);
+    setShowAnimation(false);
+    setRotation({ x: 0, y: 0 });
+  };
+
+  const handleToggle3D = () => {
+    setShowAnimation(false);
+    setIs3D((previous) => !previous);
+  };
+
+  const handleToggleAnimation = () => {
+    setIs3D(true);
+    setShowAnimation((previous) => {
+      const next = !previous;
+      if (next) {
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.muted = false;
+            void videoRef.current.play();
+          }
+        }, 0);
+      }
+      return next;
+    });
+  };
 
   return (
     <>
@@ -335,37 +421,109 @@ export const CollectionGrid = ({
           onClick={closeModal}
         >
           <div
-            className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[2rem] border border-accent-gold/30 bg-navy-900 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.65)]"
+            className={clsx(
+              'relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[2rem] border bg-navy-900 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.65)]',
+              hasFiveStars
+                ? 'border-accent-gold/70 shadow-[0_0_40px_rgba(255,215,0,0.35),0_20px_60px_rgba(0,0,0,0.65)]'
+                : 'border-accent-gold/30',
+            )}
+            style={
+              hasFiveStars
+                ? {
+                    borderColor: 'rgba(255,215,0,0.75)',
+                    boxShadow:
+                      '0 0 50px rgba(255,215,0,0.45), 0 20px 60px rgba(0,0,0,0.65)',
+                  }
+                : undefined
+            }
             onClick={(event) => event.stopPropagation()}
           >
             <button
               type="button"
               onClick={closeModal}
-              className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+              className="absolute right-3 top-3 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
               aria-label={dictionary.common.cancel}
             >
               <X className="h-4 w-4" />
             </button>
             <div className="flex justify-center">
-              <Image
-                src={selectedCard.image_url}
-                alt={selectedCard.name}
-                width={900}
-                height={1200}
-                className="h-[70vh] w-auto max-w-full object-contain"
-              />
+              {showAnimation && animationUrl ? (
+                <div className="relative h-[70vh] w-full max-w-[520px] overflow-hidden rounded-[1.5rem] bg-black/40 shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
+                  <video
+                    ref={videoRef}
+                    src={animationUrl}
+                    className="h-full w-full object-contain"
+                    autoPlay
+                    loop
+                    muted={false}
+                    playsInline
+                    preload="metadata"
+                  />
+                </div>
+              ) : is3D ? (
+                <div
+                  ref={stageRef}
+                  className="relative h-[70vh] w-full max-w-[520px] select-none touch-none"
+                  style={{ perspective: '1200px' }}
+                  onPointerMove={handleStagePointerMove}
+                  onPointerLeave={resetRotation}
+                >
+                  <div
+                    className="absolute inset-0 rounded-[1.5rem] bg-black/25 shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
+                    aria-hidden
+                  />
+                  <div
+                    className="relative h-full w-full rounded-[1.5rem] transition-transform duration-200 ease-out [transform-style:preserve-3d]"
+                    style={{
+                      transform: `rotateY(${rotation.x * 180}deg) rotateX(${rotation.y * 23}deg)`,
+                    }}
+                  >
+                    <Image
+                      src={selectedCard.image_url}
+                      alt={selectedCard.name}
+                      width={900}
+                      height={1200}
+                      className="absolute inset-0 h-full w-full rounded-[1.5rem] object-contain [backface-visibility:hidden]"
+                    />
+                    <Image
+                      src={DEFAULT_CARD_BACK}
+                      alt={`${selectedCard.name} back`}
+                      width={900}
+                      height={1200}
+                      className="absolute inset-0 h-full w-full rounded-[1.5rem] object-contain [backface-visibility:hidden] [transform:rotateY(180deg)]"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <Image
+                  src={selectedCard.image_url}
+                  alt={selectedCard.name}
+                  width={900}
+                  height={1200}
+                  className="h-[70vh] w-auto max-w-full object-contain"
+                />
+              )}
             </div>
             <p className="mt-4 text-center text-sm text-slate-200 sm:text-base">
               {selectedCard.description}
             </p>
-            <div className="mt-4 flex justify-center">
-              <a
-                href={selectedCard.image_url}
-                download
-                className="inline-flex items-center rounded-xl border border-accent-gold bg-gradient-to-r from-accent-gold to-accent-coral px-4 py-2 font-semibold text-navy-900 shadow-card transition hover:brightness-110"
+            <div className="mt-4 flex flex-wrap justify-center gap-3">
+              <button
+                type="button"
+                onClick={handleToggle3D}
+                className="inline-flex items-center rounded-xl border border-white/10 bg-white/5 px-4 py-2 font-semibold text-white transition hover:bg-white/10"
               >
-                {dictionary.collection.download}
-              </a>
+                {is3D ? dictionary.collection.view2d : dictionary.collection.view3d}
+              </button>
+              {canAnimate ? (
+                <button
+                  type="button"
+                  onClick={handleToggleAnimation}
+                  className="inline-flex items-center rounded-xl border border-accent-gold/70 bg-accent-gold/10 px-4 py-2 font-semibold text-accent-gold shadow-[0_0_20px_rgba(255,215,0,0.35)] transition hover:bg-accent-gold/20"
+                >
+                  {dictionary.collection.animate}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
