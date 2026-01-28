@@ -236,6 +236,9 @@ export interface Dictionary {
     empty: string;
     title: string;
     download: string;
+    view3d: string;
+    view2d: string;
+    animate: string;
     locked: string;
     filters: {
       title: string;
@@ -636,6 +639,9 @@ const it: Dictionary = {
     empty: 'Non hai ancora alcuna card. Completa le sfide per guadagnare punti e acquistare la tua prima carta.',
     title: 'La tua Collezione',
     download: 'Scarica',
+    view3d: '3D',
+    view2d: '2D',
+    animate: 'Anima',
     locked: 'Non acquistata',
     filters: {
       title: 'Filtra',
@@ -1042,6 +1048,9 @@ const en: Dictionary = {
     empty: 'Your collection is empty. Play challenges to earn points and redeem your first card.',
     title: 'Your Collection',
     download: 'Download',
+    view3d: '3D',
+    view2d: '2D',
+    animate: 'Animate',
     locked: 'Locked',
     filters: {
       title: 'Filter',
